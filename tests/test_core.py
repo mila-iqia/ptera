@@ -33,7 +33,7 @@ def test_call():
 
 def test_callkey():
     policy = Policy({
-        "pamplemousse[* as i] >> W": {
+        "pamplemousse[$i] >> W": {
             "value": lambda i: i * 10
         }
     })

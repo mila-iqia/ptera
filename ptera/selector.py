@@ -117,8 +117,8 @@ class Nested:
 parse = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r" *(?:\bas\b|>>|[(){}\[\]>.:,])? *": "OPERATOR",
-            r"[a-zA-Z_*][a-zA-Z_0-9*]*": "WORD",
+            r" *(?:\bas\b|>>|[(){}\[\]>.:,$])? *": "OPERATOR",
+            r"[a-zA-Z_0-9*]+": "WORD",
         }
     ),
     order=opparse.OperatorPrecedenceTower(
@@ -127,6 +127,7 @@ parse = opparse.Parser(
             "as": opparse.rassoc(50),
             ("", ">", ">>", "~"): opparse.rassoc(100),
             ":": opparse.lassoc(200),
+            "$": opparse.lassoc(300),
             ("(", "[", "{"): opparse.obrack(500),
             (")", "]", "}"): opparse.cbrack(500),
             ": WORD": opparse.lassoc(1000),
@@ -170,6 +171,11 @@ def make_class(node, element, klass):
 @parse.register_action("_ : X")
 def make_class(node, _, klass):
     return Element(name=None, classes=(klass.name,), capture=None,)
+
+
+@parse.register_action("_ $ X")
+def make_class(node, _, name):
+    return Element(name=None, classes=(), capture=name.name)
 
 
 @parse.register_action("_ { X } _")

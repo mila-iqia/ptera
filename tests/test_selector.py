@@ -7,6 +7,7 @@ def test_parser_equivalencies():
     assert sel.parse('apple') == sel.parse('(apple)')
     assert sel.parse('a > b > c') == sel.parse('a > (b > c)')
     assert sel.parse('a > b >> c > d') == sel.parse('a > (b >> (c > d))')
+    assert sel.parse('* as x') == sel.parse('$x')
 
 
 def test_parser():
