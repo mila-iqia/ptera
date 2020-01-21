@@ -164,7 +164,9 @@ def make_class(node, element, klass):
     assert isinstance(klass, Element)
     assert not element.category
     return Element(
-        name=element.name, category=category_registry[klass.name], capture=None
+        name=element.name,
+        category=category_registry[klass.name],
+        capture=element.capture,
     )
 
 

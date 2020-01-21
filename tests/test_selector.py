@@ -1,7 +1,7 @@
 
 import pytest
-from ptera import selector as sel, Category
 
+from ptera import Category, selector as sel
 
 # Categories must be declared to be used
 Fruit = Category('Fruit')
@@ -89,6 +89,12 @@ def test_parser():
             immediate=True,
         ),
         immediate=True,
+    )
+
+    assert sel.parse('$f:Fruit') == sel.Element(
+        name=None,
+        category=Fruit,
+        capture='f',
     )
 
 
