@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 
 from . import opparse
+from .categories import Category, category_registry
 
 
 class Named:
@@ -34,7 +35,7 @@ ABSENT = Named("ABSENT")
 class ElementInfo:
     name: str
     value: object = ABSENT
-    classes: tuple = ()
+    category: Category = None
 
 
 @dataclass
@@ -46,7 +47,7 @@ class CallInfo:
 @dataclass(frozen=True)
 class Element:
     name: object
-    classes: tuple = ()
+    category: Category = None
     capture: object = None
 
     def filter(self, info):
@@ -54,7 +55,7 @@ class Element:
             return None, False
         if self.name is not None and self.name != info.name:
             return None, False
-        if self.classes and not (set(self.classes) & set(info.classes)):
+        if self.category and not self.category.matches(info.category):
             return None, False
 
         if self.capture is None:
@@ -161,26 +162,27 @@ def make_nested(node, parent, child):
 @parse.register_action("X : X")
 def make_class(node, element, klass):
     assert isinstance(klass, Element)
+    assert not element.category
     return Element(
-        name=element.name,
-        classes=element.classes + (klass.name,),
-        capture=None,
+        name=element.name, category=category_registry[klass.name], capture=None
     )
 
 
 @parse.register_action("_ : X")
 def make_class(node, _, klass):
-    return Element(name=None, classes=(klass.name,), capture=None,)
+    return Element(
+        name=None, category=category_registry[klass.name], capture=None
+    )
 
 
 @parse.register_action("_ $ X")
 def make_class(node, _, name):
-    return Element(name=None, classes=(), capture=name.name)
+    return Element(name=None, category=None, capture=name.name)
 
 
 @parse.register_action("_ { X } _")
 def make_capture(node, _1, name, _2):
-    return Element(name=None, classes=[], capture=name)
+    return Element(name=None, category=None, capture=name)
 
 
 @parse.register_action("X [ X ] _")
@@ -188,7 +190,7 @@ def make_instance(node, element, key, _):
     assert isinstance(element, Element)
     assert isinstance(key, Element)
     captures = ()
-    return Call(element=element, key=key, captures=captures,)
+    return Call(element=element, key=key, captures=captures)
 
 
 @parse.register_action("X { X } _")
@@ -212,7 +214,7 @@ def make_sequence(node, a, b):
 
 @parse.register_action("X as X")
 def make_as(node, element, name):
-    return Element(name=element.name, classes=(), capture=name.name,)
+    return Element(name=element.name, category=None, capture=name.name)
 
 
 @parse.register_action("SYMBOL")

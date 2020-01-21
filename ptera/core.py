@@ -1,6 +1,7 @@
 from contextvars import ContextVar
 from dataclasses import dataclass
 
+from .categories import Category
 from .selector import ABSENT, CallInfo, ElementInfo, Nested, parse
 
 _current_policy = ContextVar("current_policy")
@@ -115,16 +116,16 @@ class Policy:
         _current_policy.reset(self._reset_token)
 
 
-def interact(sym, class_, value=ABSENT):
+def interact(sym, category, value=ABSENT):
     if value is ABSENT:
-        return _fetch(sym)
+        return _fetch(sym, category)
     else:
-        return _store(sym, value)
+        return _store(sym, category, value)
 
 
-def _fetch(sym):
+def _fetch(sym, category):
     init = None
-    info = ElementInfo(name=sym, classes=())
+    info = ElementInfo(name=sym, category=category)
     new_policy = _current_policy.get().proceed(info)
     for pattern in new_policy.patterns:
         if pattern.pattern is True:
@@ -133,14 +134,14 @@ def _fetch(sym):
     if init is None:
         raise Exception(f"Cannot fetch symbol: {sym}")
     val = init(**captures)
-    return _store(sym, val)
+    return _store(sym, category, val)
 
 
-def _store(name, value):
+def _store(name, category, value):
     for pattern in _current_policy.get().patterns:
         if name in pattern.to_capture:
             pattern.captures[name] = value
-    info = ElementInfo(name=name, classes=())
+    info = ElementInfo(name=name, category=category)
     new_policy = _current_policy.get().proceed(info)
     for pattern in new_policy.patterns:
         if pattern.pattern is True:
@@ -167,8 +168,8 @@ class PteraFunction:
 
     def __call__(self, *args, **kwargs):
         info = CallInfo(
-            element=ElementInfo(name=self.fn.__name__, classes=(),),
-            key=ElementInfo(name=self.calltag, value=self.calltag,),
+            element=ElementInfo(name=self.fn.__name__, category=None),
+            key=ElementInfo(name=self.calltag, value=self.calltag),
         )
         with _current_policy.get().proceed(info, taps=self.taps) as pol:
             rval = self.fn(*args, **kwargs)

@@ -1,3 +1,4 @@
+from .categories import Category
 from .core import Policy, PteraFunction, interact
 from .rewrite import transform
 

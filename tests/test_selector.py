@@ -1,6 +1,11 @@
 
 import pytest
-from ptera import selector as sel
+from ptera import selector as sel, Category
+
+
+# Categories must be declared to be used
+Fruit = Category('Fruit')
+Weapon = Category('Weapon')
 
 
 def test_parser_equivalencies():
@@ -37,7 +42,7 @@ def test_parser():
 
     assert sel.parse('*:Fruit') == sel.Element(
         name=None,
-        classes=('Fruit',),
+        category=Fruit,
         capture=None,
     )
 
@@ -45,7 +50,7 @@ def test_parser():
         sel.Call(sel.Element('apple')),
         sel.Element(
             name=None,
-            classes=('Fruit',),
+            category=Fruit,
             capture=None,
         ),
         immediate=True,
@@ -71,11 +76,11 @@ def test_parser():
         key=sel.Element(name=None, capture='filling')
     )
 
-    assert sel.parse('axe > bow:large > crowbar[* as length]') == sel.Nested(
+    assert sel.parse('axe > bow:Weapon > crowbar[* as length]') == sel.Nested(
         sel.Call(sel.Element('axe')),
         sel.Nested(
             sel.Call(
-                sel.Element('bow', classes=('large',)),
+                sel.Element('bow', category=Weapon),
             ),
             sel.Call(
                 sel.Element('crowbar'),

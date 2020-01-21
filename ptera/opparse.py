@@ -27,10 +27,7 @@ class Token:
         self.value = value.strip()
         self.type = type
         self.location = Location(
-            source=source,
-            filename='<string>',
-            start=start,
-            end=end,
+            source=source, filename="<string>", start=start, end=end,
         )
 
     def to_sexp(self):
