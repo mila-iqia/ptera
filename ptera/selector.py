@@ -63,6 +63,20 @@ class Element:
         else:
             return True, [(info.name, self.capture, info.value)]
 
+    def encode(self):
+        if self.name is None and self.capture is not None:
+            name = f"${self.capture}"
+            cap = ""
+        else:
+            name = "*" if self.name is None else self.name
+            cap = (
+                ""
+                if self.capture is None or self.capture == self.name
+                else f" as {self.capture}"
+            )
+        cat = "" if self.category is None else f":{self.category}"
+        return f"{name}{cap}{cat}"
+
 
 @dataclass(frozen=True)
 class Call:
@@ -84,6 +98,18 @@ class Call:
                 return None, False
         this_cap = [(name, key, ABSENT) for name, key in self.captures]
         return True, elem_cap + key_cap + this_cap
+
+    def encode(self):
+        name = self.element.encode()
+        key = "" if self.key is None else f"[{self.key.encode()}]"
+        cap = []
+        for capname, capkey in self.captures:
+            if capname == capkey:
+                cap.append(capname)
+            else:
+                cap.append(f"{capname} as {capkey}")
+        cap = "" if not cap else "{" + ", ".join(cap) + "}"
+        return f"{name}{key}{cap}"
 
 
 @dataclass(frozen=True)
@@ -114,11 +140,15 @@ class Nested:
         else:
             return self, []
 
+    def encode(self):
+        op = ">" if self.immediate else ">>"
+        return f"{self.parent.encode()} {op} {self.child.encode()}"
+
 
 parse = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r" *(?:\bas\b|>>|[(){}\[\]>.:,$])? *": "OPERATOR",
+            r"\s*(?:\bas\b|>>|[(){}\[\]>.:,$])?\s*": "OPERATOR",
             r"[a-zA-Z_0-9*]+": "WORD",
         }
     ),
