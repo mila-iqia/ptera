@@ -143,13 +143,13 @@ def test_retarget():
 
 def test_specialize():
     assert sel.parse("co >> co[$n] >> nut").specialize(
-        {"n": {"name": "x"}}
+        {"n": sel.ElementInfo(name="x")}
     ) == sel.parse("co >> co[x] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": {"category": Fruit}}
+        {"nut": sel.ElementInfo(name=None, category=Fruit)}
     ) == sel.parse("co >> co >> $nut:Fruit")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": {"name": "coconut", "category": Fruit}}
+        {"nut": sel.ElementInfo(name="coconut", category=Fruit)}
     ) == sel.parse("co >> co >> coconut:Fruit")

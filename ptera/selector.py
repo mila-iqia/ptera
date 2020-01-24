@@ -78,10 +78,10 @@ class Element:
     def specialize(self, specializations):
         spc = specializations.get(self.capture, None)
         if spc is not None:
-            newname = spc.get("name", self.name)
+            newname = spc.name or self.name
             return Element(
                 name=newname,
-                category=spc.get("category", self.category),
+                category=spc.category or self.category,
                 capture=self.capture if newname is None else None,
             )
         else:
