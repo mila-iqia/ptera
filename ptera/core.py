@@ -51,7 +51,7 @@ class Collection:
             return [entry[fn] for entry in self]
         else:
             if fn is None:
-                return vals
+                return list(self)
             else:
                 return [fn(**entry) for entry in self]
 
@@ -71,7 +71,7 @@ class ActivePattern:
     def from_rules(cls, pattern, rules):
         return cls(
             parent=None,
-            pattern=parse(pattern),
+            pattern=parse(pattern) if isinstance(pattern, str) else pattern,
             original_pattern=pattern,
             rules=rules,
             captures={},
@@ -88,9 +88,8 @@ class ActivePattern:
             return None
         else:
             new_captures = {
-                key: value
+                key: CapturedValue(name=name, category=None, value=value)
                 for name, key, value in captures
-                if value is not ABSENT
             }
             to_capture = {
                 name: key for name, key, value in captures if value is ABSENT

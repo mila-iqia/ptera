@@ -1,8 +1,7 @@
-
 from ptera import Category, Policy, ptera, selector as sel
 
-Fruit = Category('Fruit')
-Legume = Category('Legume')
+Fruit = Category("Fruit")
+Legume = Category("Legume")
 
 
 @ptera
@@ -35,89 +34,64 @@ def aigle(q, z):
 
 
 def test_call():
-    policy = Policy({
-        "pamplemousse >> W": {
-            "value": lambda: 10
-        }
-    })
+    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
     with policy:
         assert plum(2, 3) == 130
 
 
 def test_callkey():
-    policy = Policy({
-        "pamplemousse[$i] >> W": {
-            "value": lambda i: i * 10
-        }
-    })
+    policy = Policy(
+        {"pamplemousse[$i] >> W": {"value": lambda i: i.value * 10}}
+    )
     with policy:
         assert plum(2, 3) == 220
 
 
 def test_callcapture():
-    policy = Policy({
-        "pamplemousse{x} >> W": {
-            "value": lambda x: x.value
-        }
-    })
+    policy = Policy({"pamplemousse{x} >> W": {"value": lambda x: x.value}})
     with policy:
         assert plum(2, 3) == 35
 
 
 def test_accumulate():
-    policy = Policy({
-        "pamplemousse >> W": {
-            "value": lambda: 10
-        },
-        "xy": {
-            "accumulate": True
-        }
-    })
+    policy = Policy(
+        {"pamplemousse >> W": {"value": lambda: 10}, "xy": {"accumulate": True}}
+    )
     with policy:
         assert plum(2, 3) == 130
-        assert list(policy.values('xy').map('xy')) == [4, 9]
+        assert list(policy.values("xy").map("xy")) == [4, 9]
 
 
 def test_tap():
-    policy = Policy({
-        "pamplemousse >> W": {
-            "value": lambda: 10
-        }
-    })
+    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
     with policy:
         ret, xys = plum.tap("xy")(2, 3)
         assert ret == 130
-        assert list(xys.map('xy')) == [4, 9]
+        assert list(xys.map("xy")) == [4, 9]
 
 
 def test_tap_map():
-    policy = Policy({
-        "pamplemousse >> W": {
-            "value": lambda: 10
-        }
-    })
+    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
     with policy:
         ret, xys = plum.tap("pamplemousse{x, y}")(2, 3)
         assert ret == 130
-        assert list(xys.map()) == [{'x': 2, 'y': 2}, {'x': 3, 'y': 3}]
+        assert list(xys.map()) == [{"x": 2, "y": 2}, {"x": 3, "y": 3}]
         assert list(xys.map(lambda x, y: x + y)) == [4, 6]
 
 
 def test_tap_map2():
-    policy = Policy({
-        "plum >> W": {
-            "value": lambda: 10
-        }
-    })
+    policy = Policy({"plum >> W": {"value": lambda: 10}})
     with policy:
         ret, xys = plum.tap("plum{a, plum} >> pamplemousse{x, y}")(2, 3)
         assert ret == 130
-        assert list(xys.map()) == [{'a': 40, 'plum': 130, 'x': 2, 'y': 2},
-                                   {'a': 40, 'plum': 130, 'x': 3, 'y': 3}]
+        assert list(xys.map()) == [
+            {"a": 40, "plum": 130, "x": 2, "y": 2},
+            {"a": 40, "plum": 130, "x": 3, "y": 3},
+        ]
 
 
 def test_category():
     with Policy({}):
         ret, ac = aigle.tap("$f:Fruit")(2, 3)
         assert ret == 64
-        assert set(ac.map_full(lambda f: f.name)) == {'a', 'c', 'qq'}
+        assert set(ac.map_full(lambda f: f.name)) == {"a", "c", "qq"}
