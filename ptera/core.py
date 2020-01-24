@@ -214,24 +214,51 @@ def _store(name, category, value):
 
 
 class PteraFunction:
-    def __init__(self, fn, calltag=None, taps=()):
+    def __init__(self, fn, calltag=None, taps=(), storage=()):
         self.fn = fn
         self.calltag = calltag
         self.taps = taps
+        self.storage = tuple(
+            storage if isinstance(storage, (list, tuple)) else [storage]
+        )
 
     def __getitem__(self, calltag):
         assert self.calltag is None
         return PteraFunction(self.fn, calltag)
 
     def tap(self, *selectors):
-        return PteraFunction(self.fn, self.calltag, taps=self.taps + selectors)
+        return PteraFunction(
+            self.fn,
+            self.calltag,
+            taps=self.taps + selectors,
+            storage=self.storage,
+        )
+
+    def using(self, *storage):
+        return PteraFunction(
+            self.fn,
+            self.calltag,
+            taps=self.taps,
+            storage=self.storage + storage,
+        )
 
     def __call__(self, *args, **kwargs):
         info = CallInfo(
             element=ElementInfo(name=self.fn.__name__, category=None),
             key=ElementInfo(name=self.calltag, value=self.calltag),
         )
-        with _current_policy.get().proceed(info, taps=self.taps) as pol:
+        taps = list(self.taps)
+        policy_dict = {}
+        for storage in self.storage:
+            taps += storage.taps()
+            policy_dict.update(storage.policy())
+
+        if policy_dict:
+            policy = Policy(policy_dict)
+        else:
+            policy = _current_policy.get()
+
+        with policy.proceed(info, taps=taps) as pol:
             rval = self.fn(*args, **kwargs)
             # TODO: move this behavior into Policy
             for patt in pol.patterns:
@@ -241,4 +268,10 @@ class PteraFunction:
             if self.taps:
                 taps = [pol.accumulators[tap] for tap in self.taps]
                 rval = rval, *taps
+
+            for storage in self.storage:
+                storage.process_taps(
+                    [pol.accumulators[tap] for tap in storage.taps()]
+                )
+
         return rval
