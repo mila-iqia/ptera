@@ -3,8 +3,9 @@ import pytest
 from ptera import Category, selector as sel
 
 # Categories must be declared to be used
-Fruit = Category("Fruit")
-Weapon = Category("Weapon")
+Bouffe = Category("Bouffe")
+Fruit = Category("Fruit", [Bouffe])
+Weapon = Category("Weapon", [Bouffe])
 
 
 def test_lexer():

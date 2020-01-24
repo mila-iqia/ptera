@@ -1,7 +1,11 @@
-from ptera import Category, Policy, ptera, selector as sel
+import numpy
 
-Fruit = Category("Fruit")
-Legume = Category("Legume")
+from ptera import Category, Policy, ptera, selector as sel
+from ptera.storage import Storage, initializer, updater, valuer
+
+Bouffe = Category("Bouffe")
+Fruit = Category("Fruit", [Bouffe])
+Legume = Category("Legume", [Bouffe])
 
 
 @ptera
@@ -95,3 +99,90 @@ def test_category():
         ret, ac = aigle.tap("$f:Fruit")(2, 3)
         assert ret == 64
         assert set(ac.map_full(lambda f: f.name)) == {"a", "c", "qq"}
+
+
+@ptera
+def mul(x):
+    factor1: Fruit
+    factor2: Legume
+    factor = factor1 + factor2
+    return factor * x
+
+
+@ptera
+def grind(xs):
+    acc = 0
+    for i, x in enumerate(xs):
+        acc += mul[i](x)
+    return acc
+
+
+def test_storage_1():
+    class UpdateStrategy(Storage):
+
+        pattern = "$f:Bouffe"
+        default_target = "f"
+
+        @valuer(target_name="factor1")
+        def init_factor1(self):
+            return 1
+
+        @valuer(target_name="factor2")
+        def init_factor2(self):
+            return 2
+
+    g = grind.using(UpdateStrategy({}))
+    res = g([10, 20])
+    assert res == 90
+
+
+def test_storage_2():
+    class UpdateStrategy(Storage):
+
+        pattern = "$f:Bouffe"
+        default_target = "f"
+
+        @initializer(target_name="factor1")
+        def init_factor1(self):
+            return 1
+
+        @initializer(target_name="factor2")
+        def init_factor2(self):
+            return 2
+
+        @updater
+        def update_factor(self, f):
+            return f + 1
+
+    g = grind.using(UpdateStrategy({}))
+    res = g([10, 20])
+    assert res == 90
+
+    res = g([10, 20])
+    assert res == 150
+
+
+def test_storage_3():
+    class UpdateStrategy(Storage):
+
+        pattern = "$f:Bouffe"
+        default_target = "f"
+
+        @initializer(target_category=Fruit)
+        def init_factor1(self):
+            return 1
+
+        @initializer(target_category=Legume)
+        def init_factor2(self):
+            return 2
+
+        @updater(target_category=Fruit)
+        def update_factor(self, f):
+            return f + 1
+
+    g = grind.using(UpdateStrategy({}))
+    res = g([10, 20])
+    assert res == 90
+
+    res = g([10, 20])
+    assert res == 120

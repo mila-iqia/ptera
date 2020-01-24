@@ -179,10 +179,11 @@ def _fetch(sym, category):
     new_policy = _current_policy.get().proceed(info)
     for pattern in new_policy.patterns:
         if pattern.pattern is True:
-            captures = pattern.get_captures()
             if "value" not in pattern.rules:
                 continue
+            captures = pattern.get_captures()
             init = pattern.rules["value"]
+            break
     if init is None:
         raise Exception(f"Cannot fetch symbol: {sym}")
     val = init(**captures)

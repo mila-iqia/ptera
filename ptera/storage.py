@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 
 from .categories import Category
-from .selector import Call, Element, Nested, parse
+from .selector import Call, Element, ElementInfo, Nested, parse
 from .utils import call_with_captures, keyword_decorator
 
 
@@ -34,6 +34,17 @@ class Role:
     target_name: str
     target_category: Category
     full: bool
+
+    def make_capture(self):
+        sel = {}
+        if self.target_name or self.target_category:
+            return {
+                self.target: ElementInfo(
+                    name=self.target_name, category=self.target_category
+                )
+            }
+        else:
+            return {}
 
 
 def role_wrapper(role):
@@ -70,6 +81,7 @@ class Storage:
     def _init_wrap(self, initfn):
         @functools.wraps(initfn)
         def wrapped(**cap):
+            cap = {**initfn._ptera_role.make_capture(), **cap}
             key = tuple(
                 getattr(cap[k], field) for k, field in self._key_captures
             )
@@ -82,6 +94,7 @@ class Storage:
     def _update_wrap(self, updatefn):
         @functools.wraps(updatefn)
         def wrapped(**cap):
+            cap = {**updatefn._ptera_role.make_capture(), **cap}
             key = tuple(
                 getattr(cap[k], field) for k, field in self._key_captures
             )
@@ -93,6 +106,7 @@ class Storage:
     def _value_wrap(self, valuefn):
         @functools.wraps(valuefn)
         def wrapped(**cap):
+            cap = {**valuefn._ptera_role.make_capture(), **cap}
             return call_with_captures(valuefn, cap)
 
         return wrapped
@@ -115,17 +129,8 @@ class Storage:
             if role.target is None:
                 role.target = self.default_target
 
-            target_name = role.target_name
-            target_category = role.target_category
-
             sel = dict(select)
-            if target_name or target_category:
-                d = {}
-                if target_name:
-                    d["name"] = target_name
-                if target_category:
-                    d["category"] = target_category
-                sel[role.target] = d
+            sel.update(role.make_capture())
             patt = pattern.retarget(role.target).specialize(sel)
 
             if role.role == "initializer":
