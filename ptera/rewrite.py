@@ -1,6 +1,9 @@
 import ast
 import inspect
 from ast import NodeTransformer
+from textwrap import dedent
+
+from .core import interact as default_interact
 
 
 class PteraTransformer(NodeTransformer):
@@ -86,10 +89,8 @@ class PteraTransformer(NodeTransformer):
         return self.make_interaction(node.targets, None, node.value)
 
 
-def transform(fn):
-    from . import interact
-
-    src = inspect.getsource(fn)
+def transform(fn, interact=default_interact):
+    src = dedent(inspect.getsource(fn))
     filename = inspect.getsourcefile(fn)
     tree = ast.parse(src, filename)
     tree = tree.body[0]
