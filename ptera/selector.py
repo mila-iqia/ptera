@@ -55,13 +55,37 @@ class Element:
             return None, False
         if self.name is not None and self.name != info.name:
             return None, False
-        if self.category and not self.category.matches(info.category):
+        if self.category and not self.category.contains(info.category):
             return None, False
 
         if self.capture is None:
             return True, []
         else:
             return True, [(info.name, self.capture, info.value)]
+
+    def key_captures(self, key_field="name"):
+        if self.name is None and self.capture is not None:
+            return {(self.capture, key_field)}
+        else:
+            return set()
+
+    def retarget(self, target):
+        if self.capture and self.capture == target:
+            return self
+        else:
+            return None
+
+    def specialize(self, specializations):
+        spc = specializations.get(self.capture, None)
+        if spc is not None:
+            newname = spc.get("name", self.name)
+            return Element(
+                name=newname,
+                category=spc.get("category", self.category),
+                capture=self.capture if newname is None else None,
+            )
+        else:
+            return self
 
     def encode(self):
         if self.name is None and self.capture is not None:
@@ -98,6 +122,45 @@ class Call:
                 return None, False
         this_cap = [(name, key, ABSENT) for name, key in self.captures]
         return True, elem_cap + key_cap + this_cap
+
+    def key_captures(self, key_field="name"):
+        ekc = self.element.key_captures()
+        kkc = (
+            self.key.key_captures(key_field="value")
+            if self.key is not None
+            else set()
+        )
+        return ekc | kkc
+
+    def retarget(self, target):
+        for name, key in self.captures:
+            if key == target:
+                child = Element(
+                    name=name,
+                    category=None,
+                    capture=None if key == name else key,
+                )
+                return Nested(
+                    parent=Call(
+                        element=self.element,
+                        key=self.key,
+                        captures=tuple(
+                            (name, key)
+                            for name, key in self.captures
+                            if key != target
+                        ),
+                    ),
+                    child=child,
+                    immediate=True,
+                )
+        return None
+
+    def specialize(self, specializations):
+        return Call(
+            element=self.element and self.element.specialize(specializations),
+            key=self.key and self.key.specialize(specializations),
+            captures=self.captures,
+        )
 
     def encode(self):
         name = self.element.encode()
@@ -140,6 +203,27 @@ class Nested:
         else:
             return self, []
 
+    def key_captures(self, key_field="name"):
+        return self.parent.key_captures() | self.child.key_captures()
+
+    def retarget(self, target):
+        ret = self.parent.retarget(target)
+        if ret is not None:
+            return ret
+        else:
+            return Nested(
+                parent=self.parent,
+                child=self.child.retarget(target),
+                immediate=self.immediate,
+            )
+
+    def specialize(self, specializations):
+        return Nested(
+            self.parent.specialize(specializations),
+            self.child.specialize(specializations),
+            immediate=self.immediate,
+        )
+
     def encode(self):
         op = ">" if self.immediate else ">>"
         return f"{self.parent.encode()} {op} {self.child.encode()}"
@@ -155,9 +239,9 @@ parse = opparse.Parser(
     order=opparse.OperatorPrecedenceTower(
         {
             ",": opparse.rassoc(10),
-            "as": opparse.rassoc(50),
             ("", ">", ">>", "~"): opparse.rassoc(100),
             ":": opparse.lassoc(200),
+            "as": opparse.rassoc(250),
             "$": opparse.lassoc(300),
             ("(", "[", "{"): opparse.obrack(500),
             (")", "]", "}"): opparse.cbrack(500),

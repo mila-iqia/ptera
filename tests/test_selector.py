@@ -7,6 +7,42 @@ Fruit = Category("Fruit")
 Weapon = Category("Weapon")
 
 
+def test_lexer():
+    def lex(code):
+        return [(token.value, token.type) for token in sel.parse.lexer(code)]
+
+    assert lex("apple > banana") == [
+        ("apple", "WORD"),
+        (">", "OPERATOR"),
+        ("banana", "WORD"),
+    ]
+    assert lex("apple banana cherry") == [
+        ("apple", "WORD"),
+        ("", "OPERATOR"),
+        ("banana", "WORD"),
+        ("", "OPERATOR"),
+        ("cherry", "WORD"),
+    ]
+    assert lex("apple:Fruit asparagus") == [
+        ("apple", "WORD"),
+        (":", "OPERATOR"),
+        ("Fruit", "WORD"),
+        ("", "OPERATOR"),
+        ("asparagus", "WORD"),
+    ]
+    assert lex("radish > :cake") == [
+        ("radish", "WORD"),
+        (">", "OPERATOR"),
+        (":", "OPERATOR"),
+        ("cake", "WORD"),
+    ]
+    assert lex("radish as cake") == [
+        ("radish", "WORD"),
+        ("as", "OPERATOR"),
+        ("cake", "WORD"),
+    ]
+
+
 def test_parser_equivalencies():
     assert sel.parse("apple") == sel.parse("(apple)")
     assert sel.parse("a > b > c") == sel.parse("a > (b > c)")
@@ -83,37 +119,37 @@ def test_parser():
     )
 
 
-def test_lexer():
-    def lex(code):
-        return [(token.value, token.type) for token in sel.parse.lexer(code)]
+def test_key_captures():
+    assert sel.parse("bleu > blanc > rouge").key_captures() == set()
+    assert sel.parse("bleu > blanc[$b] > rouge").key_captures() == {
+        ("b", "value")
+    }
+    assert sel.parse("bleu > blanc[$b] > $rouge").key_captures() == {
+        ("b", "value"),
+        ("rouge", "name"),
+    }
 
-    assert lex("apple > banana") == [
-        ("apple", "WORD"),
-        (">", "OPERATOR"),
-        ("banana", "WORD"),
-    ]
-    assert lex("apple banana cherry") == [
-        ("apple", "WORD"),
-        ("", "OPERATOR"),
-        ("banana", "WORD"),
-        ("", "OPERATOR"),
-        ("cherry", "WORD"),
-    ]
-    assert lex("apple:Fruit asparagus") == [
-        ("apple", "WORD"),
-        (":", "OPERATOR"),
-        ("Fruit", "WORD"),
-        ("", "OPERATOR"),
-        ("asparagus", "WORD"),
-    ]
-    assert lex("radish > :cake") == [
-        ("radish", "WORD"),
-        (">", "OPERATOR"),
-        (":", "OPERATOR"),
-        ("cake", "WORD"),
-    ]
-    assert lex("radish as cake") == [
-        ("radish", "WORD"),
-        ("as", "OPERATOR"),
-        ("cake", "WORD"),
-    ]
+
+def test_retarget():
+    def _test(before, target, after):
+        assert sel.parse(before).retarget(target) == sel.parse(after)
+
+    _test("spider{w, e, b}", "b", "spider{w, e} > b")
+    _test("spider{w as v, e, b}", "v", "spider{e, b} > w as v")
+
+    _test("bleu{b} > rouge{r} > vert{v}", "b", "bleu > b")
+    _test("bleu{b} > rouge{r} > vert{v}", "r", "bleu{b} > rouge > r")
+
+
+def test_specialize():
+    assert sel.parse("co >> co[$n] >> nut").specialize(
+        {"n": {"name": "x"}}
+    ) == sel.parse("co >> co[x] >> nut")
+
+    assert sel.parse("co >> co >> $nut").specialize(
+        {"nut": {"category": Fruit}}
+    ) == sel.parse("co >> co >> $nut:Fruit")
+
+    assert sel.parse("co >> co >> $nut").specialize(
+        {"nut": {"name": "coconut", "category": Fruit}}
+    ) == sel.parse("co >> co >> coconut:Fruit")

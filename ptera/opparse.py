@@ -68,6 +68,7 @@ class Lexer:
         self.token_types = [None, *definitions.values()]
 
     def __call__(self, code):
+        code = code.strip()
         tokens = []
         current = 0
         for i, entry in enumerate(self.regexp.split(code)):

@@ -12,9 +12,10 @@ class Category:
         else:
             category_registry[self.name] = self
 
-    def matches(self, category):
-        return category is self or any(
-            parent.matches(category) for parent in self.parents
+    def contains(self, category):
+        return category is self or (
+            isinstance(category, Category)
+            and any(self.contains(parent) for parent in category.parents)
         )
 
     def __eq__(self, other):
@@ -23,6 +24,9 @@ class Category:
             and other.name == self.name
             and other.parents == self.parents
         )
+
+    def __hash__(self):
+        return hash((self.name, self.parents))
 
     def __repr__(self):
         return self.name
