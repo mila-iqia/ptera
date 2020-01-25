@@ -93,22 +93,20 @@ def test_parser():
         captures=(("a", "a"), ("b", "b"), ("c", "c"), ("d", "e")),
     )
 
-    assert sel.parse("apple[pie]") == sel.Call(
-        element=sel.Element("apple"), key=sel.Element("pie")
+    assert sel.parse("apple[pie]") == sel.Element(
+        "apple", key=sel.Element("pie")
     )
 
-    assert sel.parse("apple[* as filling]") == sel.Call(
-        element=sel.Element("apple"),
-        key=sel.Element(name=None, capture="filling"),
+    assert sel.parse("apple[* as filling]") == sel.Element(
+        "apple", key=sel.Element(name=None, capture="filling"),
     )
 
     assert sel.parse("axe > bow:Weapon > crowbar[* as length]") == sel.Nested(
         sel.Call(sel.Element("axe")),
         sel.Nested(
             sel.Call(sel.Element("bow", category=Weapon),),
-            sel.Call(
-                sel.Element("crowbar"),
-                key=sel.Element(name=None, capture="length"),
+            sel.Element(
+                "crowbar", key=sel.Element(name=None, capture="length"),
             ),
             immediate=True,
         ),

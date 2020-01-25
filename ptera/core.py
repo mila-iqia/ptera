@@ -245,8 +245,11 @@ class PteraFunction:
 
     def __call__(self, *args, **kwargs):
         info = CallInfo(
-            element=ElementInfo(name=self.fn.__name__, category=None),
-            key=ElementInfo(name=self.calltag, value=self.calltag),
+            element=ElementInfo(
+                name=self.fn.__name__,
+                key=ElementInfo(name=self.calltag, value=self.calltag),
+                category=None,
+            ),
         )
         taps = list(self.taps)
         policy_dict = {}

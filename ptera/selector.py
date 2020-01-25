@@ -34,6 +34,7 @@ ABSENT = Named("ABSENT")
 @dataclass
 class ElementInfo:
     name: str
+    key: "ElementInfo" = None
     value: object = ABSENT
     category: Category = None
 
@@ -41,12 +42,12 @@ class ElementInfo:
 @dataclass
 class CallInfo:
     element: ElementInfo
-    key: ElementInfo
 
 
 @dataclass(frozen=True)
 class Element:
     name: object
+    key: object = None
     category: Category = None
     capture: object = None
 
@@ -58,16 +59,27 @@ class Element:
         if self.category and not self.category.contains(info.category):
             return None, False
 
-        if self.capture is None:
-            return True, []
+        if self.key is None:
+            key_cap = []
         else:
-            return True, [(info.name, self.capture, info.value)]
+            success, key_cap = self.key.filter(info.key)
+            if not success:
+                return None, False
+
+        if self.capture is None:
+            return True, key_cap
+        else:
+            return True, [*key_cap, (info.name, self.capture, info.value)]
 
     def key_captures(self, key_field="name"):
+        results = (
+            self.key.key_captures(key_field="value")
+            if self.key is not None
+            else set()
+        )
         if self.name is None and self.capture is not None:
-            return {(self.capture, key_field)}
-        else:
-            return set()
+            results.add((self.capture, key_field))
+        return results
 
     def retarget(self, target):
         if self.capture and self.capture == target:
@@ -77,12 +89,21 @@ class Element:
 
     def specialize(self, specializations):
         spc = specializations.get(self.capture, None)
+        newkey = self.key and self.key.specialize(specializations)
         if spc is not None:
             newname = spc.name or self.name
             return Element(
                 name=newname,
+                key=newkey,
                 category=spc.category or self.category,
                 capture=self.capture if newname is None else None,
+            )
+        elif newkey is not self.key:
+            return Element(
+                name=self.name,
+                key=newkey,
+                category=self.category,
+                capture=self.capture,
             )
         else:
             return self
@@ -105,7 +126,6 @@ class Element:
 @dataclass(frozen=True)
 class Call:
     element: object
-    key: object = None
     captures: tuple = ()
 
     def filter(self, info):
@@ -114,23 +134,11 @@ class Call:
         success, elem_cap = self.element.filter(info.element)
         if not success:
             return None, False
-        if self.key is None:
-            key_cap = []
-        else:
-            success, key_cap = self.key.filter(info.key)
-            if not success:
-                return None, False
         this_cap = [(name, key, ABSENT) for name, key in self.captures]
-        return True, elem_cap + key_cap + this_cap
+        return True, elem_cap + this_cap
 
     def key_captures(self, key_field="name"):
-        ekc = self.element.key_captures()
-        kkc = (
-            self.key.key_captures(key_field="value")
-            if self.key is not None
-            else set()
-        )
-        return ekc | kkc
+        return self.element.key_captures()
 
     def retarget(self, target):
         for name, key in self.captures:
@@ -143,7 +151,6 @@ class Call:
                 return Nested(
                     parent=Call(
                         element=self.element,
-                        key=self.key,
                         captures=tuple(
                             (name, key)
                             for name, key in self.captures
@@ -158,7 +165,6 @@ class Call:
     def specialize(self, specializations):
         return Call(
             element=self.element and self.element.specialize(specializations),
-            key=self.key and self.key.specialize(specializations),
             captures=self.captures,
         )
 
@@ -253,7 +259,7 @@ parse = opparse.Parser(
 
 def _guarantee_call(parent):
     if isinstance(parent, Element):
-        parent = Call(element=parent, key=None, captures=(),)
+        parent = Call(element=parent, captures=())
     assert isinstance(parent, Call)
     return parent
 
@@ -305,19 +311,25 @@ def make_capture(node, _1, name, _2):
 def make_instance(node, element, key, _):
     assert isinstance(element, Element)
     assert isinstance(key, Element)
+    assert element.key is None
     captures = ()
-    return Call(element=element, key=key, captures=captures)
+    # return Call(element=element, key=key, captures=captures)
+    return Element(
+        name=element.name,
+        key=key,
+        category=element.category,
+        capture=element.capture,
+    )
 
 
 @parse.register_action("X { X } _")
-def make_call_capture(node, call, names, _2):
-    call = _guarantee_call(call)
+def make_call_capture(node, fn, names, _2):
     names = names if isinstance(names, list) else [names]
     return Call(
-        element=call.element,
-        key=call.key,
-        captures=call.captures
-        + tuple((name.name, name.capture or name.name) for name in names),
+        element=fn,
+        captures=tuple(
+            (name.name, name.capture or name.name) for name in names
+        ),
     )
 
 
