@@ -13,11 +13,20 @@ class PteraTransformer(NodeTransformer):
 
     def make_interaction(self, targets, ann, value):
         (var_node,) = targets
-        value_args = [
-            ast.Constant(value=var_node.id),
-            ast.Constant(value=None),
-            ann if ann else ast.Constant(value=None),
-        ]
+        if isinstance(var_node, ast.Name):
+            value_args = [
+                ast.Constant(value=var_node.id),
+                ast.Constant(value=None),
+                ann if ann else ast.Constant(value=None),
+            ]
+        elif isinstance(var_node, ast.Subscript):
+            value_args = [
+                ast.Constant(value=var_node.value.id),
+                var_node.slice.value,
+                ann if ann else ast.Constant(value=None),
+            ]
+        else:
+            raise SyntaxError(var_node)
         if value is not None:
             value_args.append(value)
         new_value = ast.Call(

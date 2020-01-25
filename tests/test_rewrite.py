@@ -60,3 +60,25 @@ def test_declaration():
         ("a", None, int, 9),
         ("f", None, None, 9),
     ]
+
+
+def test_indexing():
+    def f(n):
+        rec = {}
+        rec[0] = 0
+        for i in range(n):
+            rec[i + 1] = rec[i] + i
+        return rec[n]
+
+    assert get_log(f, 5) == [
+        10,
+        ("n", None, None, 5),
+        ("rec", None, None, {0: 0, 1: 0, 2: 1, 3: 3, 4: 6, 5: 10}),
+        ("rec", 0, None, 0),
+        ("rec", 1, None, 0),
+        ("rec", 2, None, 1),
+        ("rec", 3, None, 3),
+        ("rec", 4, None, 6),
+        ("rec", 5, None, 10),
+        ("f", None, None, 10),
+    ]
