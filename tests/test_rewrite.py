@@ -6,8 +6,8 @@ class InteractLogger:
     def __init__(self):
         self.log = []
 
-    def __call__(self, sym, category, value=ABSENT):
-        self.log.append((sym, category, value))
+    def __call__(self, sym, key, category, value=ABSENT):
+        self.log.append((sym, key, category, value))
         return value
 
 
@@ -25,10 +25,10 @@ def test_simple():
 
     assert get_log(f, 4, 5) == [
         9,
-        ("x", None, 4),
-        ("y", None, 5),
-        ("a", None, 9),
-        ("f", None, 9),
+        ("x", None, None, 4),
+        ("y", None, None, 5),
+        ("a", None, None, 9),
+        ("f", None, None, 9),
     ]
 
 
@@ -39,10 +39,10 @@ def test_annotations():
 
     assert get_log(f, 4, 5) == [
         9,
-        ("x", float, 4),
-        ("y", None, 5),
-        ("a", int, 9),
-        ("f", None, 9),
+        ("x", None, float, 4),
+        ("y", None, None, 5),
+        ("a", None, int, 9),
+        ("f", None, None, 9),
     ]
 
 
@@ -54,9 +54,9 @@ def test_declaration():
 
     assert get_log(f, 4, 5) == [
         9,
-        ("x", float, 4),
-        ("y", None, 5),
-        ("decl", int, ABSENT),
-        ("a", int, 9),
-        ("f", None, 9),
+        ("x", None, float, 4),
+        ("y", None, None, 5),
+        ("decl", None, int, ABSENT),
+        ("a", None, int, 9),
+        ("f", None, None, 9),
     ]

@@ -166,7 +166,7 @@ class Policy:
         _current_policy.reset(self._reset_token)
 
 
-def interact(sym, category, value=ABSENT):
+def interact(sym, key, category, value=ABSENT):
     if value is ABSENT:
         return _fetch(sym, category)
     else:

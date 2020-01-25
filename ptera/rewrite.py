@@ -15,6 +15,7 @@ class PteraTransformer(NodeTransformer):
         (var_node,) = targets
         value_args = [
             ast.Constant(value=var_node.id),
+            ast.Constant(value=None),
             ann if ann else ast.Constant(value=None),
         ]
         if value is not None:
@@ -59,6 +60,7 @@ class PteraTransformer(NodeTransformer):
             func=ast.Name("__ptera_interact", ctx=ast.Load()),
             args=[
                 ast.Constant(value=self.current_fn),
+                ast.Constant(value=None),
                 ast.Constant(value=None),
                 node.value,
             ],
