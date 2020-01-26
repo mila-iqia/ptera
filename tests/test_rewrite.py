@@ -82,3 +82,19 @@ def test_indexing():
         ("rec", 5, None, 10),
         ("f", None, None, 10),
     ]
+
+
+def test_deconstruct():
+    def f(x, y):
+        a, (b, c) = y, (x, x)
+        return a / b
+
+    assert get_log(f, 5, 10) == [
+        2,
+        ("x", None, None, 5),
+        ("y", None, None, 10),
+        ("a", None, None, 10),
+        ("b", None, None, 5),
+        ("c", None, None, 5),
+        ("f", None, None, 2),
+    ]

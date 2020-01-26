@@ -6,27 +6,35 @@ from textwrap import dedent
 from .core import interact as default_interact
 
 
+idx = 0
+
+
+def gensym():
+    global idx
+    idx += 1
+    return f'_ptera_tmp_{idx}'
+
+
 class PteraTransformer(NodeTransformer):
     def __init__(self):
         super().__init__()
         self.current_fn = None
 
-    def make_interaction(self, targets, ann, value):
-        (var_node,) = targets
-        if isinstance(var_node, ast.Name):
+    def make_interaction(self, target, ann, value):
+        if isinstance(target, ast.Name):
             value_args = [
-                ast.Constant(value=var_node.id),
+                ast.Constant(value=target.id),
                 ast.Constant(value=None),
                 ann if ann else ast.Constant(value=None),
             ]
-        elif isinstance(var_node, ast.Subscript):
+        elif isinstance(target, ast.Subscript):
             value_args = [
-                ast.Constant(value=var_node.value.id),
-                var_node.slice.value,
+                ast.Constant(value=target.value.id),
+                target.slice.value,
                 ann if ann else ast.Constant(value=None),
             ]
         else:
-            raise SyntaxError(var_node)
+            raise SyntaxError(target)
         if value is not None:
             value_args.append(value)
         new_value = ast.Call(
@@ -35,25 +43,29 @@ class PteraTransformer(NodeTransformer):
             keywords=[],
         )
         if ann is None:
-            return ast.Assign(targets=targets, value=new_value)
+            return [ast.Assign(targets=[target], value=new_value)]
         else:
-            return ast.AnnAssign(
-                target=targets[0], value=new_value, annotation=ann, simple=True
-            )
+            return [ast.AnnAssign(
+                target=target, value=new_value, annotation=ann, simple=True
+            )]
 
     def visit_FunctionDef(self, node):
         new_body = []
         old_fn = self.current_fn
         self.current_fn = node.name
         for arg in node.args.args:
-            new_body.append(
+            new_body.extend(
                 self.make_interaction(
-                    targets=[ast.Name(id=arg.arg, ctx=ast.Store())],
+                    target=ast.Name(id=arg.arg, ctx=ast.Store()),
                     ann=arg.annotation,
                     value=ast.Name(id=arg.arg, ctx=ast.Load()),
                 )
             )
-        new_body.extend(map(self.visit, node.body))
+        for stmt in map(self.visit, node.body):
+            if isinstance(stmt, list):
+                new_body.extend(stmt)
+            else:
+                new_body.append(stmt)
         self.current_fn = old_fn
         return ast.FunctionDef(
             name=node.name,
@@ -86,7 +98,7 @@ class PteraTransformer(NodeTransformer):
         After::
             x: int = ptera.interact('x', int)
         """
-        return self.make_interaction([node.target], node.annotation, node.value)
+        return self.make_interaction(node.target, node.annotation, node.value)
 
     def visit_Assign(self, node):
         """Rewrite an assignment expression.
@@ -97,7 +109,28 @@ class PteraTransformer(NodeTransformer):
         After::
             x = ptera.interact('x', None, y + z)
         """
-        return self.make_interaction(node.targets, None, node.value)
+        target, = node.targets
+        if isinstance(target, ast.Tuple):
+            var_all = gensym()
+            ass_all = ast.Assign(
+                targets=[ast.Name(id=var_all, ctx=ast.Store())],
+                value=node.value
+            )
+            accum = [ass_all]
+            for i, tgt in enumerate(target.elts):
+                accum += self.visit_Assign(
+                    ast.Assign(
+                        targets=[tgt],
+                        value=ast.Subscript(
+                            value=ast.Name(id=var_all, ctx=ast.Load()),
+                            slice=ast.Index(value=ast.Constant(i)),
+                            ctx=ast.Load()
+                        )
+                    )
+                )
+            return accum
+        else:
+            return self.make_interaction(target, None, node.value)
 
 
 def transform(fn, interact=default_interact):
