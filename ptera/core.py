@@ -168,12 +168,12 @@ class Policy:
 
 def interact(sym, key, category, value=ABSENT):
     if value is ABSENT:
-        return _fetch(sym, category)
+        return _fetch(sym, key, category)
     else:
-        return _store(sym, category, value)
+        return _store(sym, key, category, value)
 
 
-def _fetch(sym, category):
+def _fetch(sym, key, category):
     init = None
     info = ElementInfo(name=sym, category=category)
     new_policy = _current_policy.get().proceed(info)
@@ -187,17 +187,22 @@ def _fetch(sym, category):
     if init is None:
         raise Exception(f"Cannot fetch symbol: {sym}")
     val = init(**captures)
-    return _store(sym, category, val)
+    return _store(sym, key, category, val)
 
 
-def _store(name, category, value):
+def _store(name, key, category, value):
     for pattern in _current_policy.get().patterns:
         if name in pattern.to_capture:
-            key = pattern.to_capture[name]
-            pattern.captures[key] = CapturedValue(
+            cap = pattern.to_capture[name]
+            pattern.captures[cap] = CapturedValue(
                 name=name, category=category, value=value,
             )
-    info = ElementInfo(name=name, category=category)
+    kelem = (
+        None
+        if key is None
+        else ElementInfo(name=key, key=None, category=None, value=key)
+    )
+    info = ElementInfo(name=name, key=kelem, category=category)
     new_policy = _current_policy.get().proceed(info)
     for pattern in new_policy.patterns:
         if pattern.pattern is True:

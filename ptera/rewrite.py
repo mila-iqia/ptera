@@ -5,14 +5,13 @@ from textwrap import dedent
 
 from .core import interact as default_interact
 
-
 idx = 0
 
 
 def gensym():
     global idx
     idx += 1
-    return f'_ptera_tmp_{idx}'
+    return f"_ptera_tmp_{idx}"
 
 
 class PteraTransformer(NodeTransformer):
@@ -45,9 +44,11 @@ class PteraTransformer(NodeTransformer):
         if ann is None:
             return [ast.Assign(targets=[target], value=new_value)]
         else:
-            return [ast.AnnAssign(
-                target=target, value=new_value, annotation=ann, simple=True
-            )]
+            return [
+                ast.AnnAssign(
+                    target=target, value=new_value, annotation=ann, simple=True
+                )
+            ]
 
     def visit_FunctionDef(self, node):
         new_body = []
@@ -109,12 +110,12 @@ class PteraTransformer(NodeTransformer):
         After::
             x = ptera.interact('x', None, y + z)
         """
-        target, = node.targets
+        (target,) = node.targets
         if isinstance(target, ast.Tuple):
             var_all = gensym()
             ass_all = ast.Assign(
                 targets=[ast.Name(id=var_all, ctx=ast.Store())],
-                value=node.value
+                value=node.value,
             )
             accum = [ass_all]
             for i, tgt in enumerate(target.elts):
@@ -124,8 +125,8 @@ class PteraTransformer(NodeTransformer):
                         value=ast.Subscript(
                             value=ast.Name(id=var_all, ctx=ast.Load()),
                             slice=ast.Index(value=ast.Constant(i)),
-                            ctx=ast.Load()
-                        )
+                            ctx=ast.Load(),
+                        ),
                     )
                 )
             return accum

@@ -109,6 +109,7 @@ class Element:
             return self
 
     def encode(self):
+        key = "" if self.key is None else f"[{self.key.encode()}]"
         if self.name is None and self.capture is not None:
             name = f"${self.capture}"
             cap = ""
@@ -120,7 +121,7 @@ class Element:
                 else f" as {self.capture}"
             )
         cat = "" if self.category is None else f":{self.category}"
-        return f"{name}{cap}{cat}"
+        return f"{name}{key}{cap}{cat}"
 
 
 @dataclass(frozen=True)
@@ -170,7 +171,6 @@ class Call:
 
     def encode(self):
         name = self.element.encode()
-        key = "" if self.key is None else f"[{self.key.encode()}]"
         cap = []
         for capname, capkey in self.captures:
             if capname == capkey:
@@ -178,7 +178,7 @@ class Call:
             else:
                 cap.append(f"{capname} as {capkey}")
         cap = "" if not cap else "{" + ", ".join(cap) + "}"
-        return f"{name}{key}{cap}"
+        return f"{name}{cap}"
 
 
 @dataclass(frozen=True)

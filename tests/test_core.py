@@ -131,7 +131,7 @@ def test_storage_1():
         def init_factor2(self):
             return 2
 
-    g = grind.using(UpdateStrategy({}))
+    g = grind.using(UpdateStrategy())
     res = g([10, 20])
     assert res == 90
 
@@ -154,7 +154,7 @@ def test_storage_2():
         def update_factor(self, f):
             return f + 1
 
-    g = grind.using(UpdateStrategy({}))
+    g = grind.using(UpdateStrategy())
     res = g([10, 20])
     assert res == 90
 
@@ -180,7 +180,7 @@ def test_storage_3():
         def update_factor(self, f):
             return f + 1
 
-    g = grind.using(UpdateStrategy({}))
+    g = grind.using(UpdateStrategy())
     res = g([10, 20])
     assert res == 90
 

@@ -74,7 +74,7 @@ class Storage:
     pattern = None
     default_target = None
 
-    def __init__(self, select):
+    def __init__(self, **select):
         self._prepare(select=select)
         self.store = {}
 
