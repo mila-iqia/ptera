@@ -135,14 +135,18 @@ class Call:
         success, elem_cap = self.element.filter(info.element)
         if not success:
             return None, False
-        this_cap = [(name, key, ABSENT) for name, key in self.captures]
+        this_cap = [
+            (cap.name, cap.capture or cap.name, ABSENT) for cap in self.captures
+        ]
         return True, elem_cap + this_cap
 
     def key_captures(self, key_field="name"):
         return self.element.key_captures()
 
     def retarget(self, target):
-        for name, key in self.captures:
+        for cap in self.captures:
+            name = cap.name
+            key = cap.capture or cap.name
             if key == target:
                 child = Element(
                     name=name,
@@ -153,9 +157,9 @@ class Call:
                     parent=Call(
                         element=self.element,
                         captures=tuple(
-                            (name, key)
-                            for name, key in self.captures
-                            if key != target
+                            _cap
+                            for _cap in self.captures
+                            if (_cap.capture or _cap.name) != target
                         ),
                     ),
                     child=child,
@@ -325,12 +329,7 @@ def make_instance(node, element, key, _):
 @parse.register_action("X { X } _")
 def make_call_capture(node, fn, names, _2):
     names = names if isinstance(names, list) else [names]
-    return Call(
-        element=fn,
-        captures=tuple(
-            (name.name, name.capture or name.name) for name in names
-        ),
-    )
+    return Call(element=fn, captures=tuple(names))
 
 
 @parse.register_action("X , X")

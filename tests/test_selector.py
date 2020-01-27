@@ -85,12 +85,17 @@ def test_parser():
     )
 
     assert sel.parse("apple{a}") == sel.Call(
-        element=sel.Element("apple"), captures=(("a", "a"),)
+        element=sel.Element("apple"), captures=(sel.Element(name="a"),)
     )
 
     assert sel.parse("apple{a, b, c, d as e}") == sel.Call(
         element=sel.Element("apple"),
-        captures=(("a", "a"), ("b", "b"), ("c", "c"), ("d", "e")),
+        captures=(
+            sel.Element(name="a"),
+            sel.Element(name="b"),
+            sel.Element(name="c"),
+            sel.Element(name="d", capture="e"),
+        ),
     )
 
     assert sel.parse("apple[pie]") == sel.Element(
