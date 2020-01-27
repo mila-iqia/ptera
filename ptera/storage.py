@@ -81,12 +81,15 @@ class Storage:
     def _init_wrap(self, initfn):
         @functools.wraps(initfn)
         def wrapped(**cap):
-            cap = {**initfn._ptera_role.make_capture(), **cap}
+            role = initfn._ptera_role
+            cap = {**role.make_capture(), **cap}
             key = tuple(
                 getattr(cap[k], field) for k, field in self._key_captures
             )
             if key not in self.store:
-                self.store[key] = call_with_captures(initfn, cap)
+                self.store[key] = call_with_captures(
+                    initfn, cap, full=role.full
+                )
             return self.store[key]
 
         return wrapped
@@ -94,20 +97,22 @@ class Storage:
     def _update_wrap(self, updatefn):
         @functools.wraps(updatefn)
         def wrapped(**cap):
-            cap = {**updatefn._ptera_role.make_capture(), **cap}
+            role = updatefn._ptera_role
+            cap = {**role.make_capture(), **cap}
             key = tuple(
                 getattr(cap[k], field) for k, field in self._key_captures
             )
             assert key in self.store
-            self.store[key] = call_with_captures(updatefn, cap)
+            self.store[key] = call_with_captures(updatefn, cap, full=role.full)
 
         return wrapped
 
     def _value_wrap(self, valuefn):
         @functools.wraps(valuefn)
         def wrapped(**cap):
-            cap = {**valuefn._ptera_role.make_capture(), **cap}
-            return call_with_captures(valuefn, cap)
+            role = valuefn._ptera_role
+            cap = {**role.make_capture(), **cap}
+            return call_with_captures(valuefn, cap, full=role.full)
 
         return wrapped
 

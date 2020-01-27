@@ -11,6 +11,7 @@ from .selector import (
     Nested,
     parse,
 )
+from .utils import call_with_captures
 
 _current_policy = ContextVar("current_policy")
 _current_policy.set(None)
@@ -178,7 +179,7 @@ def _fetch(sym, key, category):
             break
     if init is None:
         raise Exception(f"Cannot fetch symbol: {sym}")
-    val = init(**captures)
+    val = call_with_captures(init, captures)
     return _store(sym, key, category, val)
 
 

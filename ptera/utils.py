@@ -20,14 +20,15 @@ def keyword_decorator(deco):
     return new_deco
 
 
-def call_with_captures(fn, captures):
-    role = getattr(fn, "_ptera_role", None)
-    full = role.full if role else True
-    kwargs = {}
+def call_with_captures(fn, captures, full=True):
     args = inspect.getfullargspec(fn)
-    for k, v in captures.items():
-        if k in args.args or k in args.kwonlyargs or args.varkw:
-            kwargs[k] = v
+    if args.varkw:
+        kwargs = captures
+    else:
+        kwargs = {}
+        for k, v in captures.items():
+            if k in args.args or k in args.kwonlyargs or args.varkw:
+                kwargs[k] = v
     if not full:
         kwargs = {k: v.value for k, v in kwargs.items()}
     return fn(**kwargs)
