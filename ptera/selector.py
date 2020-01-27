@@ -110,7 +110,7 @@ class Element:
                 name=newname,
                 key=newkey,
                 category=spc.category or self.category,
-                capture=self.capture if newname is None else None,
+                capture=self.capture,
             )
         elif newkey is not self.key:
             return Element(
@@ -153,7 +153,7 @@ class Call:
             CapturedValue(
                 name=cap.name,
                 category=cap.category,
-                capture=cap.capture or cap.name,
+                capture=cap.capture,
                 value=ABSENT,
             )
             for cap in self.captures
@@ -165,13 +165,9 @@ class Call:
 
     def retarget(self, target):
         for cap in self.captures:
-            name = cap.name
-            key = cap.capture or cap.name
-            if key == target:
+            if cap.capture == target:
                 child = Element(
-                    name=name,
-                    category=None,
-                    capture=None if key == name else key,
+                    name=cap.name, category=None, capture=cap.capture,
                 )
                 return Nested(
                     parent=Call(
@@ -179,7 +175,7 @@ class Call:
                         captures=tuple(
                             _cap
                             for _cap in self.captures
-                            if (_cap.capture or _cap.name) != target
+                            if _cap.capture != target
                         ),
                     ),
                     child=child,
@@ -281,9 +277,21 @@ parse = opparse.Parser(
 )
 
 
+def _strip_capture(element):
+    if element.capture is None:
+        return element
+    else:
+        return Element(
+            name=element.name,
+            key=element.key,
+            category=element.category,
+            capture=None,
+        )
+
+
 def _guarantee_call(parent):
     if isinstance(parent, Element):
-        parent = Call(element=parent, captures=())
+        parent = Call(element=_strip_capture(parent), captures=())
     assert isinstance(parent, Call)
     return parent
 
@@ -326,18 +334,12 @@ def make_class(node, _, name):
     return Element(name=None, category=None, capture=name.name)
 
 
-@parse.register_action("_ { X } _")
-def make_capture(node, _1, name, _2):
-    return Element(name=None, category=None, capture=name)
-
-
 @parse.register_action("X [ X ] _")
 def make_instance(node, element, key, _):
     assert isinstance(element, Element)
     assert isinstance(key, Element)
     assert element.key is None
     captures = ()
-    # return Call(element=element, key=key, captures=captures)
     return Element(
         name=element.name,
         key=key,
@@ -349,7 +351,7 @@ def make_instance(node, element, key, _):
 @parse.register_action("X { X } _")
 def make_call_capture(node, fn, names, _2):
     names = names if isinstance(names, list) else [names]
-    return Call(element=fn, captures=tuple(names))
+    return Call(element=_strip_capture(fn), captures=tuple(names))
 
 
 @parse.register_action("X , X")
@@ -361,12 +363,12 @@ def make_sequence(node, a, b):
 
 @parse.register_action("X as X")
 def make_as(node, element, name):
-    return Element(name=element.name, category=None, capture=name.name)
+    return Element(name=element.name, capture=name.name)
 
 
 @parse.register_action("SYMBOL")
 def make_symbol(node):
     if node.value == "*":
-        return Element(None)
+        return Element(name=None)
     else:
-        return Element(node.value)
+        return Element(name=node.value, capture=node.value)

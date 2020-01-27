@@ -54,21 +54,25 @@ def test_parser_equivalencies():
 
 
 def test_parser():
-    assert sel.parse("apple") == sel.Element("apple")
+    assert sel.parse("apple") == sel.Element(name="apple", capture="apple")
 
     assert sel.parse("apple > banana") == sel.Nested(
-        sel.Call(sel.Element("apple")), sel.Element("banana"), immediate=True,
+        sel.Call(sel.Element("apple")),
+        sel.Element("banana", capture="banana"),
+        immediate=True,
     )
 
     assert sel.parse("apple >> banana") == sel.Nested(
-        sel.Call(sel.Element("apple")), sel.Element("banana"), immediate=False,
+        sel.Call(sel.Element("apple")),
+        sel.Element("banana", capture="banana"),
+        immediate=False,
     )
 
     assert sel.parse("apple > banana > cherry") == sel.Nested(
         sel.Call(sel.Element("apple")),
         sel.Nested(
             sel.Call(sel.Element("banana")),
-            sel.Element("cherry"),
+            sel.Element("cherry", capture="cherry"),
             immediate=True,
         ),
         immediate=True,
@@ -85,25 +89,26 @@ def test_parser():
     )
 
     assert sel.parse("apple{a}") == sel.Call(
-        element=sel.Element("apple"), captures=(sel.Element(name="a"),)
+        element=sel.Element("apple"),
+        captures=(sel.Element(name="a", capture="a"),),
     )
 
     assert sel.parse("apple{a, b, c, d as e}") == sel.Call(
         element=sel.Element("apple"),
         captures=(
-            sel.Element(name="a"),
-            sel.Element(name="b"),
-            sel.Element(name="c"),
+            sel.Element(name="a", capture="a"),
+            sel.Element(name="b", capture="b"),
+            sel.Element(name="c", capture="c"),
             sel.Element(name="d", capture="e"),
         ),
     )
 
     assert sel.parse("apple[pie]") == sel.Element(
-        "apple", key=sel.Element("pie")
+        "apple", key=sel.Element("pie", capture="pie"), capture="apple"
     )
 
     assert sel.parse("apple[* as filling]") == sel.Element(
-        "apple", key=sel.Element(name=None, capture="filling"),
+        "apple", key=sel.Element(name=None, capture="filling"), capture="apple",
     )
 
     assert sel.parse("axe > bow:Weapon > crowbar[* as length]") == sel.Nested(
@@ -111,7 +116,9 @@ def test_parser():
         sel.Nested(
             sel.Call(sel.Element("bow", category=Weapon),),
             sel.Element(
-                "crowbar", key=sel.Element(name=None, capture="length"),
+                "crowbar",
+                key=sel.Element(name=None, capture="length"),
+                capture="crowbar",
             ),
             immediate=True,
         ),
@@ -148,7 +155,7 @@ def test_retarget():
 def test_specialize():
     assert sel.parse("co >> co[$n] >> nut").specialize(
         {"n": sel.ElementInfo(name="x")}
-    ) == sel.parse("co >> co[x] >> nut")
+    ) == sel.parse("co >> co[x as n] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
         {"nut": sel.ElementInfo(name=None, category=Fruit)}
@@ -156,4 +163,4 @@ def test_specialize():
 
     assert sel.parse("co >> co >> $nut").specialize(
         {"nut": sel.ElementInfo(name="coconut", category=Fruit)}
-    ) == sel.parse("co >> co >> coconut:Fruit")
+    ) == sel.parse("co >> co >> (coconut as nut):Fruit")
