@@ -32,6 +32,14 @@ ABSENT = Named("ABSENT")
 
 
 @dataclass
+class CapturedValue:
+    name: str
+    category: Category
+    value: object
+    capture: str = None
+
+
+@dataclass
 class ElementInfo:
     name: str
     key: "ElementInfo" = None
@@ -69,7 +77,13 @@ class Element:
         if self.capture is None:
             return True, key_cap
         else:
-            return True, [*key_cap, (info.name, self.capture, info.value)]
+            cap = CapturedValue(
+                name=info.name,
+                category=self.category,
+                value=info.value,
+                capture=self.capture,
+            )
+            return True, [*key_cap, cap]
 
     def key_captures(self, key_field="name"):
         results = (
@@ -136,7 +150,13 @@ class Call:
         if not success:
             return None, False
         this_cap = [
-            (cap.name, cap.capture or cap.name, ABSENT) for cap in self.captures
+            CapturedValue(
+                name=cap.name,
+                category=cap.category,
+                capture=cap.capture or cap.name,
+                value=ABSENT,
+            )
+            for cap in self.captures
         ]
         return True, elem_cap + this_cap
 

@@ -2,17 +2,18 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 
 from .categories import Category
-from .selector import ABSENT, CallInfo, Element, ElementInfo, Nested, parse
+from .selector import (
+    ABSENT,
+    CallInfo,
+    CapturedValue,
+    Element,
+    ElementInfo,
+    Nested,
+    parse,
+)
 
 _current_policy = ContextVar("current_policy")
 _current_policy.set(None)
-
-
-@dataclass
-class CapturedValue:
-    name: str
-    category: Category
-    value: object
 
 
 class Collection:
@@ -63,7 +64,6 @@ class ActivePattern:
     original_pattern: str
     rules: object
     captures: dict
-    to_capture: dict
     fresh: bool
     immediate: bool
 
@@ -75,7 +75,6 @@ class ActivePattern:
             original_pattern=pattern,
             rules=rules,
             captures={},
-            to_capture={},
             fresh=True,
             immediate=True,
         )
@@ -87,20 +86,13 @@ class ActivePattern:
         if new_pattern is None:
             return None
         else:
-            new_captures = {
-                key: CapturedValue(name=name, category=None, value=value)
-                for name, key, value in captures
-            }
-            to_capture = {
-                name: key for name, key, value in captures if value is ABSENT
-            }
+            new_captures = {cap.capture: cap for cap in captures}
             return ActivePattern(
                 parent=self,
                 pattern=new_pattern,
                 original_pattern=self.original_pattern,
                 rules=self.rules,
                 captures=new_captures,
-                to_capture=to_capture,
                 fresh=False,
                 immediate=(
                     isinstance(self.pattern, Nested) and self.pattern.immediate
@@ -192,11 +184,8 @@ def _fetch(sym, key, category):
 
 def _store(name, key, category, value):
     for pattern in _current_policy.get().patterns:
-        if name in pattern.to_capture:
-            cap = pattern.to_capture[name]
-            pattern.captures[cap] = CapturedValue(
-                name=name, category=category, value=value,
-            )
+        if name in pattern.captures:
+            pattern.captures[name].value = value
     kelem = (
         None
         if key is None
