@@ -32,16 +32,9 @@ ABSENT = Named("ABSENT")
 
 
 @dataclass
-class CapturedValue:
-    name: str
-    category: Category
-    value: object
-    capture: str = None
-
-
-@dataclass
 class ElementInfo:
     name: str
+    capture: str = None
     key: "ElementInfo" = None
     value: object = ABSENT
     category: Category = None
@@ -77,7 +70,7 @@ class Element:
         if self.capture is None:
             return True, key_cap
         else:
-            cap = CapturedValue(
+            cap = ElementInfo(
                 name=info.name,
                 category=self.category,
                 value=info.value,
@@ -150,7 +143,7 @@ class Call:
         if not success:
             return None, False
         this_cap = [
-            CapturedValue(
+            ElementInfo(
                 name=cap.name,
                 category=cap.category,
                 capture=cap.capture,

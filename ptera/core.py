@@ -5,7 +5,6 @@ from .categories import Category
 from .selector import (
     ABSENT,
     CallInfo,
-    CapturedValue,
     Element,
     ElementInfo,
     Nested,
@@ -202,9 +201,9 @@ def _store(name, key, category, value):
                 lst = new_policy.accumulators.setdefault(
                     pattern.original_pattern, Collection()
                 )
-                pattern.captures[
-                    parent.pattern.capture or name
-                ] = CapturedValue(name=name, category=category, value=value,)
+                pattern.captures[parent.pattern.capture or name] = ElementInfo(
+                    name=name, category=category, value=value,
+                )
                 lst.add(pattern)
     return value
 
