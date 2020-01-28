@@ -45,7 +45,7 @@ class Collection:
             if fn is None:
                 return vals
             else:
-                return [fn(**entry) for entry in vals]
+                return [call_with_captures(fn, entry) for entry in vals]
 
     def map_full(self, fn=None):
         if isinstance(fn, str):
@@ -54,7 +54,7 @@ class Collection:
             if fn is None:
                 return list(self)
             else:
-                return [fn(**entry) for entry in self]
+                return [call_with_captures(fn, entry) for entry in self]
 
 
 @dataclass

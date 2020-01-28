@@ -159,9 +159,6 @@ class Call:
     def retarget(self, target):
         for cap in self.captures:
             if cap.capture == target:
-                child = Element(
-                    name=cap.name, category=None, capture=cap.capture,
-                )
                 return Nested(
                     parent=Call(
                         element=self.element,
@@ -171,7 +168,7 @@ class Call:
                             if _cap.capture != target
                         ),
                     ),
-                    child=child,
+                    child=cap,
                     immediate=True,
                 )
         return None
@@ -184,14 +181,14 @@ class Call:
 
     def encode(self):
         name = self.element.encode()
-        cap = []
-        for capname, capkey in self.captures:
-            if capname == capkey:
-                cap.append(capname)
+        caps = []
+        for cap in self.captures:
+            if cap.name == cap.capture:
+                caps.append(cap.name)
             else:
-                cap.append(f"{capname} as {capkey}")
-        cap = "" if not cap else "{" + ", ".join(cap) + "}"
-        return f"{name}{cap}"
+                caps.append(f"{cap.name or '*'} as {cap.capture}")
+        caps = "" if not caps else "{" + ", ".join(caps) + "}"
+        return f"{name}{caps}"
 
 
 @dataclass(frozen=True)
@@ -364,4 +361,11 @@ def make_symbol(node):
     if node.value == "*":
         return Element(name=None)
     else:
-        return Element(name=node.value, capture=node.value)
+        value = node.value
+        cap = node.value
+        try:
+            value = int(value)
+            cap = None
+        except ValueError:
+            pass
+        return Element(name=value, capture=cap)

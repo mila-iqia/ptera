@@ -107,6 +107,10 @@ def test_parser():
         "apple", key=sel.Element("pie", capture="pie"), capture="apple"
     )
 
+    assert sel.parse("apple[0]") == sel.Element(
+        "apple", key=sel.Element(0, capture=None), capture="apple"
+    )
+
     assert sel.parse("apple[* as filling]") == sel.Element(
         "apple", key=sel.Element(name=None, capture="filling"), capture="apple",
     )
