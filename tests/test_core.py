@@ -57,13 +57,13 @@ def test_callcapture():
         assert plum(2, 3) == 35
 
 
-def test_accumulate():
-    policy = Policy(
-        {"pamplemousse >> W": {"value": lambda: 10}, "xy": {"accumulate": True}}
-    )
-    with policy:
-        assert plum(2, 3) == 130
-        assert list(policy.values("xy").map("xy")) == [4, 9]
+# def test_accumulate():
+#     policy = Policy(
+#         {"pamplemousse >> W": {"value": lambda: 10}, "xy": {"accumulate": True}}
+#     )
+#     with policy:
+#         assert plum(2, 3) == 130
+#         assert list(policy.values("xy").map("xy")) == [4, 9]
 
 
 def test_tap():

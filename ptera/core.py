@@ -109,46 +109,28 @@ class ActivePattern:
 
 
 class Policy:
-    def __init__(self, patterns, accumulators=None, extend_current=True):
+    def __init__(self, patterns, extend_current=True):
         if isinstance(patterns, dict):
             patterns = [
                 ActivePattern.from_rules(pattern, rules)
                 for pattern, rules in patterns.items()
             ]
         self.patterns = patterns
-        self.accumulators = {} if accumulators is None else accumulators
         if extend_current:
             curr = _current_policy.get()
             if curr:
                 self.patterns += curr.patterns
-                self.accumulators.update(curr.accumulators)
 
-    def proceed(self, info, taps=None):
-        if taps:
-            patterns = list(self.patterns)
-            accumulators = dict(self.accumulators)
-            for tap in taps:
-                patterns.append(
-                    ActivePattern.from_rules(tap, {"accumulate": True})
-                )
-                # TODO: accumulate in both the old and the new tap
-                accumulators[tap] = Collection()
-        else:
-            patterns = self.patterns
-            accumulators = self.accumulators
-
+    def proceed(self, info):
         new_patterns = []
-        for pattern in patterns:
+        for pattern in self.patterns:
             new_pattern = pattern.proceed(info)
             if new_pattern is not None:
                 new_patterns.append(new_pattern)
             elif not pattern.immediate and pattern.pattern is not True:
                 new_patterns.append(pattern)
-        new_patterns += [p for p in patterns if p.fresh]
-        return Policy(new_patterns, accumulators, extend_current=False)
-
-    def values(self, pattern):
-        return self.accumulators[pattern]
+        new_patterns += [p for p in self.patterns if p.fresh]
+        return Policy(new_patterns, extend_current=False)
 
     def __enter__(self):
         self._reset_token = _current_policy.set(self)
@@ -195,16 +177,16 @@ def _store(name, key, category, value):
     new_policy = _current_policy.get().proceed(info)
     for pattern in new_policy.patterns:
         if pattern.pattern is True:
-            if pattern.rules.get("accumulate", False):
+            listeners = pattern.rules.get("listeners", [])
+            if listeners:
                 parent = pattern.parent
                 assert isinstance(parent.pattern, Element)
-                lst = new_policy.accumulators.setdefault(
-                    pattern.original_pattern, Collection()
-                )
-                pattern.captures[parent.pattern.capture or name] = ElementInfo(
+                pattern.captures[parent.pattern.capture] = ElementInfo(
                     name=name, category=category, value=value,
+                    capture=parent.pattern.capture
                 )
-                lst.add(pattern)
+                for listener in listeners:
+                    listener(pattern)
     return value
 
 
@@ -251,25 +233,38 @@ class PteraFunction:
             taps += storage.taps()
             policy_dict.update(storage.policy())
 
+        accums = {}
+        def make_accum(tap):
+            accums[tap] = Collection()
+            def listener(patt):
+                accums[tap].add(patt)
+            return listener
+
+        for tap in taps:
+            d = policy_dict.setdefault(tap, {})
+            d["listeners"] = [make_accum(tap)]
+
         if policy_dict:
             policy = Policy(policy_dict)
         else:
             policy = _current_policy.get()
 
-        with policy.proceed(info, taps=taps) as pol:
+        with policy.proceed(info) as pol:
             rval = self.fn(*args, **kwargs)
             # TODO: move this behavior into Policy
             for patt in pol.patterns:
                 if patt.pattern is True:
-                    if patt.rules.get("accumulate", False):
-                        pol.accumulators[patt.original_pattern].add(patt)
+                    listeners = patt.rules.get("listeners", [])
+                    if listeners:
+                        for listener in listeners:
+                            listener(patt)
             if self.taps:
-                taps = [pol.accumulators[tap] for tap in self.taps]
+                taps = [accums[tap] for tap in self.taps]
                 rval = rval, *taps
 
             for storage in self.storage:
                 storage.process_taps(
-                    [pol.accumulators[tap] for tap in storage.taps()]
+                    [accums[tap] for tap in storage.taps()]
                 )
 
         return rval
