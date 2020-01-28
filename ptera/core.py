@@ -191,10 +191,11 @@ def _store(name, key, category, value):
 
 
 class PteraFunction:
-    def __init__(self, fn, calltag=None, taps=(), storage=()):
+    def __init__(self, fn, calltag=None, taps=(), more_taps=(), storage=()):
         self.fn = fn
         self.calltag = calltag
         self.taps = taps
+        self.more_taps = list(more_taps)
         self.storage = tuple(
             storage if isinstance(storage, (list, tuple)) else [storage]
         )
@@ -203,11 +204,18 @@ class PteraFunction:
         assert self.calltag is None
         return PteraFunction(self.fn, calltag)
 
+    def on(self, selector):
+        def deco(fn):
+            self.more_taps.append((selector, fn))
+            return fn
+        return deco
+
     def tap(self, *selectors):
         return PteraFunction(
             self.fn,
             self.calltag,
             taps=self.taps + selectors,
+            more_taps=self.more_taps,
             storage=self.storage,
         )
 
@@ -216,6 +224,7 @@ class PteraFunction:
             self.fn,
             self.calltag,
             taps=self.taps,
+            more_taps=self.more_taps,
             storage=self.storage + storage,
         )
 
@@ -228,6 +237,7 @@ class PteraFunction:
             ),
         )
         taps = list(self.taps)
+        taps += [tap for tap, _ in self.more_taps]
         policy_dict = {}
         for storage in self.storage:
             taps += storage.taps()
@@ -261,6 +271,9 @@ class PteraFunction:
             if self.taps:
                 taps = [accums[tap] for tap in self.taps]
                 rval = rval, *taps
+
+            for tap, fn in self.more_taps:
+                accums[tap].map(fn)
 
             for storage in self.storage:
                 storage.process_taps(
