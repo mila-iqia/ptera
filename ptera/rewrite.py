@@ -74,7 +74,7 @@ class PteraTransformer(NodeTransformer):
             body=new_body,
             decorator_list=node.decorator_list,
             returns=node.returns,
-            type_comment=node.type_comment,
+            # type_comment=node.type_comment,
         )
 
     def visit_Return(self, node):
