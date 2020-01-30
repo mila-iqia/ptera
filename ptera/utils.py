@@ -2,6 +2,30 @@ import functools
 import inspect
 
 
+class Named:
+    """A named object.
+
+    This class can be used to construct objects with a name that will be used
+    for the string representation.
+
+    """
+
+    def __init__(self, name):
+        """Construct a named object.
+
+        Arguments:
+            name: The name of this object.
+        """
+        self.name = name
+
+    def __repr__(self):
+        """Return the object's name."""
+        return self.name
+
+
+ABSENT = Named("ABSENT")
+
+
 def keyword_decorator(deco):
     """Wrap a decorator to optionally takes keyword arguments."""
 
