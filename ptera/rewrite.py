@@ -144,7 +144,7 @@ def transform(fn, interact=default_interact):
     new_tree = PteraTransformer().visit(tree)
     ast.fix_missing_locations(new_tree)
     _, lineno = inspect.getsourcelines(fn)
-    ast.increment_lineno(new_tree, lineno)
+    ast.increment_lineno(new_tree, lineno - 1)
     new_fn = compile(
         ast.Module(body=[new_tree], type_ignores=[]), filename, "exec"
     )
