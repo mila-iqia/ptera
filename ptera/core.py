@@ -1,38 +1,288 @@
+import inspect
+from collections import defaultdict
+from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from itertools import chain, count
 
-from .categories import Category
-from .selector import (
-    ABSENT,
-    CallInfo,
-    Element,
-    ElementInfo,
-    Nested,
-    parse,
-)
-from .utils import call_with_captures
+from .selector import Call, Element, parse
+from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
-_current_policy = ContextVar("current_policy")
-_current_policy.set(None)
+_cnt = count()
 
 
-class Collection:
-    def __init__(self):
+class Frame:
+
+    top = ContextVar("Frame.top", default=None)
+
+    def __init__(self, fname):
+        self.function_name = fname
+        self.listeners = defaultdict(list)
+        self.exit_listeners = []
+
+    def listen(self, varname, listener):
+        self.listeners[varname].append(listener)
+
+    def set(self, varname, key, category, value):
+        for listener in chain(self.listeners[varname], self.listeners[None]):
+            listener(varname, category, value)
+
+    def get(self, varname, key, category):
+        for listener in chain(self.listeners[varname], self.listeners[None]):
+            return listener(varname, category, ABSENT)
+
+    def on_exit(self, fn):
+        self.exit_listeners.append(fn)
+
+    def exit(self):
+        for fn in self.exit_listeners:
+            fn()
+
+
+class Capture:
+    def __init__(self, element):
+        self.element = element
+        self.capture = element.capture
+        self.names = []
+        self.values = []
+
+    @property
+    def name(self):
+        if len(self.names) > 1:
+            raise ValueError("Multiple values stored for this capture.")
+        return self.names[0]
+
+    @property
+    def value(self):
+        if len(self.values) > 1:
+            raise ValueError("Multiple values stored for this capture.")
+        return self.values[0]
+
+    def nomatch(self):
+        return None if self.element.name is None else False
+
+    def acquire(self, varname, category, value):
+        el = self.element
+        assert el.name is None or varname == el.name
+        if el.category and not el.category.contains(category):
+            return self.nomatch()
+        if el.value is not ABSENT and el.value != value:
+            return self.nomatch()
+        self.names.append(varname)
+        self.values.append(value)
+        return True
+
+
+class Accumulator:
+    def __init__(self, names, parent=None, rules=None, focus=False):
+        self.id = next(_cnt)
+        self.names = set(names)
+        self.parent = parent
+        self.rules = rules or defaultdict(list)
+        self.captures = {}
+        self.status = ACTIVE
+        self.focus = focus
+        self.subtasks = []
+
+    def attach(self, frame, element):
+        def listener(varname, category, value):
+            acc = self
+            if value is not ABSENT:
+                if element.focus:
+                    acc = self.fork(focus=True)
+                if element.capture not in acc.captures:
+                    cap = Capture(element)
+                    acc.captures[element.capture] = cap
+                cap = acc.captures[element.capture]
+                status = cap.acquire(varname, category, value)
+                if status is False:
+                    acc.status = FAILED
+                if element.focus:
+                    acc.close()
+            else:
+                return self.run("value", may_fail=False)
+
+        frame.listen(element.name, listener)
+
+    def build(self):
+        rval = {}
+        curr = self
+        while curr:
+            rval.update(
+                {
+                    name: cap
+                    for name, cap in curr.captures.items()
+                    if cap.values and name is not None
+                }
+            )
+            curr = curr.parent
+        return rval
+
+    def run(self, rulename, may_fail):
+        rval = None
+        for fn in self.rules[rulename]:
+            args = self.build()
+            if may_fail and set(args) != self.names:
+                return None
+            else:
+                rval = fn(**args)
+        return rval
+
+    def close(self, force=False):
+        if self.status is ACTIVE:
+            if self.focus or force:
+                self.subtasks.append(
+                    lambda: self.run("listeners", may_fail=True)
+                )
+            if self.parent is None:
+                for task in self.subtasks:
+                    task()
+            else:
+                self.parent.subtasks.extend(self.subtasks)
+            self.status = COMPLETE
+
+    def fork(self, focus):
+        return Accumulator(self.names, self, rules=self.rules, focus=focus)
+
+    def __str__(self):
+        rval = str(self.id)
+        curr = self.parent
+        while curr:
+            rval = f"{curr.id} > {rval}"
+            curr = curr.parent
+        return rval
+
+
+def to_pattern(pattern):
+    if isinstance(pattern, str):
+        pattern = parse(pattern)
+    if isinstance(pattern, Element):
+        pattern = Call(
+            element=Element(None), captures=(pattern,), immediate=False,
+        )
+    assert isinstance(pattern, Call)
+    return pattern
+
+
+def get_names(fn):
+    if hasattr(fn, "_ptera_argspec"):
+        return fn._ptera_argspec
+    else:
+        spec = inspect.getfullargspec(fn)
+        return None, spec.args
+
+
+class PatternCollection:
+    current = ContextVar("PatternCollection.current", default=None)
+
+    def __init__(self, patterns=None):
+        self.patterns = patterns or []
+
+    def update(self, patterns):
+        tmp = {}
+        for pattern, triggers in patterns.items():
+            pattern = to_pattern(pattern)
+            for name, entries in triggers.items():
+                if not isinstance(entries, (tuple, list)):
+                    entries = [entries]
+                for entry in entries:
+                    focus, names = get_names(entry)
+                    this_pattern = pattern.rewrite(names, focus=focus)
+                    if this_pattern not in tmp:
+                        tmp[this_pattern] = Accumulator(
+                            # names, focus=this_pattern.focus
+                            names,
+                            focus=False,
+                        )
+                    acc = tmp[this_pattern]
+                    acc.rules[name].append(entry)
+        self.patterns.extend(tmp.items())
+
+    def proceed(self, fname, frame):
+        next_patterns = []
+        for pattern, acc in self.patterns:
+            ename = pattern.element.name
+            if not pattern.immediate:
+                next_patterns.append((pattern, acc))
+            if ename is None or ename == fname:
+                if pattern.focus:
+                    # acc = acc.fork(not pattern.children)
+                    acc = acc.fork(focus=False)
+                for cap in pattern.captures:
+                    acc.attach(frame, cap)
+                for child in pattern.children:
+                    next_patterns.append((child, acc))
+                if pattern.focus:
+                    frame.on_exit(acc.close)
+        rval = PatternCollection(next_patterns)
+        return rval
+
+    def show(self):
+        for pattern, acc in self.patterns:
+            print(pattern.encode(), "\t", acc)
+
+
+@contextmanager
+def newframe():
+    frame = Frame(None)
+    try:
+        with setvar(Frame.top, frame):
+            yield frame
+    finally:
+        frame.exit()
+
+
+@contextmanager
+def proceed(fname):
+    curr = PatternCollection.current.get()
+    frame = Frame.top.get()
+    if curr is None:
+        yield None
+    else:
+        new = curr.proceed(fname, frame)
+        with setvar(PatternCollection.current, new):
+            yield new
+
+
+@contextmanager
+def overlay(rules):
+    if rules is None:
+        yield None
+
+    else:
+        collection = PatternCollection()
+        collection.update(rules)
+        new_patterns = collection.patterns
+
+        curr = PatternCollection.current.get()
+        if curr is not None:
+            collection.patterns = curr.patterns + collection.patterns
+
+        with setvar(PatternCollection.current, collection):
+            yield collection
+            for pattern, acc in new_patterns:
+                acc.close(force=True)
+
+
+def interact(sym, key, category, value=ABSENT):
+    fr = Frame.top.get()
+    if value is ABSENT:
+        value = fr.get(sym, key, category)
+    fr.set(sym, key, category, value)
+    return value
+
+
+class Collector:
+    def __init__(self, pattern):
         self.data = []
-        self.done = False
+        pattern = to_pattern(pattern)
 
-    def add(self, pattern):
-        assert not self.done
-        self.data.append(pattern)
+        def listener(**kwargs):
+            self.data.append(kwargs)
 
-    def finish(self):
-        if not self.done:
-            self.done = True
-            self.data = [pattern.get_captures() for pattern in self.data]
-        return self
+        listener._ptera_argspec = None, set(pattern.all_captures())
+        self._listener = listener
 
     def __iter__(self):
-        self.finish()
         return iter(self.data)
 
     def map(self, fn=None):
@@ -57,227 +307,37 @@ class Collection:
                 return [call_with_captures(fn, entry) for entry in self]
 
 
-@dataclass
-class ActivePattern:
-    parent: object
-    pattern: object
-    original_pattern: str
-    rules: object
-    captures: dict
-    fresh: bool
-    immediate: bool
-
-    @classmethod
-    def from_rules(cls, pattern, rules):
-        return cls(
-            parent=None,
-            pattern=parse(pattern) if isinstance(pattern, str) else pattern,
-            original_pattern=pattern,
-            rules=rules,
-            captures={},
-            fresh=True,
-            immediate=True,
-        )
-
-    def proceed(self, info):
-        if self.pattern is True:
-            return None
-        new_pattern, captures = self.pattern.filter(info)
-        if new_pattern is None:
-            return None
-        else:
-            new_captures = {cap.capture: cap for cap in captures}
-            return ActivePattern(
-                parent=self,
-                pattern=new_pattern,
-                original_pattern=self.original_pattern,
-                rules=self.rules,
-                captures=new_captures,
-                fresh=False,
-                immediate=(
-                    isinstance(self.pattern, Nested) and self.pattern.immediate
-                ),
-            )
-
-    def get_captures(self):
-        current = self
-        rval = {}
-        while current is not None:
-            rval.update(current.captures)
-            current = current.parent
-        return rval
-
-
-class Policy:
-    def __init__(self, patterns, extend_current=True):
-        if isinstance(patterns, dict):
-            patterns = [
-                ActivePattern.from_rules(pattern, rules)
-                for pattern, rules in patterns.items()
-            ]
-        self.patterns = patterns
-        if extend_current:
-            curr = _current_policy.get()
-            if curr:
-                self.patterns += curr.patterns
-
-    def proceed(self, info):
-        new_patterns = []
-        for pattern in self.patterns:
-            new_pattern = pattern.proceed(info)
-            if new_pattern is not None:
-                new_patterns.append(new_pattern)
-            elif not pattern.immediate and pattern.pattern is not True:
-                new_patterns.append(pattern)
-        new_patterns += [p for p in self.patterns if p.fresh]
-        return Policy(new_patterns, extend_current=False)
-
-    def __enter__(self):
-        self._reset_token = _current_policy.set(self)
-        return self
-
-    def __exit__(self, exc, exctype, tb):
-        _current_policy.reset(self._reset_token)
-
-
-def interact(sym, key, category, value=ABSENT):
-    if value is ABSENT:
-        return _fetch(sym, key, category)
-    else:
-        return _store(sym, key, category, value)
-
-
-def _fetch(sym, key, category):
-    init = None
-    info = ElementInfo(name=sym, category=category)
-    new_policy = _current_policy.get().proceed(info)
-    for pattern in new_policy.patterns:
-        if pattern.pattern is True:
-            if "value" not in pattern.rules:
-                continue
-            captures = pattern.get_captures()
-            init = pattern.rules["value"]
-            break
-    if init is None:
-        raise Exception(f"Cannot fetch symbol: {sym}")
-    val = call_with_captures(init, captures)
-    return _store(sym, key, category, val)
-
-
-def _store(name, key, category, value):
-    for pattern in _current_policy.get().patterns:
-        if name in pattern.captures:
-            pattern.captures[name].value = value
-    kelem = (
-        None
-        if key is None
-        else ElementInfo(name=key, key=None, category=None, value=key)
-    )
-    info = ElementInfo(name=name, key=kelem, category=category)
-    new_policy = _current_policy.get().proceed(info)
-    for pattern in new_policy.patterns:
-        if pattern.pattern is True:
-            listeners = pattern.rules.get("listeners", [])
-            if listeners:
-                parent = pattern.parent
-                assert isinstance(parent.pattern, Element)
-                pattern.captures[parent.pattern.capture] = ElementInfo(
-                    name=name, category=category, value=value,
-                    capture=parent.pattern.capture
-                )
-                for listener in listeners:
-                    listener(pattern)
-    return value
-
-
 class PteraFunction:
-    def __init__(self, fn, calltag=None, taps=(), more_taps=(), storage=()):
+    def __init__(self, fn, callkey=None, taps=None):
         self.fn = fn
-        self.calltag = calltag
+        self.callkey = callkey
         self.taps = taps
-        self.more_taps = list(more_taps)
-        self.storage = tuple(
-            storage if isinstance(storage, (list, tuple)) else [storage]
-        )
 
-    def __getitem__(self, calltag):
-        assert self.calltag is None
-        return PteraFunction(self.fn, calltag)
+    def tap(self, *taps):
+        return PteraFunction(self.fn, self.callkey, (self.taps or ()) + taps)
 
-    def on(self, selector):
-        def deco(fn):
-            self.more_taps.append((selector, fn))
-            return fn
-        return deco
+    def make_rules(self):
+        if self.taps is None:
+            return None, None
+        collectors = {pattern: Collector(pattern) for pattern in self.taps}
+        rules = {
+            pattern: {"listeners": [collector._listener]}
+            for pattern, collector in collectors.items()
+        }
+        return collectors, rules
 
-    def tap(self, *selectors):
-        return PteraFunction(
-            self.fn,
-            self.calltag,
-            taps=self.taps + selectors,
-            more_taps=self.more_taps,
-            storage=self.storage,
-        )
-
-    def using(self, *storage):
-        return PteraFunction(
-            self.fn,
-            self.calltag,
-            taps=self.taps,
-            more_taps=self.more_taps,
-            storage=self.storage + storage,
-        )
+    def __getitem__(self, callkey):
+        assert self.callkey is None
+        return PteraFunction(self.fn, callkey)
 
     def __call__(self, *args, **kwargs):
-        info = CallInfo(
-            element=ElementInfo(
-                name=self.fn.__name__,
-                key=ElementInfo(name=self.calltag, value=self.calltag),
-                category=None,
-            ),
-        )
-        taps = list(self.taps)
-        taps += [tap for tap, _ in self.more_taps]
-        policy_dict = {}
-        for storage in self.storage:
-            taps += storage.taps()
-            policy_dict.update(storage.policy())
-
-        accums = {}
-        def make_accum(tap):
-            accums[tap] = Collection()
-            def listener(patt):
-                accums[tap].add(patt)
-            return listener
-
-        for tap in taps:
-            d = policy_dict.setdefault(tap, {})
-            d["listeners"] = [make_accum(tap)]
-
-        if policy_dict:
-            policy = Policy(policy_dict)
-        else:
-            policy = _current_policy.get()
-
-        with policy.proceed(info) as pol:
-            rval = self.fn(*args, **kwargs)
-            # TODO: move this behavior into Policy
-            for patt in pol.patterns:
-                if patt.pattern is True:
-                    listeners = patt.rules.get("listeners", [])
-                    if listeners:
-                        for listener in listeners:
-                            listener(patt)
-            if self.taps:
-                taps = [accums[tap] for tap in self.taps]
-                rval = rval, *taps
-
-            for tap, fn in self.more_taps:
-                accums[tap].map(fn)
-
-            for storage in self.storage:
-                storage.process_taps(
-                    [accums[tap] for tap in storage.taps()]
-                )
-
+        collectors, rules = self.make_rules()
+        with newframe() as frame:
+            with overlay(rules):
+                with proceed(self.fn.__name__):
+                    if self.callkey is not None:
+                        interact("#key", None, None, self.callkey)
+                    rval = self.fn(*args, **kwargs)
+        if self.taps is not None:
+            return (rval, *[collectors[tap] for tap in self.taps])
         return rval

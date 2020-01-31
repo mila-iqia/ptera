@@ -1,5 +1,6 @@
 import functools
 import inspect
+from contextlib import contextmanager
 
 
 class Named:
@@ -24,6 +25,20 @@ class Named:
 
 
 ABSENT = Named("ABSENT")
+# IMMEDIATE = Named("IMMEDIATE")
+# NESTED = Named("NESTED")
+ACTIVE = Named("ACTIVE")
+COMPLETE = Named("COMPLETE")
+FAILED = Named("FAILED")
+
+
+@contextmanager
+def setvar(var, value):
+    reset = var.set(value)
+    try:
+        yield value
+    finally:
+        var.reset(reset)
 
 
 def keyword_decorator(deco):

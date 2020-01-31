@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 
 from .categories import Category
-from .selector import Call, Element, ElementInfo, Nested, parse
+from .selector import ElementInfo, parse
 from .utils import call_with_captures, keyword_decorator
 
 

@@ -1,7 +1,15 @@
 import numpy
 
-from ptera import Category, Policy, ptera, selector as sel
-from ptera.storage import Storage, initializer, updater, valuer
+from ptera import (
+    Category,
+    PatternCollection,
+    overlay,
+    ptera,
+    selector as sel,
+    to_pattern,
+)
+
+from .common import one_test_per_assert
 
 Bouffe = Category("Bouffe")
 Fruit = Category("Fruit", [Bouffe])
@@ -9,180 +17,147 @@ Legume = Category("Legume", [Bouffe])
 
 
 @ptera
-def pamplemousse(x, y):
-    W: object
-    xy = x * y
-    return xy * W
-
-
-@ptera
-def plum(x, y):
-    a = pamplemousse[1](x, x)
-    b = pamplemousse[2](y, y)
+def brie(x, y):
+    a: Bouffe = x * x
+    b: Bouffe = y * y
     return a + b
 
 
 @ptera
-def hibou(x, y):
-    a: Fruit = x * x
-    b: Legume = 13
-    c: Fruit = y * y
-    return a + b + c
+def extra(cheese):
+    return cheese + 1
 
 
 @ptera
-def aigle(q, z):
-    qq: Fruit = q + 1
-    zz: Legume = z + 1
-    return hibou(q, z) + hibou(qq, zz)
+def double_brie(x1, y1):
+    a = brie[1](x1, x1 + 1)
+    b = brie[2](y1, y1 + 1)
+    aa = extra[1](a)
+    bb = extra[2](b)
+    return aa + bb
 
 
-def test_call():
-    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
-    with policy:
-        assert plum(2, 3) == 130
+@one_test_per_assert
+def test_normal_call():
+    assert brie(3, 4) == 25
+    assert double_brie(3, 4) == 68
 
 
-def test_callkey():
-    policy = Policy(
-        {"pamplemousse[$i] >> W": {"value": lambda i: i.value * 10}}
-    )
-    with policy:
-        assert plum(2, 3) == 220
+class GrabAll:
+    def __init__(self, pattern):
+        self.results = []
+        pattern = to_pattern(pattern)
+
+        def listener(**kwargs):
+            self.results.append(
+                {name: cap.values for name, cap in kwargs.items()}
+            )
+
+        listener._ptera_argspec = None, set(pattern.all_captures())
+        self.rules = {pattern: {"listeners": listener}}
 
 
-def test_callcapture():
-    policy = Policy({"pamplemousse{x} >> W": {"value": lambda x: x.value}})
-    with policy:
-        assert plum(2, 3) == 35
+def _dbrie(pattern):
+    store = GrabAll(pattern)
+    with overlay(store.rules):
+        double_brie(2, 10)
+    return store.results
 
 
-# def test_accumulate():
-#     policy = Policy(
-#         {"pamplemousse >> W": {"value": lambda: 10}, "xy": {"accumulate": True}}
-#     )
-#     with policy:
-#         assert plum(2, 3) == 130
-#         assert list(policy.values("xy").map("xy")) == [4, 9]
+@one_test_per_assert
+def test_patterns():
+    # Simple, test focus
+    assert _dbrie("*{x}") == [{"x": [2, 10]}]
+    assert _dbrie("*{!x}") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("*{!x, y}") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
+    assert _dbrie("*{x, y}") == [{"x": [2, 10], "y": [3, 11]}]
+
+    # Simple
+    assert _dbrie("*{!a}") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
+    assert _dbrie("brie{!a}") == [{"a": [4]}, {"a": [100]}]
+
+    # Multi-level
+    assert _dbrie("double_brie{a} > brie{x}") == [{"a": [13], "x": [2, 10]}]
+    assert _dbrie("double_brie{a} > brie{!x}") == [
+        {"a": [13], "x": [2]},
+        {"a": [13], "x": [10]},
+    ]
+
+    # Accumulate values across calls
+    assert _dbrie("double_brie{extra{cheese}, brie{x}}") == [
+        {"cheese": [13, 221], "x": [2, 10]}
+    ]
+    assert _dbrie("double_brie{extra{!cheese}, brie{x}}") == [
+        {"cheese": [13], "x": [2, 10]},
+        {"cheese": [221], "x": [2, 10]},
+    ]
+
+    # Indexing
+    assert _dbrie("brie[$i]{!a}") == [
+        {"a": [4], "i": [1]},
+        {"a": [100], "i": [2]},
+    ]
+    assert _dbrie("brie[1]{!a}") == [{"a": [4]}]
+    assert _dbrie("brie[2]{!a}") == [{"a": [100]}]
+
+    # Parameter
+    assert _dbrie("brie{$v:Bouffe}") == [{"v": [4, 9, 100, 121]}]
+    assert _dbrie("brie{!$v:Bouffe}") == [
+        {"v": [4]},
+        {"v": [9]},
+        {"v": [100]},
+        {"v": [121]},
+    ]
+    assert _dbrie("*{a} >> brie{!$v:Bouffe}") == [
+        {"a": [13], "v": [4]},
+        {"a": [13], "v": [9]},
+        {"a": [13], "v": [100]},
+        {"a": [13], "v": [121]},
+    ]
 
 
-def test_tap():
-    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
-    with policy:
-        ret, xys = plum.tap("xy")(2, 3)
-        assert ret == 130
-        assert list(xys.map("xy")) == [4, 9]
+def test_nested_overlay():
+    expectedx = [{"x": [2]}, {"x": [10]}]
+    expectedy = [{"y": [3]}, {"y": [11]}]
+
+    storex = GrabAll("brie > x")
+    storey = GrabAll("brie > y")
+    with overlay({**storex.rules, **storey.rules}):
+        assert double_brie(2, 10) == 236
+    assert storex.results == expectedx
+    assert storey.results == expectedy
+
+    storex = GrabAll("brie > x")
+    storey = GrabAll("brie > y")
+    with overlay(storex.rules):
+        with overlay(storey.rules):
+            assert double_brie(2, 10) == 236
+    assert storex.results == expectedx
+    assert storey.results == expectedy
+
+
+@ptera
+def mystery(hat):
+    surprise: Fruit
+    return surprise * hat
+
+
+def test_provide_var():
+    with overlay({"mystery{!surprise}": {"value": lambda: 4}}):
+        assert mystery(10) == 40
+
+    with overlay({"mystery{hat, !surprise}": {"value": lambda hat: hat.value}}):
+        assert mystery(8) == 64
 
 
 def test_tap_map():
-    policy = Policy({"pamplemousse >> W": {"value": lambda: 10}})
-    with policy:
-        ret, xys = plum.tap("pamplemousse{x, y}")(2, 3)
-        assert ret == 130
-        assert list(xys.map()) == [{"x": 2, "y": 2}, {"x": 3, "y": 3}]
-        assert list(xys.map(lambda x, y: x + y)) == [4, 6]
+    rval, acoll = double_brie.tap("brie{!a, b}")(2, 10)
+    assert acoll.map("a") == [4, 100]
+    assert acoll.map("b") == [9, 121]
+    assert acoll.map(lambda a, b: a + b) == [13, 221]
 
 
-def test_tap_map2():
-    policy = Policy({"plum >> W": {"value": lambda: 10}})
-    with policy:
-        ret, xys = plum.tap("plum{a, plum} >> pamplemousse{x, y}")(2, 3)
-        assert ret == 130
-        assert list(xys.map()) == [
-            {"a": 40, "plum": 130, "x": 2, "y": 2},
-            {"a": 40, "plum": 130, "x": 3, "y": 3},
-        ]
-
-
-def test_category():
-    with Policy({}):
-        ret, ac = aigle.tap("$f:Fruit")(2, 3)
-        assert ret == 64
-        assert set(ac.map_full(lambda f: f.name)) == {"a", "c", "qq"}
-
-
-@ptera
-def mul(x):
-    factor1: Fruit
-    factor2: Legume
-    factor = factor1 + factor2
-    return factor * x
-
-
-@ptera
-def grind(xs):
-    acc = 0
-    for i, x in enumerate(xs):
-        acc += mul[i](x)
-    return acc
-
-
-def test_storage_1():
-    class UpdateStrategy(Storage):
-
-        pattern = "$f:Bouffe"
-        default_target = "f"
-
-        @valuer(target_name="factor1")
-        def init_factor1(self):
-            return 1
-
-        @valuer(target_name="factor2")
-        def init_factor2(self):
-            return 2
-
-    g = grind.using(UpdateStrategy())
-    res = g([10, 20])
-    assert res == 90
-
-
-def test_storage_2():
-    class UpdateStrategy(Storage):
-
-        pattern = "$f:Bouffe"
-        default_target = "f"
-
-        @initializer(target_name="factor1")
-        def init_factor1(self):
-            return 1
-
-        @initializer(target_name="factor2")
-        def init_factor2(self):
-            return 2
-
-        @updater
-        def update_factor(self, f):
-            return f + 1
-
-    g = grind.using(UpdateStrategy())
-    res = g([10, 20])
-    assert res == 90
-
-    res = g([10, 20])
-    assert res == 150
-
-
-def test_storage_3():
-    class UpdateStrategy(Storage):
-
-        pattern = "$f:Bouffe"
-        default_target = "f"
-
-        @initializer(target_category=Fruit)
-        def init_factor1(self):
-            return 1
-
-        @initializer(target_category=Legume)
-        def init_factor2(self):
-            return 2
-
-        @updater(target_category=Fruit)
-        def update_factor(self, f):
-            return f + 1
-
-    g = grind.using(UpdateStrategy())
-    res = g([10, 20])
-    assert res == 90
-
-    res = g([10, 20])
-    assert res == 120
+def test_tap_map_full():
+    rval, acoll = double_brie.tap("brie > $param:Bouffe")(2, 10)
+    assert acoll.map_full(lambda param: param.value) == [4, 9, 100, 121]
+    assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
