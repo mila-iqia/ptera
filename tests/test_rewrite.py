@@ -28,7 +28,7 @@ def test_simple():
         ("x", None, None, 4),
         ("y", None, None, 5),
         ("a", None, None, 9),
-        ("f", None, None, 9),
+        ("#value", None, None, 9),
     ]
 
 
@@ -42,7 +42,7 @@ def test_annotations():
         ("x", None, float, 4),
         ("y", None, None, 5),
         ("a", None, int, 9),
-        ("f", None, None, 9),
+        ("#value", None, None, 9),
     ]
 
 
@@ -58,7 +58,7 @@ def test_declaration():
         ("y", None, None, 5),
         ("decl", None, int, ABSENT),
         ("a", None, int, 9),
-        ("f", None, None, 9),
+        ("#value", None, None, 9),
     ]
 
 
@@ -80,7 +80,7 @@ def test_indexing():
         ("rec", 3, None, 3),
         ("rec", 4, None, 6),
         ("rec", 5, None, 10),
-        ("f", None, None, 10),
+        ("#value", None, None, 10),
     ]
 
 
@@ -96,5 +96,5 @@ def test_deconstruct():
         ("a", None, None, 10),
         ("b", None, None, 5),
         ("c", None, None, 5),
-        ("f", None, None, 2),
+        ("#value", None, None, 2),
     ]

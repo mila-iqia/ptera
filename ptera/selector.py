@@ -388,11 +388,21 @@ def make_sequence(node, a, b, context):
 def make_as(node, element, name, context):
     element = evaluate(element, context=context)
     name = evaluate(name, context=context)
-    return dc_replace(
-        element,
-        capture=name.name,
-        key_field="name" if element.name is None else None,
-    )
+    if isinstance(element, Element):
+        return dc_replace(
+            element,
+            capture=name.name,
+            key_field="name" if element.name is None else None,
+        )
+    else:
+        new_capture = Element(
+            name="#value",
+            capture=name.name,
+        )
+        return dc_replace(
+            element,
+            captures=element.captures + (new_capture,)
+        )
 
 
 @evaluate.register_action("X = X")

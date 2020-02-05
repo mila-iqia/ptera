@@ -81,7 +81,7 @@ class PteraTransformer(NodeTransformer):
         new_value = ast.Call(
             func=ast.Name("__ptera_interact", ctx=ast.Load()),
             args=[
-                ast.Constant(value=self.current_fn),
+                ast.Constant(value="#value"),
                 ast.Constant(value=None),
                 ast.Constant(value=None),
                 node.value,
