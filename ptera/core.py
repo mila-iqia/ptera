@@ -77,25 +77,30 @@ class Accumulator:
         self.id = next(_cnt)
         self.names = set(names)
         self.parent = parent
+        self.children = []
         self.rules = rules or defaultdict(list)
         self.captures = {}
         self.status = ACTIVE
-        self.subtasks = []
         self.template = template
+        if self.parent is not None:
+            self.parent.children.append(self)
 
     def attach(self, frame, element):
         assert not self.template
 
         def listener(varname, category, value):
             if value is not ABSENT:
-                with self.mayfork(element.focus, frame=None) as acc:
-                    if element.capture not in acc.captures:
-                        cap = Capture(element)
-                        acc.captures[element.capture] = cap
-                    cap = acc.captures[element.capture]
-                    status = cap.acquire(varname, category, value)
-                    if status is False:
-                        acc.status = FAILED
+                if element.focus:
+                    acc = self.fork()
+                else:
+                    acc = self
+                if element.capture not in acc.captures:
+                    cap = Capture(element)
+                    acc.captures[element.capture] = cap
+                cap = acc.captures[element.capture]
+                status = cap.acquire(varname, category, value)
+                if status is False:
+                    acc.status = FAILED
             else:
                 return self.run("value", may_fail=False)
 
@@ -116,6 +121,8 @@ class Accumulator:
         return rval
 
     def run(self, rulename, may_fail):
+        if self.status is FAILED:
+            return FAILED
         rval = None
         for fn in self.rules[rulename]:
             args = self.build()
@@ -125,33 +132,25 @@ class Accumulator:
                 rval = fn(**args)
         return rval
 
+    def leaves(self):
+        if not self.children:
+            return [self]
+        else:
+            rval = []
+            for child in self.children:
+                rval += child.leaves()
+            return rval
+
     def close(self):
         if self.status is ACTIVE:
-            self.subtasks.append(lambda: self.run("listeners", may_fail=True))
             if self.parent is None:
-                for task in self.subtasks:
-                    task()
-            else:
-                self.parent.subtasks.extend(self.subtasks)
+                for leaf in self.leaves():
+                    leaf.run("listeners", may_fail=True)
             self.status = COMPLETE
 
     def fork(self):
         parent = None if self.template else self
         return Accumulator(self.names, parent, rules=self.rules, template=False)
-
-    @contextmanager
-    def mayfork(self, do_fork, frame=None):
-        if do_fork or self.template:
-            try:
-                acc = self.fork()
-                yield acc
-            finally:
-                if frame:
-                    frame.on_exit(acc.close)
-                else:
-                    acc.close()
-        else:
-            yield self
 
     def __str__(self):
         rval = str(self.id)
@@ -200,11 +199,15 @@ class PatternCollection:
             if not pattern.immediate:
                 next_patterns.append((pattern, acc))
             if ename is None or ename == fname:
-                with acc.mayfork(pattern.focus, frame=frame) as acc:
-                    for cap in pattern.captures:
-                        acc.attach(frame, cap)
-                    for child in pattern.children:
-                        next_patterns.append((child, acc))
+                is_template = acc.template
+                if pattern.focus or is_template:
+                    acc = acc.fork()
+                if is_template:
+                    frame.on_exit(acc.close)
+                for cap in pattern.captures:
+                    acc.attach(frame, cap)
+                for child in pattern.children:
+                    next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
         return rval
 

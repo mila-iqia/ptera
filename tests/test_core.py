@@ -57,11 +57,15 @@ class GrabAll:
         self.rules = {pattern: {"listeners": listener}}
 
 
-def _dbrie(pattern):
+def _test(f, args, pattern):
     store = GrabAll(pattern)
     with overlay(store.rules):
-        double_brie(2, 10)
+        f(*args)
     return store.results
+
+
+def _dbrie(pattern):
+    return _test(double_brie, (2, 10), pattern)
 
 
 @one_test_per_assert
@@ -113,6 +117,30 @@ def test_patterns():
         {"a": [13], "v": [9]},
         {"a": [13], "v": [100]},
         {"a": [13], "v": [121]},
+    ]
+
+
+@ptera
+def snapple(x):
+    a = cabanana(x + 1)
+    b = cabanana(x + 2)
+    return a + b
+
+
+@ptera
+def cabanana(y):
+    return peacherry(y + 1)
+
+
+@ptera
+def peacherry(z):
+    return z + 1
+
+
+def test_deep():
+    assert _test(snapple, [5], "snapple > cabanana{y} > peacherry > z") == [
+        {"y": [6], "z": [7]},
+        {"y": [7], "z": [8]},
     ]
 
 
