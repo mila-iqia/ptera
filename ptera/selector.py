@@ -395,14 +395,8 @@ def make_as(node, element, name, context):
             key_field="name" if element.name is None else None,
         )
     else:
-        new_capture = Element(
-            name="#value",
-            capture=name.name,
-        )
-        return dc_replace(
-            element,
-            captures=element.captures + (new_capture,)
-        )
+        new_capture = Element(name="#value", capture=name.name,)
+        return dc_replace(element, captures=element.captures + (new_capture,))
 
 
 @evaluate.register_action("X = X")

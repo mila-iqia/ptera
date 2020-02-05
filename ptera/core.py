@@ -84,19 +84,15 @@ class Accumulator:
 
     def attach(self, frame, element):
         def listener(varname, category, value):
-            acc = self
             if value is not ABSENT:
-                if element.focus:
-                    acc = self.fork()
-                if element.capture not in acc.captures:
-                    cap = Capture(element)
-                    acc.captures[element.capture] = cap
-                cap = acc.captures[element.capture]
-                status = cap.acquire(varname, category, value)
-                if status is False:
-                    acc.status = FAILED
-                if element.focus:
-                    acc.close()
+                with self.mayfork(element.focus, frame=None) as acc:
+                    if element.capture not in acc.captures:
+                        cap = Capture(element)
+                        acc.captures[element.capture] = cap
+                    cap = acc.captures[element.capture]
+                    status = cap.acquire(varname, category, value)
+                    if status is False:
+                        acc.status = FAILED
             else:
                 return self.run("value", may_fail=False)
 
@@ -128,9 +124,7 @@ class Accumulator:
 
     def close(self):
         if self.status is ACTIVE:
-            self.subtasks.append(
-                lambda: self.run("listeners", may_fail=True)
-            )
+            self.subtasks.append(lambda: self.run("listeners", may_fail=True))
             if self.parent is None:
                 for task in self.subtasks:
                     task()
@@ -140,6 +134,20 @@ class Accumulator:
 
     def fork(self):
         return Accumulator(self.names, self, rules=self.rules)
+
+    @contextmanager
+    def mayfork(self, do_fork, frame=None):
+        if do_fork:
+            try:
+                acc = self.fork()
+                yield acc
+            finally:
+                if frame:
+                    frame.on_exit(acc.close)
+                else:
+                    acc.close()
+        else:
+            yield self
 
     def __str__(self):
         rval = str(self.id)
@@ -158,27 +166,28 @@ def get_names(fn):
         return None, spec.args
 
 
+def dict_to_collection(patterns):
+    tmp = {}
+    for pattern, triggers in patterns.items():
+        pattern = to_pattern(pattern)
+        for name, entries in triggers.items():
+            if not isinstance(entries, (tuple, list)):
+                entries = [entries]
+            for entry in entries:
+                focus, names = get_names(entry)
+                this_pattern = pattern.rewrite(names, focus=focus)
+                if this_pattern not in tmp:
+                    tmp[this_pattern] = Accumulator(names)
+                acc = tmp[this_pattern]
+                acc.rules[name].append(entry)
+    return PatternCollection(list(tmp.items()))
+
+
 class PatternCollection:
     current = ContextVar("PatternCollection.current", default=None)
 
     def __init__(self, patterns=None):
         self.patterns = patterns or []
-
-    def update(self, patterns):
-        tmp = {}
-        for pattern, triggers in patterns.items():
-            pattern = to_pattern(pattern)
-            for name, entries in triggers.items():
-                if not isinstance(entries, (tuple, list)):
-                    entries = [entries]
-                for entry in entries:
-                    focus, names = get_names(entry)
-                    this_pattern = pattern.rewrite(names, focus=focus)
-                    if this_pattern not in tmp:
-                        tmp[this_pattern] = Accumulator(names)
-                    acc = tmp[this_pattern]
-                    acc.rules[name].append(entry)
-        self.patterns.extend(tmp.items())
 
     def proceed(self, fname, frame):
         next_patterns = []
@@ -187,14 +196,11 @@ class PatternCollection:
             if not pattern.immediate:
                 next_patterns.append((pattern, acc))
             if ename is None or ename == fname:
-                if pattern.focus:
-                    acc = acc.fork()
-                for cap in pattern.captures:
-                    acc.attach(frame, cap)
-                for child in pattern.children:
-                    next_patterns.append((child, acc))
-                if pattern.focus:
-                    frame.on_exit(acc.close)
+                with acc.mayfork(pattern.focus, frame=frame) as acc:
+                    for cap in pattern.captures:
+                        acc.attach(frame, cap)
+                    for child in pattern.children:
+                        next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
         return rval
 
@@ -231,8 +237,7 @@ def overlay(rules):
         yield None
 
     else:
-        collection = PatternCollection()
-        collection.update(rules)
+        collection = dict_to_collection(rules)
         new_patterns = collection.patterns
 
         curr = PatternCollection.current.get()
