@@ -73,7 +73,7 @@ class Capture:
 
 
 class Accumulator:
-    def __init__(self, names, parent=None, rules=None, focus=False):
+    def __init__(self, names, parent=None, rules=None, template=True):
         self.id = next(_cnt)
         self.names = set(names)
         self.parent = parent
@@ -81,8 +81,11 @@ class Accumulator:
         self.captures = {}
         self.status = ACTIVE
         self.subtasks = []
+        self.template = template
 
     def attach(self, frame, element):
+        assert not self.template
+
         def listener(varname, category, value):
             if value is not ABSENT:
                 with self.mayfork(element.focus, frame=None) as acc:
@@ -133,11 +136,12 @@ class Accumulator:
             self.status = COMPLETE
 
     def fork(self):
-        return Accumulator(self.names, self, rules=self.rules)
+        parent = None if self.template else self
+        return Accumulator(self.names, parent, rules=self.rules, template=False)
 
     @contextmanager
     def mayfork(self, do_fork, frame=None):
-        if do_fork:
+        if do_fork or self.template:
             try:
                 acc = self.fork()
                 yield acc
@@ -238,16 +242,11 @@ def overlay(rules):
 
     else:
         collection = dict_to_collection(rules)
-        new_patterns = collection.patterns
-
         curr = PatternCollection.current.get()
         if curr is not None:
             collection.patterns = curr.patterns + collection.patterns
-
         with setvar(PatternCollection.current, collection):
             yield collection
-            for pattern, acc in new_patterns:
-                acc.close()
 
 
 def interact(sym, key, category, value=ABSENT):

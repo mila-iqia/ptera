@@ -67,10 +67,10 @@ def _dbrie(pattern):
 @one_test_per_assert
 def test_patterns():
     # Simple, test focus
-    assert _dbrie("*{x}") == [{"x": [2, 10]}]
+    assert _dbrie("*{x}") == [{"x": [2]}, {"x": [10]}]
     assert _dbrie("*{!x}") == [{"x": [2]}, {"x": [10]}]
     assert _dbrie("*{!x, y}") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
-    assert _dbrie("*{x, y}") == [{"x": [2, 10], "y": [3, 11]}]
+    assert _dbrie("*{x, y}") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
 
     # Simple
     assert _dbrie("*{!a}") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
@@ -101,7 +101,7 @@ def test_patterns():
     assert _dbrie("brie[2]{!a}") == [{"a": [100]}]
 
     # Parameter
-    assert _dbrie("brie{$v:Bouffe}") == [{"v": [4, 9, 100, 121]}]
+    assert _dbrie("brie{$v:Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
     assert _dbrie("brie{!$v:Bouffe}") == [
         {"v": [4]},
         {"v": [9]},
