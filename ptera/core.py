@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from itertools import chain, count
 
-from .selector import Call, Element, parse
+from .selector import Call, Element, to_pattern
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 _cnt = count()
@@ -150,17 +150,6 @@ class Accumulator:
             rval = f"{curr.id} > {rval}"
             curr = curr.parent
         return rval
-
-
-def to_pattern(pattern):
-    if isinstance(pattern, str):
-        pattern = parse(pattern)
-    if isinstance(pattern, Element):
-        pattern = Call(
-            element=Element(None), captures=(pattern,), immediate=False,
-        )
-    assert isinstance(pattern, Call)
-    return pattern
 
 
 def get_names(fn):

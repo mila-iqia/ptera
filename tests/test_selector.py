@@ -177,6 +177,12 @@ def test_parser():
 
 
 @one_test_per_assert
+def test_to_pattern():
+    assert sel.to_pattern("apple") == sel.to_pattern(">> *{!apple}")
+    assert sel.to_pattern("pie:Fruit") == sel.to_pattern(">> *{!pie:Fruit}")
+
+
+@one_test_per_assert
 def test_validity():
     assert not sel.parse("a{$b}").valid()
     assert sel.parse("a >> $b").valid()

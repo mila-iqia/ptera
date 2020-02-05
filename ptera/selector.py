@@ -421,3 +421,16 @@ def make_symbol(node, context):
 
 def parse(x):
     return evaluate(parser(x))
+
+
+def to_pattern(pattern, context="root"):
+    if isinstance(pattern, str):
+        pattern = parse(pattern)
+    if isinstance(pattern, Element):
+        pattern = Call(
+            element=Element(None),
+            captures=(dc_replace(pattern, focus=True),),
+            immediate=False,
+        )
+    assert isinstance(pattern, Call)
+    return pattern
