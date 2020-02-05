@@ -16,26 +16,35 @@ class Frame:
 
     def __init__(self, fname):
         self.function_name = fname
-        self.listeners = defaultdict(list)
-        self.exit_listeners = []
+        self.accumulators = defaultdict(list)
+        self.to_close = []
 
-    def listen(self, varname, listener):
-        self.listeners[varname].append(listener)
+    def register(self, acc, captures, close_at_exit):
+        for cap in captures:
+            self.accumulators[cap.name].append((cap, acc))
+        if close_at_exit:
+            self.to_close.append(acc)
+
+    def get_accumulators(self, varname):
+        return chain(self.accumulators[varname], self.accumulators[None])
+
+    def run(self, method, varname, category, value=ABSENT):
+        rval = None
+        for element, acc in self.get_accumulators(varname):
+            acc = acc.match(element, varname, category, value)
+            if acc:
+                rval = getattr(acc, method)(element, varname, category, value)
+        return rval
 
     def set(self, varname, key, category, value):
-        for listener in chain(self.listeners[varname], self.listeners[None]):
-            listener(varname, category, value)
+        self.run("varset", varname, category, value)
 
     def get(self, varname, key, category):
-        for listener in chain(self.listeners[varname], self.listeners[None]):
-            return listener(varname, category, ABSENT)
-
-    def on_exit(self, fn):
-        self.exit_listeners.append(fn)
+        return self.run("varget", varname, category)
 
     def exit(self):
-        for fn in self.exit_listeners:
-            fn()
+        for acc in self.to_close:
+            acc.close()
 
 
 class Capture:
@@ -60,16 +69,19 @@ class Capture:
     def nomatch(self):
         return None if self.element.name is None else False
 
-    def acquire(self, varname, category, value):
+    def check(self, varname, category, value):
         el = self.element
         assert el.name is None or varname == el.name
         if el.category and not el.category.contains(category):
             return self.nomatch()
-        if el.value is not ABSENT and el.value != value:
+        elif el.value is not ABSENT and el.value != value:
             return self.nomatch()
+        else:
+            return True
+
+    def acquire(self, varname, value):
         self.names.append(varname)
         self.values.append(value)
-        return True
 
 
 class Accumulator:
@@ -85,26 +97,34 @@ class Accumulator:
         if self.parent is not None:
             self.parent.children.append(self)
 
-    def attach(self, frame, element):
-        assert not self.template
+    def getcap(self, element):
+        if element.capture not in self.captures:
+            cap = Capture(element)
+            self.captures[element.capture] = cap
+        return self.captures[element.capture]
 
-        def listener(varname, category, value):
-            if value is not ABSENT:
-                if element.focus:
-                    acc = self.fork()
-                else:
-                    acc = self
-                if element.capture not in acc.captures:
-                    cap = Capture(element)
-                    acc.captures[element.capture] = cap
-                cap = acc.captures[element.capture]
-                status = cap.acquire(varname, category, value)
-                if status is False:
-                    acc.status = FAILED
-            else:
-                return self.run("value", may_fail=False)
+    def match(self, element, varname, category, value):
+        if element.focus:
+            acc = self.fork()
+        else:
+            acc = self
+        cap = acc.getcap(element)
+        status = cap.check(varname, category, value)
+        if status is True:
+            return acc
+        elif status is False:
+            self.status = FAILED
+            return None
+        else:
+            return None
 
-        frame.listen(element.name, listener)
+    def varset(self, element, varname, category, value):
+        cap = self.getcap(element)
+        cap.acquire(varname, value)
+
+    def varget(self, element, varname, category, _):
+        assert element.focus
+        return self.run("value", may_fail=False)
 
     def build(self):
         rval = {}
@@ -202,10 +222,7 @@ class PatternCollection:
                 is_template = acc.template
                 if pattern.focus or is_template:
                     acc = acc.fork()
-                if is_template:
-                    frame.on_exit(acc.close)
-                for cap in pattern.captures:
-                    acc.attach(frame, cap)
+                frame.register(acc, pattern.captures, close_at_exit=is_template)
                 for child in pattern.children:
                     next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
