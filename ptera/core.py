@@ -80,7 +80,6 @@ class Accumulator:
         self.rules = rules or defaultdict(list)
         self.captures = {}
         self.status = ACTIVE
-        self.focus = focus
         self.subtasks = []
 
     def attach(self, frame, element):
@@ -88,7 +87,7 @@ class Accumulator:
             acc = self
             if value is not ABSENT:
                 if element.focus:
-                    acc = self.fork(focus=True)
+                    acc = self.fork()
                 if element.capture not in acc.captures:
                     cap = Capture(element)
                     acc.captures[element.capture] = cap
@@ -127,12 +126,11 @@ class Accumulator:
                 rval = fn(**args)
         return rval
 
-    def close(self, force=False):
+    def close(self):
         if self.status is ACTIVE:
-            if self.focus or force:
-                self.subtasks.append(
-                    lambda: self.run("listeners", may_fail=True)
-                )
+            self.subtasks.append(
+                lambda: self.run("listeners", may_fail=True)
+            )
             if self.parent is None:
                 for task in self.subtasks:
                     task()
@@ -140,8 +138,8 @@ class Accumulator:
                 self.parent.subtasks.extend(self.subtasks)
             self.status = COMPLETE
 
-    def fork(self, focus):
-        return Accumulator(self.names, self, rules=self.rules, focus=focus)
+    def fork(self):
+        return Accumulator(self.names, self, rules=self.rules)
 
     def __str__(self):
         rval = str(self.id)
@@ -177,11 +175,7 @@ class PatternCollection:
                     focus, names = get_names(entry)
                     this_pattern = pattern.rewrite(names, focus=focus)
                     if this_pattern not in tmp:
-                        tmp[this_pattern] = Accumulator(
-                            # names, focus=this_pattern.focus
-                            names,
-                            focus=False,
-                        )
+                        tmp[this_pattern] = Accumulator(names)
                     acc = tmp[this_pattern]
                     acc.rules[name].append(entry)
         self.patterns.extend(tmp.items())
@@ -194,8 +188,7 @@ class PatternCollection:
                 next_patterns.append((pattern, acc))
             if ename is None or ename == fname:
                 if pattern.focus:
-                    # acc = acc.fork(not pattern.children)
-                    acc = acc.fork(focus=False)
+                    acc = acc.fork()
                 for cap in pattern.captures:
                     acc.attach(frame, cap)
                 for child in pattern.children:
@@ -249,7 +242,7 @@ def overlay(rules):
         with setvar(PatternCollection.current, collection):
             yield collection
             for pattern, acc in new_patterns:
-                acc.close(force=True)
+                acc.close()
 
 
 def interact(sym, key, category, value=ABSENT):
