@@ -193,7 +193,7 @@ class Call:
         return f"{name}{caps}"
 
 
-parse = opparse.Parser(
+parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
             r"\s*(?:\bas\b|>>|[(){}\[\]>.:,$!=])?\s*": "OPERATOR",
@@ -217,22 +217,58 @@ parse = opparse.Parser(
 )
 
 
-def _guarantee_call(parent):
+def _guarantee_call(parent, context):
     if isinstance(parent, Element):
         parent = dc_replace(parent, capture=None)
-        parent = Call(element=parent, captures=())
+        immediate = context == "incall"
+        parent = Call(element=parent, captures=(), immediate=immediate)
     assert isinstance(parent, Call)
     return parent
 
 
-@parse.register_action("_ ( X ) _")
-def make_group(node, _1, element, _2):
+class Evaluator:
+    def __init__(self):
+        self.actions = {}
+
+    def register_action(self, *keys):
+        def deco(fn):
+            for key in keys:
+                self.actions[key] = fn
+            return fn
+
+        return deco
+
+    def __call__(self, ast, context="root"):
+        if ast is None:
+            return None
+        if isinstance(ast, opparse.Token):
+            key = "SYMBOL"
+        else:
+            key = ast.key
+        action = self.actions.get(key, None)
+        if action is None:
+            action = self.actions.get("DEFAULT", None)
+        if action is None:
+            msg = f"Unrecognized operator: {key}"
+            focus = ast.ops[0] if hasattr(ast, "ops") else ast
+            raise focus.location.syntax_error(msg)
+        return action(ast, *getattr(ast, "args", []), context=context)
+
+
+evaluate = Evaluator()
+
+
+@evaluate.register_action("_ ( X ) _")
+def make_group(node, _1, element, _2, context):
+    element = evaluate(element, context=context)
     return element
 
 
-@parse.register_action("X > X")
-def make_nested_imm(node, parent, child):
-    parent = _guarantee_call(parent)
+@evaluate.register_action("X > X")
+def make_nested_imm(node, parent, child, context):
+    parent = evaluate(parent, context=context)
+    child = evaluate(child, context=context)
+    parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
         child = dc_replace(child, focus=True)
         return dc_replace(parent, captures=parent.captures + (child,))
@@ -243,9 +279,11 @@ def make_nested_imm(node, parent, child):
         )
 
 
-@parse.register_action("X >> X")
-def make_nested(node, parent, child):
-    parent = _guarantee_call(parent)
+@evaluate.register_action("X >> X")
+def make_nested(node, parent, child, context):
+    parent = evaluate(parent, context=context)
+    child = evaluate(child, context=context)
+    parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
         child = dc_replace(child, focus=True)
         child = Call(
@@ -254,50 +292,59 @@ def make_nested(node, parent, child):
     return dc_replace(parent, children=parent.children + (child,))
 
 
-@parse.register_action("_ > X")
-def make_nested_imm_pfx(node, _, child):
-    child = _guarantee_call(child)
+@evaluate.register_action("_ > X")
+def make_nested_imm_pfx(node, _, child, context):
+    child = evaluate(child, context=context)
+    child = _guarantee_call(child, context=context)
     return dc_replace(child, immediate=True)
 
 
-@parse.register_action("_ >> X")
-def make_nested_pfx(node, _, child):
-    child = _guarantee_call(child)
+@evaluate.register_action("_ >> X")
+def make_nested_pfx(node, _, child, context):
+    child = evaluate(child, context=context)
+    child = _guarantee_call(child, context=context)
     return dc_replace(child, immediate=False)
 
 
-@parse.register_action("X : X")
-def make_class(node, element, klass):
+@evaluate.register_action("X : X")
+def make_class(node, element, klass, context):
+    element = evaluate(element, context=context)
+    klass = evaluate(klass, context=context)
     assert isinstance(klass, Element)
     assert not element.category
     return dc_replace(element, category=category_registry[klass.name])
 
 
-@parse.register_action("_ : X")
-def make_class(node, _, klass):
+@evaluate.register_action("_ : X")
+def make_class(node, _, klass, context):
+    klass = evaluate(klass, context=context)
     return Element(
         name=None, category=category_registry[klass.name], capture=None
     )
 
 
-@parse.register_action("_ ! X")
-def make_class(node, _, element):
+@evaluate.register_action("_ ! X")
+def make_class(node, _, element, context):
+    element = evaluate(element, context=context)
     assert isinstance(element, Element)
     return dc_replace(element, focus=True)
 
 
-@parse.register_action("_ $ X")
-def make_class(node, _, name):
+@evaluate.register_action("_ $ X")
+def make_class(node, _, name, context):
+    name = evaluate(name, context=context)
     return Element(
         name=None, category=None, capture=name.name, key_field="name"
     )
 
 
-@parse.register_action("X [ X ] _")
-def make_instance(node, element, key, _):
+@evaluate.register_action("X [ X ] _")
+def make_instance(node, element, key, _, context):
+    element = evaluate(element, context=context)
+    key = evaluate(key, context=context)
     assert isinstance(element, Element)
     assert isinstance(key, Element)
-    element = _guarantee_call(element)
+    element = _guarantee_call(element, context=context)
     key = Element(
         name="#key",
         value=key.name if key.name is not None else ABSENT,
@@ -308,10 +355,19 @@ def make_instance(node, element, key, _):
     return dc_replace(element, captures=element.captures + (key,))
 
 
-@parse.register_action("X { X } _")
-def make_call_capture(node, fn, names, _2):
+@evaluate.register_action("X { _ } _")
+def make_call_empty_capture(node, fn, _1, _2, context):
+    fn = evaluate(fn, context=context)
+    fn = _guarantee_call(fn, context=context)
+    return fn
+
+
+@evaluate.register_action("X { X } _")
+def make_call_capture(node, fn, names, _2, context):
+    fn = evaluate(fn, context=context)
+    names = evaluate(names, context="incall")
     names = names if isinstance(names, list) else [names]
-    fn = _guarantee_call(fn)
+    fn = _guarantee_call(fn, context=context)
     caps = tuple(name for name in names if isinstance(name, Element))
     children = tuple(name for name in names if isinstance(name, Call))
     return dc_replace(
@@ -319,15 +375,19 @@ def make_call_capture(node, fn, names, _2):
     )
 
 
-@parse.register_action("X , X")
-def make_sequence(node, a, b):
+@evaluate.register_action("X , X")
+def make_sequence(node, a, b, context):
+    a = evaluate(a, context=context)
+    b = evaluate(b, context=context)
     if not isinstance(b, list):
         b = [b]
     return [a, *b]
 
 
-@parse.register_action("X as X")
-def make_as(node, element, name):
+@evaluate.register_action("X as X")
+def make_as(node, element, name, context):
+    element = evaluate(element, context=context)
+    name = evaluate(name, context=context)
     return dc_replace(
         element,
         capture=name.name,
@@ -335,16 +395,18 @@ def make_as(node, element, name):
     )
 
 
-@parse.register_action("X = X")
-def make_equals(node, element, value):
+@evaluate.register_action("X = X")
+def make_equals(node, element, value, context):
+    element = evaluate(element, context=context)
+    value = evaluate(value, context=context)
     assert isinstance(value, Element)
     return dc_replace(element, value=value.name, capture=None)
 
 
-@parse.register_action("SYMBOL")
-def make_symbol(node):
+@evaluate.register_action("SYMBOL")
+def make_symbol(node, context):
     if node.value == "*":
-        return Element(name=None)
+        element = Element(name=None)
     else:
         value = node.value
         cap = node.value
@@ -353,4 +415,9 @@ def make_symbol(node):
             cap = None
         except ValueError:
             pass
-        return Element(name=value, capture=cap)
+        element = Element(name=value, capture=cap)
+    return element
+
+
+def parse(x):
+    return evaluate(parser(x))

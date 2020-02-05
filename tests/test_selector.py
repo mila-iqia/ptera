@@ -11,7 +11,7 @@ Weapon = Category("Weapon", [Bouffe])
 
 
 def lex(code):
-    return [(token.value, token.type) for token in sel.parse.lexer(code)]
+    return [(token.value, token.type) for token in sel.parser.lexer(code)]
 
 
 @one_test_per_assert
@@ -60,10 +60,12 @@ def test_parser_equivalencies():
 
     assert sel.parse("a > b") == sel.parse("a{!b}")
     assert sel.parse("a > b > c") == sel.parse("a > b{!c}")
+    assert sel.parse("a > b > c") == sel.parse("a{} > b{!c}")
     assert sel.parse("a >> b") == sel.parse("a >> *{!b}")
 
     assert sel.parse("a[b]") == sel.parse("a{#key=b}")
-    assert sel.parse("a >> b{c}") == sel.parse("a{b{c}}")
+    assert sel.parse("a > b{c}") == sel.parse("a{b{c}}")
+    assert sel.parse("a >> b{c}") == sel.parse("a{>> b{c}}")
 
 
 @one_test_per_assert

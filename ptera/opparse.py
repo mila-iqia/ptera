@@ -120,20 +120,10 @@ class Parser:
     def __init__(self, lexer, order, actions=None):
         self.lexer = lexer
         self.order = order
-        self.actions = actions or {}
 
     def __call__(self, code):
         tokens = self.lexer(code)
-        ast = self.process(tokens)
-        return self.evaluate(ast)
-
-    def register_action(self, *keys):
-        def deco(fn):
-            for key in keys:
-                self.actions[key] = fn
-            return fn
-
-        return deco
+        return self.process(tokens)
 
     def process(self, tokens):
         def _next():
@@ -181,22 +171,6 @@ class Parser:
         if len(parts) == 3 and parts[0] is None and parts[2] is None:
             return parts[1]
         return ASTNode(parts)
-
-    def evaluate(self, ast):
-        if ast is None:
-            return None
-        if isinstance(ast, Token):
-            key = "SYMBOL"
-        else:
-            key = ast.key
-        action = self.actions.get(key, None)
-        if action is None:
-            action = self.actions.get("DEFAULT", None)
-        if action is None:
-            msg = f"Unrecognized operator: {key}"
-            focus = ast.ops[0] if hasattr(ast, "ops") else ast
-            raise focus.location.syntax_error(msg)
-        return action(ast, *map(self.evaluate, getattr(ast, "args", [])))
 
 
 def lassoc(prio):
