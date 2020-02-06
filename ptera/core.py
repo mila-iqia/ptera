@@ -29,7 +29,7 @@ class Frame:
         return chain(self.accumulators[varname], self.accumulators[None])
 
     def run(self, method, varname, category, value=ABSENT):
-        rval = None
+        rval = ABSENT
         for element, acc in self.get_accumulators(varname):
             acc = acc.match(element, varname, category, value)
             if acc:
@@ -40,7 +40,10 @@ class Frame:
         self.run("varset", varname, category, value)
 
     def get(self, varname, key, category):
-        return self.run("varget", varname, category)
+        rval = self.run("varget", varname, category)
+        if rval is ABSENT:
+            raise NameError(f"Cannot get value for variable `{varname}`")
+        return rval
 
     def exit(self):
         for acc in self.to_close:
@@ -143,11 +146,11 @@ class Accumulator:
     def run(self, rulename, may_fail):
         if self.status is FAILED:
             return FAILED
-        rval = None
+        rval = ABSENT
         for fn in self.rules[rulename]:
             args = self.build()
             if may_fail and set(args) != self.names:
-                return None
+                return ABSENT
             else:
                 rval = fn(**args)
         return rval
