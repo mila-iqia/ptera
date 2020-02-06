@@ -270,11 +270,19 @@ def overlay(rules):
 
 
 def interact(sym, key, category, value=ABSENT):
-    fr = Frame.top.get()
-    if value is ABSENT:
-        value = fr.get(sym, key, category)
-    fr.set(sym, key, category, value)
-    return value
+    if key is None:
+        fr = Frame.top.get()
+        if value is ABSENT:
+            value = fr.get(sym, key, category)
+        fr.set(sym, key, category, value)
+        return value
+
+    else:
+        assert value is not ABSENT
+        with newframe() as frame:
+            with proceed(sym):
+                interact("#key", None, None, key)
+                return interact("#value", None, category, value)
 
 
 class Collector:

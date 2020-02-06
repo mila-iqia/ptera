@@ -3,6 +3,7 @@ import numpy
 from ptera import (
     Category,
     PatternCollection,
+    Recurrence,
     overlay,
     ptera,
     selector as sel,
@@ -142,6 +143,27 @@ def test_deep():
         {"y": [6], "z": [7]},
         {"y": [7], "z": [8]},
     ]
+
+
+@ptera
+def fib(n):
+    f = Recurrence(2)
+    f[0] = 1
+    f[1] = 1
+    for i in range(2, n + 1):
+        f[i] = f[i - 1] + f[i - 2]
+    return f[n]
+
+
+def test_indexing():
+    assert fib(5) == 8
+
+    res, fs = fib.tap("f[0] as x")(5)
+    assert fs.map("x") == [1]
+
+    res, fs = fib.tap("f[$i] as x")(5)
+    assert fs.map("x") == [1, 1, 2, 3, 5, 8]
+    assert fs.map("i") == list(range(6))
 
 
 def test_nested_overlay():
