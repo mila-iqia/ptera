@@ -189,20 +189,21 @@ def get_names(fn):
         return None, spec.args
 
 
-def dict_to_collection(patterns):
+def dict_to_collection(*rulesets):
     tmp = {}
-    for pattern, triggers in patterns.items():
-        pattern = to_pattern(pattern)
-        for name, entries in triggers.items():
-            if not isinstance(entries, (tuple, list)):
-                entries = [entries]
-            for entry in entries:
-                focus, names = get_names(entry)
-                this_pattern = pattern.rewrite(names, focus=focus)
-                if this_pattern not in tmp:
-                    tmp[this_pattern] = Accumulator(names)
-                acc = tmp[this_pattern]
-                acc.rules[name].append(entry)
+    for rules in rulesets:
+        for pattern, triggers in rules.items():
+            pattern = to_pattern(pattern)
+            for name, entries in triggers.items():
+                if not isinstance(entries, (tuple, list)):
+                    entries = [entries]
+                for entry in entries:
+                    focus, names = get_names(entry)
+                    this_pattern = pattern.rewrite(names, focus=focus)
+                    if this_pattern not in tmp:
+                        tmp[this_pattern] = Accumulator(names)
+                    acc = tmp[this_pattern]
+                    acc.rules[name].append(entry)
     return PatternCollection(list(tmp.items()))
 
 
@@ -261,12 +262,14 @@ def proceed(fname):
 
 
 @contextmanager
-def overlay(rules):
-    if rules is None:
+def overlay(*rulesets):
+    rulesets = [rules for rules in rulesets if rules]
+
+    if not rulesets:
         yield None
 
     else:
-        collection = dict_to_collection(rules)
+        collection = dict_to_collection(*rulesets)
         curr = PatternCollection.current.get()
         if curr is not None:
             collection.patterns = curr.patterns + collection.patterns
@@ -293,12 +296,12 @@ def interact(sym, key, category, value=ABSENT):
 class Collector:
     def __init__(self, pattern):
         self.data = []
-        pattern = to_pattern(pattern)
+        self.pattern = to_pattern(pattern)
 
         def listener(**kwargs):
             self.data.append(kwargs)
 
-        listener._ptera_argspec = None, set(pattern.all_captures())
+        listener._ptera_argspec = None, set(self.pattern.all_captures())
         self._listener = listener
 
     def __iter__(self):
@@ -325,38 +328,82 @@ class Collector:
             else:
                 return [call_with_captures(fn, entry) for entry in self]
 
+    def rules(self):
+        return {self.pattern: {"listeners": [self._listener]}}
+
+    def finalize(self):
+        return self
+
+
+class Tap:
+    def __init__(self, selector):
+        self.selector = selector
+
+    def instantiate(self):
+        return Collector(self.selector)
+
+
+class CallResults:
+    def __init__(self, value):
+        self.value = value
+        setattr(self, "0", self.value)
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            item = str(item)
+        try:
+            return getattr(self, item)
+        except AttributeError:
+            raise IndexError(item)
+
 
 class PteraFunction:
-    def __init__(self, fn, callkey=None, taps=None):
+    def __init__(self, fn, callkey=None, plugins=None, return_object=False):
         self.fn = fn
         self.callkey = callkey
-        self.taps = taps
-
-    def tap(self, *taps):
-        return PteraFunction(self.fn, self.callkey, (self.taps or ()) + taps)
-
-    def make_rules(self):
-        if self.taps is None:
-            return None, None
-        collectors = {pattern: Collector(pattern) for pattern in self.taps}
-        rules = {
-            pattern: {"listeners": [collector._listener]}
-            for pattern, collector in collectors.items()
-        }
-        return collectors, rules
+        self.plugins = plugins or {}
+        self.return_object = return_object
 
     def __getitem__(self, callkey):
         assert self.callkey is None
-        return PteraFunction(self.fn, callkey)
+        return PteraFunction(
+            fn=self.fn,
+            callkey=callkey,
+            plugins=self.plugins,
+            return_object=self.return_object,
+        )
+
+    def using(self, *plugins, **kwplugins):
+        plugins = {str(i + 1): p for i, p in enumerate(plugins)}
+        plugins.update(kwplugins)
+        plugins = {
+            name: Tap(p) if isinstance(p, str) else p
+            for name, p in plugins.items()
+        }
+        return PteraFunction(
+            fn=self.fn,
+            callkey=self.callkey,
+            plugins={**self.plugins, **plugins},
+            return_object=True,
+        )
 
     def __call__(self, *args, **kwargs):
-        collectors, rules = self.make_rules()
+        rulesets = []
         with newframe() as frame:
-            with overlay(rules):
+            plugins = {
+                name: p.instantiate() for name, p in self.plugins.items()
+            }
+            for plugin in plugins.values():
+                rulesets.append(plugin.rules())
+            with overlay(*rulesets):
                 with proceed(self.fn.__name__):
                     if self.callkey is not None:
                         interact("#key", None, None, self.callkey)
                     rval = self.fn(*args, **kwargs)
-        if self.taps is not None:
-            return (rval, *[collectors[tap] for tap in self.taps])
-        return rval
+        if self.return_object:
+            rval = CallResults(rval)
+            for name, plugin in plugins.items():
+                setattr(rval, name, plugin.finalize())
+            return rval
+        else:
+            return rval

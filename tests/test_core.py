@@ -163,10 +163,10 @@ def fib(n):
 def test_indexing():
     assert fib(5) == 8
 
-    res, fs = fib.tap("f[0] as x")(5)
+    res, fs = fib.using("f[0] as x")(5)
     assert fs.map("x") == [1]
 
-    res, fs = fib.tap("f[$i] as x")(5)
+    res, fs = fib.using("f[$i] as x")(5)
     assert fs.map("x") == [1, 1, 2, 3, 5, 8]
     assert fs.map("i") == list(range(6))
 
@@ -206,13 +206,19 @@ def test_provide_var():
 
 
 def test_tap_map():
-    rval, acoll = double_brie.tap("brie{!a, b}")(2, 10)
+    rval, acoll = double_brie.using("brie{!a, b}")(2, 10)
     assert acoll.map("a") == [4, 100]
     assert acoll.map("b") == [9, 121]
     assert acoll.map(lambda a, b: a + b) == [13, 221]
 
 
+def test_tap_map_named():
+    rval = double_brie.using(data="brie{!a, b}")(2, 10)
+    assert rval.value == 236
+    assert rval.data.map("a") == [4, 100]
+
+
 def test_tap_map_full():
-    rval, acoll = double_brie.tap("brie > $param:Bouffe")(2, 10)
+    rval, acoll = double_brie.using("brie > $param:Bouffe")(2, 10)
     assert acoll.map_full(lambda param: param.value) == [4, 9, 100, 121]
     assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
