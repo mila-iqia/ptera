@@ -245,42 +245,28 @@ def test_rewrite():
     assert _rewrite(before="a{!b}", after="a{!b}", required=())
 
 
-# @one_test_per_assert
-# def test_key_captures():
-#     assert sel.parse("bleu > blanc > rouge").key_captures() == set()
-#     assert sel.parse("bleu > blanc[$b] > rouge").key_captures() == {
-#         ("b", "value")
-#     }
-#     assert sel.parse("bleu > blanc[$b] > $rouge").key_captures() == {
-#         ("b", "value"),
-#         ("rouge", "name"),
-#     }
+@one_test_per_assert
+def test_key_captures():
+    assert sel.parse("bleu > blanc > rouge").key_captures() == set()
+    assert sel.parse("bleu > blanc[$b] > rouge").key_captures() == {
+        ("b", "value")
+    }
+    assert sel.parse("bleu > blanc[$b] > $rouge").key_captures() == {
+        ("b", "value"),
+        ("rouge", "name"),
+    }
 
 
-# def _retgt(before, target, after):
-#     return sel.parse(before).retarget(target) == sel.parse(after)
+@one_test_per_assert
+def test_specialize():
+    assert sel.parse("co >> co[$n] >> nut").specialize(
+        {"n": sel.Element(name=None, value="x")}
+    ) == sel.parse("co >> co[x as n] >> nut")
 
+    assert sel.parse("co >> co >> $nut").specialize(
+        {"nut": sel.Element(name=None, category=Fruit)}
+    ) == sel.parse("co >> co >> $nut:Fruit")
 
-# @one_test_per_assert
-# def test_retarget():
-
-#     assert _retgt("spider{w, e, b}", "b", "spider{w, e} > b")
-#     assert _retgt("spider{w as v, e, b}", "v", "spider{!w as v, e, b}")
-
-#     assert _retgt("bleu{b} > rouge{r} > vert{v}", "b", "bleu{!b}")
-#     assert _retgt("bleu{b} > rouge{r} > vert{v}", "r", "bleu{b} > rouge{!r}")
-
-
-# @one_test_per_assert
-# def test_specialize():
-#     assert sel.parse("co >> co[$n] >> nut").specialize(
-#         {"n": sel.ElementInfo(None, value="x")}
-#     ) == sel.parse("co >> co[x as n] >> nut")
-
-#     assert sel.parse("co >> co >> $nut").specialize(
-#         {"nut": sel.ElementInfo(name=None, category=Fruit)}
-#     ) == sel.parse("co >> co >> $nut:Fruit")
-
-#     assert sel.parse("co >> co >> $nut").specialize(
-#         {"nut": sel.ElementInfo(name="coconut", category=Fruit)}
-#     ) == sel.parse("co >> co >> (coconut as nut):Fruit")
+    assert sel.parse("co >> co >> $nut").specialize(
+        {"nut": sel.Element(name="coconut", category=Fruit)}
+    ) == sel.parse("co >> co >> (coconut as nut):Fruit")

@@ -44,54 +44,27 @@ class Element:
         else:
             return self
 
-    # def filter(self, info):
-    #     if not isinstance(info, ElementInfo):
-    #         return None, False
-    #     if self.name is not None and self.name != info.name:
-    #         return None, False
-    #     if self.category and not self.category.contains(info.category):
-    #         return None, False
+    def key_captures(self):
+        if self.key_field is not None:
+            return {(self.capture, self.key_field)}
+        else:
+            return set()
 
-    #     if self.key is None:
-    #         key_cap = []
-    #     else:
-    #         success, key_cap = self.key.filter(info.key)
-    #         if not success:
-    #             return None, False
-
-    #     if self.capture is None:
-    #         return True, key_cap
-    #     else:
-    #         cap = ElementInfo(
-    #             name=info.name,
-    #             category=self.category,
-    #             value=info.value,
-    #             capture=self.capture,
-    #         )
-    #         return True, [*key_cap, cap]
-
-    # def key_captures(self):
-    #     if self.key_field is not None:
-    #         return {(self.capture, self.key_field)}
-    #     else:
-    #         return set()
-
-    # def specialize(self, specializations):
-    #     spc = specializations.get(self.capture, None)
-    #     if spc is not None:
-    #         rval = dc_replace(
-    #             self,
-    #             name=spc.name or self.name,
-    #             category=spc.category or self.category,
-    #             value=spc.value if self.value is ABSENT else self.value,
-    #         )
-    #         if rval.key_field == 'name' and rval.name is not None:
-    #             rval = dc_replace(rval, key_field=None)
-    #         if rval.key_field == 'value' and rval.value is not ABSENT:
-    #             rval = dc_replace(rval, key_field=None)
-    #         return rval
-    #     else:
-    #         return self
+    def specialize(self, specializations):
+        spc = specializations.get(self.capture, ABSENT)
+        if spc is ABSENT:
+            return self
+        rval = dc_replace(
+            self,
+            name=self.name if spc.name is None else spc.name,
+            category=self.category if spc.category is None else spc.category,
+            value=self.value if spc.value is ABSENT else spc.value,
+        )
+        if rval.key_field == 'name' and rval.name is not None:
+            rval = dc_replace(rval, key_field=None)
+        if rval.key_field == 'value' and rval.value is not ABSENT:
+            rval = dc_replace(rval, key_field=None)
+        return rval
 
     def encode(self):
         if self.name is None and self.capture is not None:
@@ -148,38 +121,23 @@ class Call:
             self, captures=tuple(captures), children=tuple(children)
         )
 
-    # def filter(self, info):
-    #     if not isinstance(info, CallInfo):
-    #         return None, False
-    #     success, elem_cap = self.element.filter(info.element)
-    #     if not success:
-    #         return None, False
-    #     this_cap = [
-    #         ElementInfo(
-    #             name=cap.name,
-    #             category=cap.category,
-    #             capture=cap.capture,
-    #             value=ABSENT,
-    #         )
-    #         for cap in self.captures
-    #     ]
-    #     return True, elem_cap + this_cap
+    def key_captures(self):
+        rval = self.element.key_captures()
+        for child in self.children:
+            rval.update(child.key_captures())
+        for cap in self.captures:
+            rval.update(cap.key_captures())
+        return rval
 
-    # def key_captures(self):
-    #     rval = self.element.key_captures()
-    #     for child in self.children:
-    #         rval.update(child.key_captures())
-    #     for cap in self.captures:
-    #         rval.update(cap.key_captures())
-    #     return rval
-
-    # def specialize(self, specializations):
-    #     return Call(
-    #         element=self.element and self.element.specialize(specializations),
-    #         child=self.child and self.child.specialize(specializations),
-    #         captures=tuple(cap.specialize(specializations)
-    #                        for cap in self.captures),
-    #     )
+    def specialize(self, specializations):
+        return dc_replace(
+            self,
+            element=self.element and self.element.specialize(specializations),
+            children=tuple(child.specialize(specializations)
+                           for child in self.children),
+            captures=tuple(cap.specialize(specializations)
+                           for cap in self.captures),
+        )
 
     def encode(self):
         name = self.element.encode()
