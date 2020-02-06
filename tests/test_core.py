@@ -81,6 +81,11 @@ def test_patterns():
     assert _dbrie("*{!a}") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
     assert _dbrie("brie{!a}") == [{"a": [4]}, {"a": [100]}]
 
+    # Indirect
+    assert _dbrie("a") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
+    assert _dbrie("double_brie >> a") == [{"a": [13]}, {"a": [4]}, {"a": [100]}]
+    assert _dbrie("double_brie >> x") == [{"x": [2]}, {"x": [10]}]
+
     # Multi-level
     assert _dbrie("double_brie{a} > brie{x}") == [{"a": [13], "x": [2, 10]}]
     assert _dbrie("double_brie{a} > brie{!x}") == [

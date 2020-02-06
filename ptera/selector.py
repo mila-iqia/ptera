@@ -116,6 +116,7 @@ class Call:
     children: tuple = ()
     captures: tuple = ()
     immediate: bool = False
+    collapse: bool = False
 
     @property
     def focus(self):
@@ -287,7 +288,10 @@ def make_nested(node, parent, child, context):
     if isinstance(child, Element):
         child = dc_replace(child, focus=True)
         child = Call(
-            element=Element(name=None), captures=(child,), immediate=False
+            element=Element(name=None),
+            captures=(child,),
+            immediate=False,
+            collapse=True,
         )
     return dc_replace(parent, children=parent.children + (child,))
 
@@ -302,8 +306,15 @@ def make_nested_imm_pfx(node, _, child, context):
 @evaluate.register_action("_ >> X")
 def make_nested_pfx(node, _, child, context):
     child = evaluate(child, context=context)
-    child = _guarantee_call(child, context=context)
-    return dc_replace(child, immediate=False)
+    if isinstance(child, Element):
+        return Call(
+            element=Element(name=None),
+            captures=(child,),
+            immediate=False,
+            collapse=True,
+        )
+    else:
+        return dc_replace(child, immediate=False)
 
 
 @evaluate.register_action("X : X")

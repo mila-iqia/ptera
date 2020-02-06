@@ -61,7 +61,7 @@ def test_parser_equivalencies():
     assert sel.parse("a > b") == sel.parse("a{!b}")
     assert sel.parse("a > b > c") == sel.parse("a > b{!c}")
     assert sel.parse("a > b > c") == sel.parse("a{} > b{!c}")
-    assert sel.parse("a >> b") == sel.parse("a >> *{!b}")
+    assert sel.parse("a >> b") == sel.parse("a{>> !b}")
 
     assert sel.parse("a > b{c}") == sel.parse("a{b{c}}")
     assert sel.parse("a >> b{c}") == sel.parse("a{>> b{c}}")
@@ -89,6 +89,7 @@ def test_parser():
                 element=sel.Element(None),
                 captures=(sel.Element("banana", capture="banana", focus=True),),
                 immediate=False,
+                collapse=True,
             ),
         ),
         immediate=False,

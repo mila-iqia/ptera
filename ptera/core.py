@@ -214,7 +214,9 @@ class PatternCollection:
 
     def proceed(self, fname, frame):
         next_patterns = []
-        for pattern, acc in self.patterns:
+        to_process = list(self.patterns)
+        while to_process:
+            pattern, acc = to_process.pop()
             ename = pattern.element.name
             if not pattern.immediate:
                 next_patterns.append((pattern, acc))
@@ -224,7 +226,10 @@ class PatternCollection:
                     acc = acc.fork()
                 frame.register(acc, pattern.captures, close_at_exit=is_template)
                 for child in pattern.children:
-                    next_patterns.append((child, acc))
+                    if child.collapse:
+                        to_process.append((child, acc))
+                    else:
+                        next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
         return rval
 
