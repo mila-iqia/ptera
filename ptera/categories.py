@@ -13,7 +13,7 @@ class Category:
             category_registry[self.name] = self
 
     def contains(self, category):
-        return category is self or (
+        return category == self or (
             isinstance(category, Category)
             and any(self.contains(parent) for parent in category.parents)
         )
