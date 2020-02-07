@@ -2,12 +2,7 @@ import pytest
 
 from ptera import Category, selector as sel
 
-from .common import one_test_per_assert
-
-# Categories must be declared to be used
-Bouffe = Category("Bouffe")
-Fruit = Category("Fruit", [Bouffe])
-Weapon = Category("Weapon", [Bouffe])
+from .common import Bouffe, Fruit, Weapon, one_test_per_assert
 
 
 def lex(code):

@@ -33,7 +33,9 @@ class Frame:
         for element, acc in self.get_accumulators(varname):
             acc = acc.match(element, varname, category, value)
             if acc:
-                rval = getattr(acc, method)(element, varname, category, value)
+                tmp = getattr(acc, method)(element, varname, category, value)
+                if tmp is not ABSENT:
+                    rval = tmp
         return rval
 
     def set(self, varname, key, category, value):
@@ -59,14 +61,24 @@ class Capture:
 
     @property
     def name(self):
+        if self.element.name is not None:
+            return self.element.name
+        if len(self.names) == 0:
+            raise ValueError(f"No name for capture `{self.capture}`")
         if len(self.names) > 1:
-            raise ValueError("Multiple values stored for this capture.")
+            raise ValueError(
+                f"Multiple names stored for capture `{self.capture}`"
+            )
         return self.names[0]
 
     @property
     def value(self):
+        if len(self.values) == 0:
+            raise ValueError(f"No value for capture `{self.capture}`")
         if len(self.values) > 1:
-            raise ValueError("Multiple values stored for this capture.")
+            raise ValueError(
+                f"Multiple values stored for capture `{self.capture}`"
+            )
         return self.values[0]
 
     def nomatch(self):
@@ -83,6 +95,7 @@ class Capture:
             return True
 
     def acquire(self, varname, value):
+        assert varname is not None
         self.names.append(varname)
         self.values.append(value)
 
@@ -127,7 +140,14 @@ class Accumulator:
 
     def varget(self, element, varname, category, _):
         assert element.focus
-        return self.run("value", may_fail=False)
+        cap = self.getcap(element)
+        cap.names.append(varname)
+        rval = self.run("value", may_fail=False)
+        if rval is ABSENT:
+            cap.names.pop()
+        else:
+            cap.values.append(rval)
+        return rval
 
     def build(self):
         rval = {}
@@ -137,7 +157,7 @@ class Accumulator:
                 {
                     name: cap
                     for name, cap in curr.captures.items()
-                    if cap.values and name is not None
+                    if (cap.values or cap.names) and name is not None
                 }
             )
             curr = curr.parent
@@ -149,7 +169,8 @@ class Accumulator:
         rval = ABSENT
         for fn in self.rules[rulename]:
             args = self.build()
-            if may_fail and set(args) != self.names:
+            _, names = get_names(fn)
+            if may_fail and set(args) != set(names):
                 return ABSENT
             else:
                 rval = fn(**args)
@@ -189,7 +210,10 @@ def get_names(fn):
         return fn._ptera_argspec
     else:
         spec = inspect.getfullargspec(fn)
-        return None, spec.args
+        if spec.args and spec.args[0] == "self":
+            return None, spec.args[1:]
+        else:
+            return None, spec.args
 
 
 def dict_to_collection(*rulesets):

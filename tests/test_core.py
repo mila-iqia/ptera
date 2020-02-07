@@ -1,7 +1,6 @@
 import numpy
 
 from ptera import (
-    Category,
     PatternCollection,
     Recurrence,
     overlay,
@@ -10,11 +9,7 @@ from ptera import (
     to_pattern,
 )
 
-from .common import one_test_per_assert
-
-Bouffe = Category("Bouffe")
-Fruit = Category("Fruit", [Bouffe])
-Legume = Category("Legume", [Bouffe])
+from .common import Bouffe, Fruit, Legume, one_test_per_assert
 
 
 @ptera
@@ -198,10 +193,12 @@ def mystery(hat):
 
 
 def test_provide_var():
-    with overlay({"mystery{!surprise}": {"value": lambda: 4}}):
+    with overlay({"mystery{!surprise}": {"value": lambda surprise: 4}}):
         assert mystery(10) == 40
 
-    with overlay({"mystery{hat, !surprise}": {"value": lambda hat: hat.value}}):
+    with overlay(
+        {"mystery{hat, !surprise}": {"value": lambda hat, surprise: hat.value}}
+    ):
         assert mystery(8) == 64
 
 
