@@ -99,6 +99,11 @@ class Capture:
         self.names.append(varname)
         self.values.append(value)
 
+    def __str__(self):
+        return f"Capture({self.element}, {self.names}, {self.values})"
+
+    __repr__ = __str__
+
 
 class Accumulator:
     def __init__(self, names, parent=None, rules=None, template=True):

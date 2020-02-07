@@ -60,9 +60,9 @@ class Element:
             category=self.category if spc.category is None else spc.category,
             value=self.value if spc.value is ABSENT else spc.value,
         )
-        if rval.key_field == 'name' and rval.name is not None:
+        if rval.key_field == "name" and rval.name is not None:
             rval = dc_replace(rval, key_field=None)
-        if rval.key_field == 'value' and rval.value is not ABSENT:
+        if rval.key_field == "value" and rval.value is not ABSENT:
             rval = dc_replace(rval, key_field=None)
         return rval
 
@@ -81,6 +81,11 @@ class Element:
         focus = "!" if self.focus else ""
         val = f"={self.value}" if self.value is not ABSENT else ""
         return f"{focus}{name}{cap}{cat}{val}"
+
+    def __str__(self):
+        return f'sel("{self.encode()}")'
+
+    __repr__ = __str__
 
 
 @dataclass(frozen=True)
@@ -133,10 +138,12 @@ class Call:
         return dc_replace(
             self,
             element=self.element and self.element.specialize(specializations),
-            children=tuple(child.specialize(specializations)
-                           for child in self.children),
-            captures=tuple(cap.specialize(specializations)
-                           for cap in self.captures),
+            children=tuple(
+                child.specialize(specializations) for child in self.children
+            ),
+            captures=tuple(
+                cap.specialize(specializations) for cap in self.captures
+            ),
         )
 
     def encode(self):
@@ -150,6 +157,11 @@ class Call:
             caps.append(enc)
         caps = "" if not caps else "{" + ", ".join(caps) + "}"
         return f"{name}{caps}"
+
+    def __str__(self):
+        return f'sel("{self.encode()}")'
+
+    __repr__ = __str__
 
 
 parser = opparse.Parser(
