@@ -1,64 +1,50 @@
 import functools
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dc_replace
 from functools import partial
 
 from .categories import Category
-from .selector import ElementInfo, parse
-from .utils import call_with_captures, keyword_decorator
-
-
-class Store:
-    def __init__(self, fill):
-        self.data = {}
-        self.fill = fill
-
-    def key(self, kwargs):
-        return tuple(sorted(kwargs.items()))
-
-    def get(self, **kwargs):
-        key = self.key(kwargs)
-        if key not in self.data:
-            self.data[key] = self.fill(**kwargs)
-        return self.data[key]
-
-    def set(self, value, **kwargs):
-        key = self.key(kwargs)
-        self.data[key] = value
+from .core import Capture, get_names
+from .selector import Element, to_pattern
+from .utils import ABSENT, call_with_captures, keyword_decorator
 
 
 @dataclass
 class Role:
     role: str
     target: object
-    target_name: str
-    target_category: Category
     full: bool
 
     def make_capture(self):
-        sel = {}
-        if self.target_name or self.target_category:
-            return {
-                self.target: ElementInfo(
-                    name=self.target_name, category=self.target_category
-                )
-            }
-        else:
-            return {}
+        cap = Capture(self.target)
+        if self.target.name is not None:
+            cap.acquire(self.target.name, self.target.value)
+        return {self.target.capture: cap}
 
 
 def role_wrapper(role):
     @keyword_decorator
     def wrap(
-        fn, target=None, target_name=None, target_category=None, full=False
+        fn,
+        target=None,
+        target_name=None,
+        target_category=None,
+        target_value=ABSENT,
+        full=False,
     ):
         fn._ptera_role = Role(
             role=role,
-            target=target,
-            target_name=target_name,
-            target_category=target_category,
+            target=Element(
+                capture=target,
+                name=target_name,
+                category=target_category,
+                value=target_value,
+            ),
             full=full,
         )
+        _, names = get_names(fn)
+        focus = target
+        fn._ptera_argspec = focus, names
         return fn
 
     return wrap
@@ -74,56 +60,59 @@ class Storage:
     pattern = None
     default_target = None
 
-    def __init__(self, **select):
-        self._prepare(select=select)
+    def __init__(self):
+        self._prepare()
         self.store = {}
+        self.update_queue = {}
 
-    def _init_wrap(self, initfn):
-        @functools.wraps(initfn)
+    def _init_wrap(self, fn):
+        @functools.wraps(fn)
         def wrapped(**cap):
-            role = initfn._ptera_role
+            role = fn._ptera_role
             cap = {**role.make_capture(), **cap}
             key = tuple(
                 getattr(cap[k], field) for k, field in self._key_captures
             )
             if key not in self.store:
-                self.store[key] = call_with_captures(
-                    initfn, cap, full=role.full
-                )
+                self.store[key] = call_with_captures(fn, cap, full=role.full)
             return self.store[key]
 
+        wrapped._ptera_argspec = fn._ptera_argspec
         return wrapped
 
-    def _update_wrap(self, updatefn):
-        @functools.wraps(updatefn)
+    def _update_wrap(self, fn):
+        @functools.wraps(fn)
         def wrapped(**cap):
-            role = updatefn._ptera_role
+            role = fn._ptera_role
             cap = {**role.make_capture(), **cap}
-            key = tuple(
-                getattr(cap[k], field) for k, field in self._key_captures
-            )
+            try:
+                key = tuple(
+                    getattr(cap[k], field) for k, field in self._key_captures
+                )
+            except ValueError:
+                return
             assert key in self.store
-            self.store[key] = call_with_captures(updatefn, cap, full=role.full)
+            self.update_queue[key] = call_with_captures(fn, cap, full=role.full)
 
+        wrapped._ptera_argspec = fn._ptera_argspec
         return wrapped
 
-    def _value_wrap(self, valuefn):
-        @functools.wraps(valuefn)
+    def _value_wrap(self, fn):
+        @functools.wraps(fn)
         def wrapped(**cap):
-            role = valuefn._ptera_role
+            role = fn._ptera_role
             cap = {**role.make_capture(), **cap}
-            return call_with_captures(valuefn, cap, full=role.full)
+            return call_with_captures(fn, cap, full=role.full)
 
+        wrapped._ptera_argspec = fn._ptera_argspec
         return wrapped
 
-    def _prepare(self, select):
+    def _prepare(self):
         assert self.pattern
-        pattern = parse(self.pattern)
+        pattern = to_pattern(self.pattern)
+        self._rules = defaultdict(lambda: defaultdict(list))
 
-        self._key_captures = pattern.specialize(select).key_captures()
-
-        update_taps = []
-        policy_dict = defaultdict(dict)
+        self._key_captures = pattern.key_captures()
 
         for method in dir(self):
             fn = getattr(self, method)
@@ -131,35 +120,34 @@ class Storage:
             if role is None:
                 continue
 
-            if role.target is None:
-                role.target = self.default_target
+            if role.target.capture is None:
+                role.target = dc_replace(
+                    role.target, capture=self.default_target
+                )
 
-            sel = dict(select)
-            sel.update(role.make_capture())
-            patt = pattern.retarget(role.target).specialize(sel)
+            _, names = get_names(fn)
+            patt = pattern.rewrite(names, focus=role.target.capture)
+            patt = patt.specialize({role.target.capture: role.target})
 
-            if role.role == "initializer":
-                policy_dict[patt.encode()]["value"] = self._init_wrap(fn)
+            if role.role == "valuer":
+                self._rules[patt]["value"].append(self._value_wrap(fn))
 
-            elif role.role == "valuer":
-                policy_dict[patt.encode()]["value"] = self._value_wrap(fn)
+            elif role.role == "initializer":
+                self._rules[patt]["value"].append(self._init_wrap(fn))
 
             elif role.role == "updater":
-                update_taps.append((patt.encode(), self._update_wrap(fn)))
+                self._rules[patt]["listeners"].append(self._update_wrap(fn))
 
             else:
                 raise AssertionError(f"Unknown role: {role.role}")
 
-        self.policy_dict = policy_dict
-        self.update_taps = update_taps
+    def instantiate(self):
+        return self
 
-    def policy(self):
-        return self.policy_dict
+    def rules(self):
+        return self._rules
 
-    def taps(self):
-        return [pattern for pattern, _ in self.update_taps]
-
-    def process_taps(self, tap_results):
-        for tap_result, (_, ufn) in zip(tap_results, self.update_taps):
-            for entry in tap_result:
-                ufn(**entry)
+    def finalize(self):
+        for key, value in self.update_queue.items():
+            self.store[key] = value
+        return self
