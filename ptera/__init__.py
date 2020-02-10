@@ -8,8 +8,7 @@ from .core import (
 )
 from .recur import Recurrence
 from .rewrite import transform
-
-# from .storage import Storage, initializer, updater, valuer
+from .storage import Storage, initializer, updater, valuer
 
 
 def ptera(fn):

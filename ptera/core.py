@@ -144,7 +144,8 @@ class Accumulator:
         cap.acquire(varname, value)
 
     def varget(self, element, varname, category, _):
-        assert element.focus
+        if not element.focus:
+            return ABSENT
         cap = self.getcap(element)
         cap.names.append(varname)
         rval = self.run("value", may_fail=False)
