@@ -36,7 +36,7 @@ def test_storage_valuer_1():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 90
+    assert res == 90
 
 
 def test_storage_valuer_2():
@@ -55,7 +55,7 @@ def test_storage_valuer_2():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 90
+    assert res == 90
 
 
 def test_storage_valuer_3():
@@ -74,7 +74,7 @@ def test_storage_valuer_3():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 90
+    assert res == 90
 
 
 def test_storage_valuer_4():
@@ -89,10 +89,10 @@ def test_storage_valuer_4():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 0
+    assert res == 0
 
     res = g([10, 20], start=10)
-    assert res.value == 610
+    assert res == 610
 
 
 def test_storage_updater_1():
@@ -115,10 +115,10 @@ def test_storage_updater_1():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 90
+    assert res == 90
 
     res = g([10, 20])
-    assert res.value == 150
+    assert res == 150
 
 
 def test_storage_updater_2():
@@ -141,7 +141,12 @@ def test_storage_updater_2():
 
     g = grind.using(UpdateStrategy())
     res = g([10, 20])
-    assert res.value == 90
+    assert res == 90
 
     res = g([10, 20])
-    assert res.value == 120
+    assert res == 120
+
+
+def test_direct_storage():
+    mymul = mul.new(factor1=3, factor2=4)
+    assert mymul(10) == 70

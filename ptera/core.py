@@ -369,6 +369,8 @@ class Collector:
 
 
 class Tap:
+    hasoutput = True
+
     def __init__(self, selector):
         self.selector = selector
 
@@ -390,6 +392,25 @@ class CallResults:
             raise IndexError(item)
 
 
+class State:
+    hasoutput = False
+
+    def __init__(self, values):
+        self._rules = {
+            patt: {"value": lambda __v=value, **_: __v}
+            for patt, value in values.items()
+        }
+
+    def rules(self):
+        return self._rules
+
+    def instantiate(self):
+        return self
+
+    def finalize(self):
+        return self
+
+
 class PteraFunction:
     def __init__(self, fn, callkey=None, plugins=None, return_object=False):
         self.fn = fn
@@ -406,6 +427,10 @@ class PteraFunction:
             return_object=self.return_object,
         )
 
+    def new(self, **values):
+        values = {f'> * > {name}': value for name, value in values.items()}
+        return self.using(_state=State(values))
+
     def using(self, *plugins, **kwplugins):
         plugins = {str(i + 1): p for i, p in enumerate(plugins)}
         plugins.update(kwplugins)
@@ -417,7 +442,7 @@ class PteraFunction:
             fn=self.fn,
             callkey=self.callkey,
             plugins={**self.plugins, **plugins},
-            return_object=True,
+            return_object=any(p.hasoutput for name, p in plugins.items()),
         )
 
     def __call__(self, *args, **kwargs):
@@ -433,10 +458,12 @@ class PteraFunction:
                     if self.callkey is not None:
                         interact("#key", None, None, self.callkey)
                     rval = self.fn(*args, **kwargs)
+
+        callres = CallResults(rval)
+        for name, plugin in plugins.items():
+            setattr(callres, name, plugin.finalize())
+
         if self.return_object:
-            rval = CallResults(rval)
-            for name, plugin in plugins.items():
-                setattr(rval, name, plugin.finalize())
-            return rval
+            return callres
         else:
             return rval

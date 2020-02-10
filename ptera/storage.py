@@ -59,6 +59,7 @@ class Storage:
 
     pattern = None
     default_target = None
+    hasoutput = False
 
     def __init__(self):
         self._prepare()
