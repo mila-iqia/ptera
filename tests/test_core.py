@@ -1,4 +1,5 @@
 import numpy
+import pytest
 
 from ptera import (
     PatternCollection,
@@ -164,6 +165,16 @@ def test_indexing():
     res, fs = fib.using("f[$i] as x")(5)
     assert fs.map("x") == [1, 1, 2, 3, 5, 8]
     assert fs.map("i") == list(range(6))
+
+
+@pytest.mark.xfail(
+    reason="Non-matching entries f[0], f[1], ... make the whole thing fail."
+)
+def test_indexing_2():
+    res, fs = fib.using("fib{!n, f[3] as x}")(5)
+    assert res == 8
+    assert fs.map("n") == [5]
+    assert fs.map("x") == [3]
 
 
 def test_nested_overlay():

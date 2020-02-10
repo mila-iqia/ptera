@@ -106,9 +106,12 @@ class Capture:
 
 
 class Accumulator:
-    def __init__(self, names, parent=None, rules=None, template=True):
+    def __init__(
+        self, names, parent=None, rules=None, template=True, pattern=None
+    ):
         self.id = next(_cnt)
         self.names = set(names)
+        self.pattern = pattern
         self.parent = parent
         self.children = []
         self.rules = rules or defaultdict(list)
@@ -124,7 +127,14 @@ class Accumulator:
             self.captures[element.capture] = cap
         return self.captures[element.capture]
 
+    def fail(self):
+        self.status = FAILED
+        for leaf in self.leaves():
+            leaf.status = FAILED
+
     def match(self, element, varname, category, value):
+        if self.status is FAILED:
+            return None
         if element.focus:
             acc = self.fork()
         else:
@@ -134,17 +144,19 @@ class Accumulator:
         if status is True:
             return acc
         elif status is False:
-            self.status = FAILED
+            self.fail()
             return None
         else:
             return None
 
     def varset(self, element, varname, category, value):
+        if self.status is FAILED:
+            return
         cap = self.getcap(element)
         cap.acquire(varname, value)
 
     def varget(self, element, varname, category, _):
-        if not element.focus:
+        if not element.focus or self.status is FAILED:
             return ABSENT
         cap = self.getcap(element)
         cap.names.append(varname)
@@ -200,7 +212,13 @@ class Accumulator:
 
     def fork(self):
         parent = None if self.template else self
-        return Accumulator(self.names, parent, rules=self.rules, template=False)
+        return Accumulator(
+            self.names,
+            parent,
+            rules=self.rules,
+            template=False,
+            pattern=self.pattern,
+        )
 
     def __str__(self):
         rval = str(self.id)
@@ -208,7 +226,7 @@ class Accumulator:
         while curr:
             rval = f"{curr.id} > {rval}"
             curr = curr.parent
-        return rval
+        return f"Accumulator({self.pattern}, {rval})"
 
 
 def get_names(fn):
@@ -234,7 +252,9 @@ def dict_to_collection(*rulesets):
                     focus, names = get_names(entry)
                     this_pattern = pattern.rewrite(names, focus=focus)
                     if this_pattern not in tmp:
-                        tmp[this_pattern] = Accumulator(names)
+                        tmp[this_pattern] = Accumulator(
+                            names, pattern=this_pattern
+                        )
                     acc = tmp[this_pattern]
                     acc.rules[name].append(entry)
     return PatternCollection(list(tmp.items()))
@@ -428,7 +448,7 @@ class PteraFunction:
         )
 
     def new(self, **values):
-        values = {f'> * > {name}': value for name, value in values.items()}
+        values = {f"> * > {name}": value for name, value in values.items()}
         return self.using(_state=State(values))
 
     def using(self, *plugins, **kwplugins):
