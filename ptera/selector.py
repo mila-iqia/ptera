@@ -190,7 +190,7 @@ parser = opparse.Parser(
 
 def _guarantee_call(parent, context):
     if isinstance(parent, Element):
-        parent = dc_replace(parent, capture=None)
+        parent = dc_replace(parent, capture=None, focus=False)
         immediate = context == "incall"
         parent = Call(element=parent, captures=(), immediate=immediate)
     assert isinstance(parent, Call)
@@ -376,7 +376,9 @@ def make_as(node, element, name, context):
             key_field="name" if element.name is None else None,
         )
     else:
-        new_capture = Element(name="#value", capture=name.name,)
+        new_capture = Element(
+            name="#value", capture=name.name, focus=context == "root"
+        )
         return dc_replace(element, captures=element.captures + (new_capture,))
 
 
@@ -400,7 +402,8 @@ def make_symbol(node, context):
             cap = None
         except ValueError:
             pass
-        element = Element(name=value, capture=cap)
+        focus = context == "root"
+        element = Element(name=value, capture=cap, focus=focus)
     return element
 
 

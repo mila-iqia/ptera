@@ -62,13 +62,15 @@ def test_parser_equivalencies():
     assert sel.parse("a >> b{c}") == sel.parse("a{>> b{c}}")
 
     assert sel.parse("a[b]") == sel.parse("a{#key=b}")
-    assert sel.parse("a[b] as c") == sel.parse("a{#key=b, #value as c}")
-    assert sel.parse("a{} as b") == sel.parse("a{#value as b}")
+    assert sel.parse("a[b] as c") == sel.parse("a{#key=b, !#value as c}")
+    assert sel.parse("a{} as b") == sel.parse("a{!#value as b}")
 
 
 @one_test_per_assert
 def test_parser():
-    assert sel.parse("apple") == sel.Element(name="apple", capture="apple")
+    assert sel.parse("apple") == sel.Element(
+        name="apple", capture="apple", focus=True
+    )
 
     assert sel.parse("apple > banana") == sel.Call(
         sel.Element("apple"),
