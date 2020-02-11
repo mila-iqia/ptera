@@ -167,9 +167,6 @@ def test_indexing():
     assert fs.map("i") == list(range(6))
 
 
-@pytest.mark.xfail(
-    reason="Non-matching entries f[0], f[1], ... make the whole thing fail."
-)
 def test_indexing_2():
     res, fs = fib.using("fib{!n, f[3] as x}")(5)
     assert res == 8

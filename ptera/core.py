@@ -107,7 +107,13 @@ class Capture:
 
 class Accumulator:
     def __init__(
-        self, names, parent=None, rules=None, template=True, pattern=None
+        self,
+        names,
+        parent=None,
+        rules=None,
+        template=True,
+        pattern=None,
+        focus=True,
     ):
         self.id = next(_cnt)
         self.names = set(names)
@@ -118,6 +124,7 @@ class Accumulator:
         self.captures = {}
         self.status = ACTIVE
         self.template = template
+        self.focus = focus
         if self.parent is not None:
             self.parent.children.append(self)
 
@@ -194,8 +201,14 @@ class Accumulator:
                 rval = fn(**args)
         return rval
 
+    def merge(self, child):
+        for name, cap in child.captures.items():
+            mycap = self.getcap(cap.element)
+            mycap.names += cap.names
+            mycap.values += cap.values
+
     def leaves(self):
-        if not self.children:
+        if not self.children and self.focus:
             return [self]
         else:
             rval = []
@@ -203,14 +216,27 @@ class Accumulator:
                 rval += child.leaves()
             return rval
 
+    def _to_merge(self):
+        rval = []
+        for child in self.children:
+            if not child.focus:
+                rval.append(child)
+                rval += child._to_merge()
+        return rval
+
     def close(self):
         if self.status is ACTIVE:
             if self.parent is None:
-                for leaf in self.leaves():
+                for acc in self._to_merge():
+                    self.merge(acc)
+                leaves = self.leaves()
+                for leaf in leaves:
                     leaf.run("listeners", may_fail=True)
+                if not leaves:
+                    self.run("listeners", may_fail=True)
             self.status = COMPLETE
 
-    def fork(self):
+    def fork(self, focus=True):
         parent = None if self.template else self
         return Accumulator(
             self.names,
@@ -218,6 +244,7 @@ class Accumulator:
             rules=self.rules,
             template=False,
             pattern=self.pattern,
+            focus=focus,
         )
 
     def __str__(self):
@@ -276,8 +303,7 @@ class PatternCollection:
                 next_patterns.append((pattern, acc))
             if ename is None or ename == fname:
                 is_template = acc.template
-                if pattern.focus or is_template:
-                    acc = acc.fork()
+                acc = acc.fork(focus=pattern.focus or is_template)
                 frame.register(acc, pattern.captures, close_at_exit=is_template)
                 for child in pattern.children:
                     if child.collapse:
