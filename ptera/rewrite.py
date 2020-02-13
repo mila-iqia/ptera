@@ -17,7 +17,6 @@ def gensym():
 class PteraTransformer(NodeTransformer):
     def __init__(self):
         super().__init__()
-        self.current_fn = None
 
     def make_interaction(self, target, ann, value):
         if isinstance(target, ast.Name):
@@ -52,8 +51,6 @@ class PteraTransformer(NodeTransformer):
 
     def visit_FunctionDef(self, node):
         new_body = []
-        old_fn = self.current_fn
-        self.current_fn = node.name
         for arg in node.args.args:
             new_body.extend(
                 self.make_interaction(
@@ -67,7 +64,6 @@ class PteraTransformer(NodeTransformer):
                 new_body.extend(stmt)
             else:
                 new_body.append(stmt)
-        self.current_fn = old_fn
         return ast.FunctionDef(
             name=node.name,
             args=node.args,
