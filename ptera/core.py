@@ -2,9 +2,11 @@ import inspect
 from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import copy
 from itertools import chain, count
 
 from .selector import Call, Element, to_pattern
+from .selfless import Selfless, choose, Override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 _cnt = count()
@@ -356,11 +358,21 @@ def overlay(*rulesets):
             yield collection
 
 
-def interact(sym, key, category, value=ABSENT):
+def interact(sym, key, category, __self__, value):
+    from_state = __self__.get(sym)
+
     if key is None:
         fr = Frame.top.get()
         if value is ABSENT:
-            value = fr.get(sym, key, category)
+            try:
+                fr_value = fr.get(sym, key, category)
+            except NameError:
+                fr_value = ABSENT
+        else:
+            fr_value = ABSENT
+        success, value = choose([value, fr_value, from_state])
+        if not success:
+            raise NameError(f'Variable {sym} of {__self__} is not set.')
         fr.set(sym, key, category, value)
         return value
 
@@ -368,8 +380,12 @@ def interact(sym, key, category, value=ABSENT):
         assert value is not ABSENT
         with newframe() as frame:
             with proceed(sym):
-                interact("#key", None, None, key)
-                return interact("#value", None, category, value)
+                interact("#key", None, None, __self__, key)
+                interact("#value", None, category, __self__, value)
+                success, value = choose([value, from_state])
+                if not success:
+                    raise NameError(f'Variable {sym} of {__self__} is not set.')
+                return value
 
 
 class Collector:
@@ -457,25 +473,28 @@ class State:
         return self
 
 
-class PteraFunction:
-    def __init__(self, fn, callkey=None, plugins=None, return_object=False):
-        self.fn = fn
+class PteraFunction(Selfless):
+    def __init__(self, fn, state,
+                 callkey=None, plugins=None, return_object=False):
+        super().__init__(fn, state)
         self.callkey = callkey
         self.plugins = plugins or {}
         self.return_object = return_object
 
+    def clone(self, **kwargs):
+        kwargs = {
+            "fn": self.fn,
+            "state": copy(self.state),
+            "callkey": self.callkey,
+            "plugins": self.plugins,
+            "return_object": self.return_object,
+            **kwargs
+        }
+        return type(self)(**kwargs)
+
     def __getitem__(self, callkey):
         assert self.callkey is None
-        return PteraFunction(
-            fn=self.fn,
-            callkey=callkey,
-            plugins=self.plugins,
-            return_object=self.return_object,
-        )
-
-    def new(self, **values):
-        values = {f"> * > {name}": value for name, value in values.items()}
-        return self.using(_state=State(values))
+        return self.clone(callkey=callkey)
 
     def using(self, *plugins, **kwplugins):
         plugins = {str(i + 1): p for i, p in enumerate(plugins)}
@@ -484,9 +503,7 @@ class PteraFunction:
             name: Tap(p) if isinstance(p, str) else p
             for name, p in plugins.items()
         }
-        return PteraFunction(
-            fn=self.fn,
-            callkey=self.callkey,
+        return self.clone(
             plugins={**self.plugins, **plugins},
             return_object=any(p.hasoutput for name, p in plugins.items()),
         )
@@ -502,8 +519,8 @@ class PteraFunction:
             with overlay(*rulesets):
                 with proceed(self.fn.__name__):
                     if self.callkey is not None:
-                        interact("#key", None, None, self.callkey)
-                    rval = self.fn(*args, **kwargs)
+                        interact("#key", None, None, self, self.callkey)
+                    rval = super().__call__(*args, **kwargs)
 
         callres = CallResults(rval)
         for name, plugin in plugins.items():

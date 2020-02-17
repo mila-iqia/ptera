@@ -7,10 +7,10 @@ from .core import (
     to_pattern,
 )
 from .recur import Recurrence
-from .rewrite import transform
+from .selfless import transform
 from .storage import Storage, initializer, updater, valuer
 
 
 def ptera(fn):
-    fn = transform(fn, interact=interact)
-    return PteraFunction(fn)
+    new_fn, state = transform(fn, interact=interact)
+    return PteraFunction(new_fn, state)
