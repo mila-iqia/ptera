@@ -8,6 +8,7 @@ from ptera import (
     ptera,
     selector as sel,
     to_pattern,
+    override,
 )
 
 from .common import Bouffe, Fruit, Legume, one_test_per_assert
@@ -237,3 +238,46 @@ def test_tap_map_full():
     rval, acoll = double_brie.using("brie > $param:Bouffe")(2, 10)
     assert acoll.map_full(lambda param: param.value) == [4, 9, 100, 121]
     assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
+
+
+@ptera
+def square(x):
+    rval = x * x
+    return rval
+
+@ptera
+def sumsquares(x, y):
+    xx = square(x)
+    yy = square(y)
+    rval = xx + yy
+    return rval
+
+
+def test_readme():
+    results = sumsquares.using(q="x")(3, 4)
+    assert results.q.map("x") == [3, 4, 3]
+
+    results = sumsquares.using(q="square > x")(3, 4)
+    assert results.q.map("x") == [3, 4]
+
+    results = sumsquares.using(q="square{rval} > x")(3, 4)
+    assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
+
+    results = sumsquares.using(
+        q="sumsquares{x as ssx, y as ssy} > square{rval} > x"
+    )(3, 4)
+    assert results.q.map("ssx", "ssy", "x", "rval") == [(3, 4, 3, 9), (3, 4, 4, 16)]
+
+    results = sumsquares.using(
+        q="sumsquares{!x as ssx, y as ssy} > square{rval, x}"
+    )(3, 4)
+    assert (results.q.map_all("ssx", "ssy", "x", "rval")
+            == [([3], [4], [3, 4], [9, 16])])
+
+    result = sumsquares.tweak({"square > rval": 0})(3, 4)
+    assert result == 0
+
+    result = sumsquares.rewrite({
+        "square{x} > rval": lambda x: x + 1
+    })(3, 4)
+    assert result == 9

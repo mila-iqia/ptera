@@ -1,4 +1,5 @@
 import inspect
+import functools
 from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -6,7 +7,7 @@ from copy import copy
 from itertools import chain, count
 
 from .selector import Call, Element, to_pattern
-from .selfless import Selfless, choose, Override
+from .selfless import Selfless, choose, Override, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 _cnt = count()
@@ -30,10 +31,10 @@ class Frame:
     def get_accumulators(self, varname):
         return chain(self.accumulators[varname], self.accumulators[None])
 
-    def run(self, method, varname, category, value=ABSENT):
+    def run(self, method, varname, category, value=ABSENT, mayfail=True):
         rval = ABSENT
         for element, acc in self.get_accumulators(varname):
-            acc = acc.match(element, varname, category, value)
+            acc = acc.match(element, varname, category, value, mayfail=mayfail)
             if acc:
                 tmp = getattr(acc, method)(element, varname, category, value)
                 if tmp is not ABSENT:
@@ -44,7 +45,7 @@ class Frame:
         self.run("varset", varname, category, value)
 
     def get(self, varname, key, category):
-        rval = self.run("varget", varname, category)
+        rval = self.run("varget", varname, category, mayfail=False)
         if rval is ABSENT:
             raise NameError(f"Cannot get value for variable `{varname}`")
         return rval
@@ -141,7 +142,7 @@ class Accumulator:
         for leaf in self.leaves():
             leaf.status = FAILED
 
-    def match(self, element, varname, category, value):
+    def match(self, element, varname, category, value, mayfail=True):
         if self.status is FAILED:
             return None
         if element.focus:
@@ -153,7 +154,8 @@ class Accumulator:
         if status is True:
             return acc
         elif status is False:
-            self.fail()
+            if mayfail:
+                self.fail()
             return None
         else:
             return None
@@ -363,12 +365,9 @@ def interact(sym, key, category, __self__, value):
 
     if key is None:
         fr = Frame.top.get()
-        if value is ABSENT:
-            try:
-                fr_value = fr.get(sym, key, category)
-            except NameError:
-                fr_value = ABSENT
-        else:
+        try:
+            fr_value = fr.get(sym, key, category)
+        except NameError:
             fr_value = ABSENT
         success, value = choose([value, fr_value, from_state])
         if not success:
@@ -381,6 +380,8 @@ def interact(sym, key, category, __self__, value):
         with newframe() as frame:
             with proceed(sym):
                 interact("#key", None, None, __self__, key)
+                # TODO: merge the return value of interact (currently raises
+                # ConflictError)
                 interact("#value", None, category, __self__, value)
                 success, value = choose([value, from_state])
                 if not success:
@@ -477,12 +478,12 @@ class CallResults:
             raise IndexError(item)
 
 
-class State:
+class StateOverlay:
     hasoutput = False
 
     def __init__(self, values):
         self._rules = {
-            patt: {"value": lambda __v=value, **_: __v}
+            patt: {"value": value}
             for patt, value in values.items()
         }
 
@@ -518,6 +519,22 @@ class PteraFunction(Selfless):
     def __getitem__(self, callkey):
         assert self.callkey is None
         return self.clone(callkey=callkey)
+
+    def tweak(self, values, priority=2):
+        values = {k: lambda __v=v, **_: override(__v, priority)
+                  for k, v in values.items()}
+        return self.using(StateOverlay(values))
+
+    def rewrite(self, values, full=False, priority=2):
+        def _wrapfn(fn, full=True):
+            @functools.wraps(fn)
+            def newfn(**kwargs):
+                return override(call_with_captures(fn, kwargs, full=full),
+                                priority=priority)
+            newfn._ptera_argspec = get_names(fn)
+            return newfn
+        values = {k: _wrapfn(v, full=full) for k, v in values.items()}
+        return self.using(StateOverlay(values))
 
     def using(self, *plugins, **kwplugins):
         plugins = {str(i + 1): p for i, p in enumerate(plugins)}
