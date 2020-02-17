@@ -61,14 +61,14 @@ assert bagel3(1, 2) == 6   # This prints "6"
 We can set default arguments:
 
 ```python
-bagel3_newprint = bagel.new(z=3, y=2)
+bagel3_defaults = bagel.new(z=3, y=2)
 assert bagel3(1) == 6
 ```
 
 We can *force* an argument to have a certain value:
 
 ```python
-bagel3_newprint = bagel.new(z=3, x=ptera.Override(5))
+bagel3_forcex = bagel.new(z=3, x=ptera.Override(5))
 assert bagel3(1, 2) == 10
 ```
 
