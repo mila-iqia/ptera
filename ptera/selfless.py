@@ -1,4 +1,3 @@
-
 import ast
 import builtins
 import inspect
@@ -30,7 +29,6 @@ class ExternalVariableCollector(NodeVisitor):
 
     def visit_arg(self, node):
         self.assigned.add(node.arg)
-
 
 
 class PteraTransformer(NodeTransformer):
@@ -123,9 +121,11 @@ class PteraTransformer(NodeTransformer):
                 defaults=[
                     ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
                     for _ in node.args.args
-                ]
+                ],
             )
-            for dflt, arg in zip(node.args.defaults, node.args.args[-len(node.args.defaults):]):
+            for dflt, arg in zip(
+                node.args.defaults, node.args.args[-len(node.args.defaults) :]
+            ):
                 self.defaults[arg.arg] = dflt
             new_args.args.insert(0, ast.arg("__self__"))
         else:
@@ -315,11 +315,7 @@ class Selfless:
         # return type(self)(self.fn, new_state)
 
     def clone(self, **kwargs):
-        kwargs = {
-            "fn": self.fn,
-            "state": copy(self.state),
-            **kwargs
-        }
+        kwargs = {"fn": self.fn, "state": copy(self.state), **kwargs}
         return type(self)(**kwargs)
 
     def get(self, name):
@@ -331,7 +327,7 @@ class Selfless:
         return self.fn(self, *args, **kwargs)
 
     def __str__(self):
-        return f'{self.fn.__name__}'
+        return f"{self.fn.__name__}"
 
 
 class ConflictError(Exception):
@@ -343,11 +339,15 @@ def choose(opts):
     if not real_opts:
         return False, None
     elif len(real_opts) == 1:
-        opt, = real_opts
+        (opt,) = real_opts
         return True, opt.value if isinstance(opt, Override) else opt
     else:
-        with_prio = [(opt.value, -opt.priority) if isinstance(opt, Override)
-                     else (opt, 0) for opt in opts]
+        with_prio = [
+            (opt.value, -opt.priority)
+            if isinstance(opt, Override)
+            else (opt, 0)
+            for opt in opts
+        ]
         with_prio.sort(key=lambda x: x[1])
         if with_prio[1][1] == with_prio[0][1]:
             raise ConflictError("Multiple values with same priority conflict.")
@@ -358,7 +358,7 @@ def selfless_interact(sym, key, category, __self__, value):
     from_state = __self__.get(sym)
     success, rval = choose([value, from_state])
     if not success:
-        raise NameError(f'Variable {sym} of {__self__} is not set.')
+        raise NameError(f"Variable {sym} of {__self__} is not set.")
     assert not isinstance(rval, Override)
     return rval
 

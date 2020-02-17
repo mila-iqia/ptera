@@ -245,6 +245,7 @@ def square(x):
     rval = x * x
     return rval
 
+
 @ptera
 def sumsquares(x, y):
     xx = square(x)
@@ -266,18 +267,20 @@ def test_readme():
     results = sumsquares.using(
         q="sumsquares{x as ssx, y as ssy} > square{rval} > x"
     )(3, 4)
-    assert results.q.map("ssx", "ssy", "x", "rval") == [(3, 4, 3, 9), (3, 4, 4, 16)]
+    assert results.q.map("ssx", "ssy", "x", "rval") == [
+        (3, 4, 3, 9),
+        (3, 4, 4, 16),
+    ]
 
     results = sumsquares.using(
         q="sumsquares{!x as ssx, y as ssy} > square{rval, x}"
     )(3, 4)
-    assert (results.q.map_all("ssx", "ssy", "x", "rval")
-            == [([3], [4], [3, 4], [9, 16])])
+    assert results.q.map_all("ssx", "ssy", "x", "rval") == [
+        ([3], [4], [3, 4], [9, 16])
+    ]
 
     result = sumsquares.tweak({"square > rval": 0})(3, 4)
     assert result == 0
 
-    result = sumsquares.rewrite({
-        "square{x} > rval": lambda x: x + 1
-    })(3, 4)
+    result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
     assert result == 9

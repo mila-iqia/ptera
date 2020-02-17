@@ -371,7 +371,7 @@ def interact(sym, key, category, __self__, value):
             fr_value = ABSENT
         success, value = choose([value, fr_value, from_state])
         if not success:
-            raise NameError(f'Variable {sym} of {__self__} is not set.')
+            raise NameError(f"Variable {sym} of {__self__} is not set.")
         fr.set(sym, key, category, value)
         return value
 
@@ -385,7 +385,7 @@ def interact(sym, key, category, __self__, value):
                 interact("#value", None, category, __self__, value)
                 success, value = choose([value, from_state])
                 if not success:
-                    raise NameError(f'Variable {sym} of {__self__} is not set.')
+                    raise NameError(f"Variable {sym} of {__self__} is not set.")
                 return value
 
 
@@ -408,26 +408,27 @@ class Collector:
             return transform_all(self)
         elif isinstance(args[0], str):
             assert all(isinstance(arg, str) for arg in args)
-            results = tuple([transform_one(entry[arg]) for entry in self]
-                            for arg in args)
+            results = tuple(
+                [transform_one(entry[arg]) for entry in self] for arg in args
+            )
             if len(args) == 1:
                 return results[0]
             else:
                 return list(zip(*results))
         else:
             assert len(args) == 1
-            fn, = args
-            return [call_with_captures(fn, entry)
-                    for entry in transform_all(self)]
+            (fn,) = args
+            return [
+                call_with_captures(fn, entry) for entry in transform_all(self)
+            ]
 
     def map(self, *args):
         return self._map_helper(
             args=args,
             transform_all=lambda self: [
-                {key: cap.value for key, cap in entry.items()}
-                for entry in self
+                {key: cap.value for key, cap in entry.items()} for entry in self
             ],
-            transform_one=lambda entry: entry.value
+            transform_one=lambda entry: entry.value,
         )
 
     def map_all(self, *args):
@@ -437,14 +438,14 @@ class Collector:
                 {key: cap.values for key, cap in entry.items()}
                 for entry in self
             ],
-            transform_one=lambda entry: entry.values
+            transform_one=lambda entry: entry.values,
         )
 
     def map_full(self, *args):
         return self._map_helper(
             args=args,
             transform_all=lambda self: self,
-            transform_one=lambda entry: entry
+            transform_one=lambda entry: entry,
         )
 
     def rules(self):
@@ -482,10 +483,7 @@ class StateOverlay:
     hasoutput = False
 
     def __init__(self, values):
-        self._rules = {
-            patt: {"value": value}
-            for patt, value in values.items()
-        }
+        self._rules = {patt: {"value": value} for patt, value in values.items()}
 
     def rules(self):
         return self._rules
@@ -498,8 +496,9 @@ class StateOverlay:
 
 
 class PteraFunction(Selfless):
-    def __init__(self, fn, state,
-                 callkey=None, plugins=None, return_object=False):
+    def __init__(
+        self, fn, state, callkey=None, plugins=None, return_object=False
+    ):
         super().__init__(fn, state)
         self.callkey = callkey
         self.plugins = plugins or {}
@@ -512,7 +511,7 @@ class PteraFunction(Selfless):
             "callkey": self.callkey,
             "plugins": self.plugins,
             "return_object": self.return_object,
-            **kwargs
+            **kwargs,
         }
         return type(self)(**kwargs)
 
@@ -521,18 +520,23 @@ class PteraFunction(Selfless):
         return self.clone(callkey=callkey)
 
     def tweak(self, values, priority=2):
-        values = {k: lambda __v=v, **_: override(__v, priority)
-                  for k, v in values.items()}
+        values = {
+            k: lambda __v=v, **_: override(__v, priority)
+            for k, v in values.items()
+        }
         return self.using(StateOverlay(values))
 
     def rewrite(self, values, full=False, priority=2):
         def _wrapfn(fn, full=True):
             @functools.wraps(fn)
             def newfn(**kwargs):
-                return override(call_with_captures(fn, kwargs, full=full),
-                                priority=priority)
+                return override(
+                    call_with_captures(fn, kwargs, full=full), priority=priority
+                )
+
             newfn._ptera_argspec = get_names(fn)
             return newfn
+
         values = {k: _wrapfn(v, full=full) for k, v in values.items()}
         return self.using(StateOverlay(values))
 
