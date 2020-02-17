@@ -1,5 +1,6 @@
 import pytest
-from ptera.selfless import selfless, Override, ConflictError
+
+from ptera.selfless import ConflictError, Override, selfless
 
 from .common import one_test_per_assert
 

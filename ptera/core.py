@@ -1,5 +1,5 @@
-import inspect
 import functools
+import inspect
 from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -7,7 +7,7 @@ from copy import copy
 from itertools import chain, count
 
 from .selector import Call, Element, to_pattern
-from .selfless import Selfless, choose, Override, override
+from .selfless import Override, Selfless, choose, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 _cnt = count()

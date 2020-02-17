@@ -1,7 +1,7 @@
 
 import ast
-import inspect
 import builtins
+import inspect
 from ast import NodeTransformer, NodeVisitor
 from copy import copy
 from textwrap import dedent

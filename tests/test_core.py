@@ -5,10 +5,10 @@ from ptera import (
     PatternCollection,
     Recurrence,
     overlay,
+    override,
     ptera,
     selector as sel,
     to_pattern,
-    override,
 )
 
 from .common import Bouffe, Fruit, Legume, one_test_per_assert

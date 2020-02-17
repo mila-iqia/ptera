@@ -7,7 +7,7 @@ from .core import (
     to_pattern,
 )
 from .recur import Recurrence
-from .selfless import transform, Override, override
+from .selfless import Override, override, transform
 from .storage import Storage, initializer, updater, valuer
 
 
