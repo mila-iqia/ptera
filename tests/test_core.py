@@ -163,8 +163,11 @@ def test_indexing():
     assert fs.map("x") == [1]
 
     res, fs = fib.using("f[$i] as x")(5)
-    assert fs.map("x") == [1, 1, 2, 3, 5, 8]
-    assert fs.map("i") == list(range(6))
+    intermediates = [1, 1, 2, 3, 5, 8]
+    indices = list(range(6))
+    assert fs.map("x") == intermediates
+    assert fs.map("i") == indices
+    assert fs.map("i", "x") == list(zip(indices, intermediates))
 
 
 def test_indexing_2():
@@ -215,6 +218,13 @@ def test_tap_map():
     assert acoll.map("a") == [4, 100]
     assert acoll.map("b") == [9, 121]
     assert acoll.map(lambda a, b: a + b) == [13, 221]
+
+
+def test_tap_map_all():
+    rval, acoll = double_brie.using("double_brie{!x1} >> brie{x}")(2, 10)
+    with pytest.raises(ValueError):
+        acoll.map("x1", "x")
+    assert acoll.map_all("x1", "x") == [([2], [2, 10])]
 
 
 def test_tap_map_named():

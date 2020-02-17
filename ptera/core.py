@@ -402,26 +402,49 @@ class Collector:
     def __iter__(self):
         return iter(self.data)
 
-    def map(self, fn=None):
-        if isinstance(fn, str):
-            return [entry[fn].value for entry in self]
-        else:
-            vals = [
-                {key: cap.value for key, cap in entry.items()} for entry in self
-            ]
-            if fn is None:
-                return vals
+    def _map_helper(self, args, transform_all, transform_one):
+        if not args:
+            return transform_all(self)
+        elif isinstance(args[0], str):
+            assert all(isinstance(arg, str) for arg in args)
+            results = tuple([transform_one(entry[arg]) for entry in self]
+                            for arg in args)
+            if len(args) == 1:
+                return results[0]
             else:
-                return [call_with_captures(fn, entry) for entry in vals]
+                return list(zip(*results))
+        else:
+            assert len(args) == 1
+            fn, = args
+            return [call_with_captures(fn, entry)
+                    for entry in transform_all(self)]
 
-    def map_full(self, fn=None):
-        if isinstance(fn, str):
-            return [entry[fn] for entry in self]
-        else:
-            if fn is None:
-                return list(self)
-            else:
-                return [call_with_captures(fn, entry) for entry in self]
+    def map(self, *args):
+        return self._map_helper(
+            args=args,
+            transform_all=lambda self: [
+                {key: cap.value for key, cap in entry.items()}
+                for entry in self
+            ],
+            transform_one=lambda entry: entry.value
+        )
+
+    def map_all(self, *args):
+        return self._map_helper(
+            args=args,
+            transform_all=lambda self: [
+                {key: cap.values for key, cap in entry.items()}
+                for entry in self
+            ],
+            transform_one=lambda entry: entry.values
+        )
+
+    def map_full(self, *args):
+        return self._map_helper(
+            args=args,
+            transform_all=lambda self: self,
+            transform_one=lambda entry: entry
+        )
 
     def rules(self):
         return {self.pattern: {"listeners": [self._listener]}}
