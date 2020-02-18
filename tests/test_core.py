@@ -240,6 +240,28 @@ def test_tap_map_full():
     assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
 
 
+def test_on():
+    dbrie = double_brie.clone(return_object=True)
+
+    @dbrie.on("brie > x")
+    def minx(x):
+        return -x
+
+    results = dbrie(2, 10)
+    assert results.minx == [-2, -10]
+
+
+def test_collect():
+    dbrie = double_brie.clone(return_object=True)
+
+    @dbrie.collect("brie > x")
+    def sumx(xs):
+        return sum(xs.map("x"))
+
+    results = dbrie(2, 10)
+    assert results.sumx == 12
+
+
 @ptera
 def square(x):
     rval = x * x

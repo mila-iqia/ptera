@@ -390,9 +390,10 @@ def interact(sym, key, category, __self__, value):
 
 
 class Collector:
-    def __init__(self, pattern):
+    def __init__(self, pattern, finalize=None):
         self.data = []
         self.pattern = to_pattern(pattern)
+        self.finalizer = finalize
 
         def listener(**kwargs):
             self.data.append(kwargs)
@@ -452,17 +453,25 @@ class Collector:
         return {self.pattern: {"listeners": [self._listener]}}
 
     def finalize(self):
-        return self
+        if self.finalizer:
+            return self.finalizer(self)
+        else:
+            return self
 
 
 class Tap:
     hasoutput = True
 
-    def __init__(self, selector):
+    def __init__(self, selector, finalize=None):
         self.selector = selector
+        self.finalize = finalize
+
+    def hook(self, finalize):
+        self.finalize = finalize
+        return self
 
     def instantiate(self):
-        return Collector(self.selector)
+        return Collector(self.selector, self.finalize)
 
 
 class CallResults:
@@ -493,6 +502,20 @@ class StateOverlay:
 
     def finalize(self):
         return self
+
+
+def _to_plugin(spec):
+    return Tap(spec) if isinstance(spec, str) else spec
+
+
+def _collect_plugins(plugins, kwplugins):
+    plugins = {str(i + 1): p for i, p in enumerate(plugins)}
+    plugins.update(kwplugins)
+    plugins = {
+        name: _to_plugin(p)
+        for name, p in plugins.items()
+    }
+    return plugins, any(p.hasoutput for name, p in plugins.items())
 
 
 class PteraFunction(Selfless):
@@ -541,16 +564,35 @@ class PteraFunction(Selfless):
         return self.using(StateOverlay(values))
 
     def using(self, *plugins, **kwplugins):
-        plugins = {str(i + 1): p for i, p in enumerate(plugins)}
-        plugins.update(kwplugins)
-        plugins = {
-            name: Tap(p) if isinstance(p, str) else p
-            for name, p in plugins.items()
-        }
+        plugins, return_object = _collect_plugins(plugins, kwplugins)
         return self.clone(
             plugins={**self.plugins, **plugins},
-            return_object=any(p.hasoutput for name, p in plugins.items()),
+            return_object=return_object,
         )
+
+    def use(self, *plugins, **kwplugins):
+        plugins, _ = _collect_plugins(plugins, kwplugins)
+        self.plugins.update(plugins)
+        return self
+
+    def collect(self, query):
+        plugin = _to_plugin(query)
+        def deco(fn):
+            self.plugins[fn.__name__] = plugin.hook(fn)
+        return deco
+
+    def on(self, query, full=False, all=False):
+        plugin = _to_plugin(query)
+        def deco(fn):
+            def finalize(coll):
+                if full:
+                    return coll.map_full(fn)
+                elif all:
+                    return coll.map_all(fn)
+                else:
+                    return coll.map(fn)
+            self.plugins[fn.__name__] = plugin.hook(finalize)
+        return deco
 
     def __call__(self, *args, **kwargs):
         rulesets = []
