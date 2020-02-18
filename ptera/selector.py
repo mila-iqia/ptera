@@ -17,6 +17,12 @@ class Element:
     focus: bool = False
     key_field: str = None
 
+    def with_focus(self):
+        return self.clone(focus=True)
+
+    def without_focus(self):
+        return self.clone(focus=False)
+
     def clone(self, **changes):
         return dc_replace(self, **changes)
 
@@ -34,16 +40,16 @@ class Element:
 
     def rewrite(self, required, focus=None):
         if focus is not None and focus == self.capture:
-            return self.clone(focus=True)
+            return self.with_focus()
         elif focus is None and self.focus:
             return self
         elif self.capture not in required:
             if self.value is ABSENT:
                 return None
             else:
-                return self.clone(capture=None, focus=False)
+                return self.clone(capture=None).without_focus()
         elif focus is not None:
-            return self.clone(focus=False)
+            return self.without_focus()
         else:
             return self
 
@@ -194,7 +200,7 @@ parser = opparse.Parser(
 
 def _guarantee_call(parent, context):
     if isinstance(parent, Element):
-        parent = parent.clone(capture=None, focus=False)
+        parent = parent.clone(capture=None).without_focus()
         immediate = context == "incall"
         parent = Call(element=parent, captures=(), immediate=immediate)
     assert isinstance(parent, Call)
@@ -245,7 +251,7 @@ def make_nested_imm(node, parent, child, context):
     child = evaluate(child, context=context)
     parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
-        child = child.clone(focus=True)
+        child = child.with_focus()
         return parent.clone(captures=parent.captures + (child,))
     else:
         return parent.clone(
@@ -259,7 +265,7 @@ def make_nested(node, parent, child, context):
     child = evaluate(child, context=context)
     parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
-        child = child.clone(focus=True)
+        child = child.with_focus()
         child = Call(
             element=Element(name=None),
             captures=(child,),
@@ -419,7 +425,7 @@ def to_pattern(pattern, context="root"):
     if isinstance(pattern, Element):
         pattern = Call(
             element=Element(None),
-            captures=(pattern.clone(focus=True),),
+            captures=(pattern.with_focus(),),
             immediate=False,
         )
     assert isinstance(pattern, Call)
