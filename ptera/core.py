@@ -511,10 +511,7 @@ def _to_plugin(spec):
 def _collect_plugins(plugins, kwplugins):
     plugins = {str(i + 1): p for i, p in enumerate(plugins)}
     plugins.update(kwplugins)
-    plugins = {
-        name: _to_plugin(p)
-        for name, p in plugins.items()
-    }
+    plugins = {name: _to_plugin(p) for name, p in plugins.items()}
     return plugins, any(p.hasoutput for name, p in plugins.items())
 
 
@@ -566,8 +563,7 @@ class PteraFunction(Selfless):
     def using(self, *plugins, **kwplugins):
         plugins, return_object = _collect_plugins(plugins, kwplugins)
         return self.clone(
-            plugins={**self.plugins, **plugins},
-            return_object=return_object,
+            plugins={**self.plugins, **plugins}, return_object=return_object,
         )
 
     def use(self, *plugins, **kwplugins):
@@ -577,12 +573,15 @@ class PteraFunction(Selfless):
 
     def collect(self, query):
         plugin = _to_plugin(query)
+
         def deco(fn):
             self.plugins[fn.__name__] = plugin.hook(fn)
+
         return deco
 
     def on(self, query, full=False, all=False):
         plugin = _to_plugin(query)
+
         def deco(fn):
             def finalize(coll):
                 if full:
@@ -591,7 +590,9 @@ class PteraFunction(Selfless):
                     return coll.map_all(fn)
                 else:
                     return coll.map(fn)
+
             self.plugins[fn.__name__] = plugin.hook(finalize)
+
         return deco
 
     def __call__(self, *args, **kwargs):
