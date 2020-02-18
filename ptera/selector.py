@@ -17,6 +17,9 @@ class Element:
     focus: bool = False
     key_field: str = None
 
+    def clone(self, **changes):
+        return dc_replace(self, **changes)
+
     def all_captures(self):
         if self.capture:
             return {self.capture}
@@ -31,16 +34,16 @@ class Element:
 
     def rewrite(self, required, focus=None):
         if focus is not None and focus == self.capture:
-            return dc_replace(self, focus=True)
+            return self.clone(focus=True)
         elif focus is None and self.focus:
             return self
         elif self.capture not in required:
             if self.value is ABSENT:
                 return None
             else:
-                return dc_replace(self, capture=None, focus=False)
+                return self.clone(capture=None, focus=False)
         elif focus is not None:
-            return dc_replace(self, focus=False)
+            return self.clone(focus=False)
         else:
             return self
 
@@ -54,16 +57,15 @@ class Element:
         spc = specializations.get(self.capture, ABSENT)
         if spc is ABSENT:
             return self
-        rval = dc_replace(
-            self,
+        rval = self.clone(
             name=self.name if spc.name is None else spc.name,
             category=self.category if spc.category is None else spc.category,
             value=self.value if spc.value is ABSENT else spc.value,
         )
         if rval.key_field == "name" and rval.name is not None:
-            rval = dc_replace(rval, key_field=None)
+            rval = rval.clone(key_field=None)
         if rval.key_field == "value" and rval.value is not ABSENT:
-            rval = dc_replace(rval, key_field=None)
+            rval = rval.clone(key_field=None)
         return rval
 
     def encode(self):
@@ -100,6 +102,9 @@ class Call:
     def focus(self):
         return any(x.focus for x in self.captures + self.children)
 
+    def clone(self, **changes):
+        return dc_replace(self, **changes)
+
     def all_captures(self):
         rval = set()
         for x in self.captures + self.children:
@@ -122,8 +127,8 @@ class Call:
         if not captures and not children:
             return None
 
-        return dc_replace(
-            self, captures=tuple(captures), children=tuple(children)
+        return self.clone(
+            captures=tuple(captures), children=tuple(children)
         )
 
     def key_captures(self):
@@ -135,8 +140,7 @@ class Call:
         return rval
 
     def specialize(self, specializations):
-        return dc_replace(
-            self,
+        return self.clone(
             element=self.element and self.element.specialize(specializations),
             children=tuple(
                 child.specialize(specializations) for child in self.children
@@ -190,7 +194,7 @@ parser = opparse.Parser(
 
 def _guarantee_call(parent, context):
     if isinstance(parent, Element):
-        parent = dc_replace(parent, capture=None, focus=False)
+        parent = parent.clone(capture=None, focus=False)
         immediate = context == "incall"
         parent = Call(element=parent, captures=(), immediate=immediate)
     assert isinstance(parent, Call)
@@ -241,12 +245,11 @@ def make_nested_imm(node, parent, child, context):
     child = evaluate(child, context=context)
     parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
-        child = dc_replace(child, focus=True)
-        return dc_replace(parent, captures=parent.captures + (child,))
+        child = child.clone(focus=True)
+        return parent.clone(captures=parent.captures + (child,))
     else:
-        return dc_replace(
-            parent,
-            children=parent.children + (dc_replace(child, immediate=True),),
+        return parent.clone(
+            children=parent.children + (child.clone(immediate=True),),
         )
 
 
@@ -256,21 +259,21 @@ def make_nested(node, parent, child, context):
     child = evaluate(child, context=context)
     parent = _guarantee_call(parent, context=context)
     if isinstance(child, Element):
-        child = dc_replace(child, focus=True)
+        child = child.clone(focus=True)
         child = Call(
             element=Element(name=None),
             captures=(child,),
             immediate=False,
             collapse=True,
         )
-    return dc_replace(parent, children=parent.children + (child,))
+    return parent.clone(children=parent.children + (child,))
 
 
 @evaluate.register_action("_ > X")
 def make_nested_imm_pfx(node, _, child, context):
     child = evaluate(child, context=context)
     child = _guarantee_call(child, context=context)
-    return dc_replace(child, immediate=True)
+    return child.clone(immediate=True)
 
 
 @evaluate.register_action("_ >> X")
@@ -284,7 +287,7 @@ def make_nested_pfx(node, _, child, context):
             collapse=True,
         )
     else:
-        return dc_replace(child, immediate=False)
+        return child.clone(immediate=False)
 
 
 @evaluate.register_action("X : X")
@@ -293,7 +296,7 @@ def make_class(node, element, klass, context):
     klass = evaluate(klass, context=context)
     assert isinstance(klass, Element)
     assert not element.category
-    return dc_replace(element, category=category_registry[klass.name])
+    return element.clone(category=category_registry[klass.name])
 
 
 @evaluate.register_action("_ : X")
@@ -308,7 +311,7 @@ def make_class(node, _, klass, context):
 def make_class(node, _, element, context):
     element = evaluate(element, context=context)
     assert isinstance(element, Element)
-    return dc_replace(element, focus=True)
+    return element.clone(focus=True)
 
 
 @evaluate.register_action("_ $ X")
@@ -333,7 +336,7 @@ def make_instance(node, element, key, _, context):
         capture=key.capture if key.name != key.capture else None,
         key_field="value" if key.name is None else None,
     )
-    return dc_replace(element, captures=element.captures + (key,))
+    return element.clone(captures=element.captures + (key,))
 
 
 @evaluate.register_action("X { _ } _")
@@ -351,8 +354,8 @@ def make_call_capture(node, fn, names, _2, context):
     fn = _guarantee_call(fn, context=context)
     caps = tuple(name for name in names if isinstance(name, Element))
     children = tuple(name for name in names if isinstance(name, Call))
-    return dc_replace(
-        fn, captures=fn.captures + caps, children=fn.children + children
+    return fn.clone(
+        captures=fn.captures + caps, children=fn.children + children
     )
 
 
@@ -370,8 +373,7 @@ def make_as(node, element, name, context):
     element = evaluate(element, context=context)
     name = evaluate(name, context=context)
     if isinstance(element, Element):
-        return dc_replace(
-            element,
+        return element.clone(
             capture=name.name,
             key_field="name" if element.name is None else None,
         )
@@ -379,7 +381,7 @@ def make_as(node, element, name, context):
         new_capture = Element(
             name="#value", capture=name.name, focus=context == "root"
         )
-        return dc_replace(element, captures=element.captures + (new_capture,))
+        return element.clone(captures=element.captures + (new_capture,))
 
 
 @evaluate.register_action("X = X")
@@ -387,7 +389,7 @@ def make_equals(node, element, value, context):
     element = evaluate(element, context=context)
     value = evaluate(value, context=context)
     assert isinstance(value, Element)
-    return dc_replace(element, value=value.name, capture=None)
+    return element.clone(value=value.name, capture=None)
 
 
 @evaluate.register_action("SYMBOL")
@@ -417,7 +419,7 @@ def to_pattern(pattern, context="root"):
     if isinstance(pattern, Element):
         pattern = Call(
             element=Element(None),
-            captures=(dc_replace(pattern, focus=True),),
+            captures=(pattern.clone(focus=True),),
             immediate=False,
         )
     assert isinstance(pattern, Call)
