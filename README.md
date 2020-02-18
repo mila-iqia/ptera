@@ -182,3 +182,90 @@ This will apply to all calls to `square` within the execution of `sumsquares`. A
 result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
 assert result == 9
 ```
+
+
+## Query language
+
+Here is some code annotated with queries that will match various variables. The queries are not exhaustive, just examples.
+
+* The semicolon ";" is used to separate queries and it is not part of any query.
+* The hash character "#" *is* part of the query if there is no space after it, otherwise it starts a comment.
+
+```python
+Animal = Category("Animal")
+Thing = Category("Thing")
+
+
+def art(a, b):           # art > a ; art > b ; art{!a, b} ; art{a, !b}
+
+    a1: Animal = bee(a)  # a1 ; art > a1 ; art{!a1} ; art > $x
+                         # a1:Animal ; $x:Animal
+                         # art{!a1} > bee > d  # Focus on a1, also includes d
+                         # art > bee  # This refers to the bee function
+                         # * > a1 ; *{!a1}
+
+    a2: Thing = cap(b)   # a2 ; art > a2 ; art{!a2} ; art > $x
+                         # a2:Thing ; $x:Thing
+
+    return a1 + a2       # art > #value ; art{#value as art_result}
+                         # art{} as art_result
+                         # art > $x
+
+def bee(c):
+    c1 = c + 1           # bee > c1 ; art >> c1 ; art{a2} > bee > c1
+                         # bee > c1 as xyz
+
+    return c1            # bee > #value ; bee{c} as bee_value
+
+def cap(d: Thing):       # cap > d ; $x:Thing ; cap > $x
+                         # art{bee{c}} > cap > d
+    return d * d
+```
+
+* The `!` operator marks the **focus** of the query. There will be one result for each time the focus is triggered, and when using `tweak` or `rewrite` the focus is what is being tweaked or rewritten.
+  * Other variables are supplemental information, available along with the focus in query results. They can also be used to compute a value for the focus *if* they are available by the time the focus is reached.
+  * The nesting operators `>` and `>>` automatically set the focus to the right hand side if the rhs is a single variable and the operator is not inside `{...}`.
+* The wildcard `*` stands in for any function.
+* The `>>` operator represents **deep nesting**. For example, `art >> c1` encompasses the pattern `art > bee > c1`.
+  * In general, `a >> z` encompasses `a > z`, `a > b > z`, `a > b > c > z`, `a > * > z`, and so on.
+* A function's return value corresponds to a special variable named `#value`.
+* `$x` will match any variable name. Getting the variable name for the capture is possible but requires the `map_full` method. For example:
+  * Query: `art > $x`
+  * Getting the names: `results.map_full(lambda x: x.name) == ["a1", "a2", "#value"]`
+  * Other fields accessible from `map_full` are `value`, `names` and `values`, the latter two being needed if multiple results are captured together.
+* Variable annotations are preserved and can be filtered on, using the `:` operator. They must currently be created using `ptera.Category`.
+* `art{bee{c}} > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
+  * If there are multiple calls to `bee`, all values of `c` will be pooled together, and it will be necessary to use `map_all` to retrieve the values (or `map_full`).
+
+
+### Equivalencies
+
+Ptera's query language syntax includes a lot of expressions, but it reduces to a relatively simple core:
+
+
+```
+# A lone symbol becomes a match for a variable in a wildcard function
+a               <=>  *{!a}
+
+# Nesting operator > is sugar for {...}
+a > b           <=>  a{!b}
+a > b > c       <=>  a{b{!c}}
+
+# Infix >> is sugar for prefix >>
+a >> b > c      <=>  a{>> b{!c}}
+a >> b          <=>  a{>> !b}   <~>  a{>> *{!b}}  (see note)
+
+# $x is shorthand for as
+f{$x}           <=>  f{* as x}
+
+# Indexing is sugar for #key
+a[0]            <=>  a{#key=0}
+a[0] as a0      <=>  a{#key=0, #value as a0}
+a[$i] as a      <=>  a{#key as i, #value as a}
+
+# Shorthand for #value
+a{x, y} as b    <=>  a{x, y, #value as b}
+a{} as b        <=>  a{#value as b}
+```
+
+Note: `a{>> b}` and `a{>> *{!b}}` are not 100% equivalent, because the former encompasses `a{> b}` and the latter does not, but internally the former is basically encoded as the latter plus a special "collapse" flag that there is no syntax for.
