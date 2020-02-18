@@ -14,14 +14,18 @@ class Element:
     value: object = ABSENT
     category: Category = None
     capture: object = None
-    focus: bool = False
+    tags: frozenset = frozenset()
     key_field: str = None
 
+    @property
+    def focus(self):
+        return 1 in self.tags
+
     def with_focus(self):
-        return self.clone(focus=True)
+        return self.clone(tags=self.tags | frozenset({1}))
 
     def without_focus(self):
-        return self.clone(focus=False)
+        return self.clone(tags=self.tags - frozenset({1}))
 
     def clone(self, **changes):
         return dc_replace(self, **changes)
@@ -86,7 +90,7 @@ class Element:
                 else f" as {self.capture}"
             )
         cat = "" if self.category is None else f":{self.category}"
-        focus = "!" if self.focus else ""
+        focus = "!" * max(self.tags, default=0)
         val = f"={self.value}" if self.value is not ABSENT else ""
         return f"{focus}{name}{cap}{cat}{val}"
 
@@ -111,6 +115,15 @@ class Call:
     def clone(self, **changes):
         return dc_replace(self, **changes)
 
+    def find_tag(self, tag):
+        results = set()
+        for child in self.children:
+            results |= child.find_tag(tag)
+        for cap in self.captures:
+            if tag in cap.tags:
+                results.add(cap)
+        return results
+
     def all_captures(self):
         rval = set()
         for x in self.captures + self.children:
@@ -133,9 +146,7 @@ class Call:
         if not captures and not children:
             return None
 
-        return self.clone(
-            captures=tuple(captures), children=tuple(children)
-        )
+        return self.clone(captures=tuple(captures), children=tuple(children))
 
     def key_captures(self):
         rval = self.element.key_captures()
@@ -177,7 +188,7 @@ class Call:
 parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r"\s*(?:\bas\b|>>|[(){}\[\]>.:,$!=])?\s*": "OPERATOR",
+            r"\s*(?:\bas\b|>>|!+|[(){}\[\]>.:,$=])?\s*": "OPERATOR",
             r"[a-zA-Z_0-9#*]+": "WORD",
         }
     ),
@@ -186,7 +197,7 @@ parser = opparse.Parser(
             ",": opparse.rassoc(10),
             ("", ">", ">>"): opparse.rassoc(100),
             "=": opparse.lassoc(120),
-            "!": opparse.lassoc(150),
+            ("!", "!!"): opparse.lassoc(150),
             ":": opparse.lassoc(200),
             "as": opparse.rassoc(250),
             "$": opparse.lassoc(300),
@@ -317,7 +328,14 @@ def make_class(node, _, klass, context):
 def make_class(node, _, element, context):
     element = evaluate(element, context=context)
     assert isinstance(element, Element)
-    return element.clone(focus=True)
+    return element.with_focus()
+
+
+@evaluate.register_action("_ !! X")
+def make_class(node, _, element, context):
+    element = evaluate(element, context=context)
+    assert isinstance(element, Element)
+    return element.clone(tags=frozenset(element.tags | {2}))
 
 
 @evaluate.register_action("_ $ X")
@@ -384,8 +402,11 @@ def make_as(node, element, name, context):
             key_field="name" if element.name is None else None,
         )
     else:
+        focus = context == "root"
         new_capture = Element(
-            name="#value", capture=name.name, focus=context == "root"
+            name="#value",
+            capture=name.name,
+            tags=frozenset({1}) if focus else frozenset(),
         )
         return element.clone(captures=element.captures + (new_capture,))
 
@@ -411,7 +432,11 @@ def make_symbol(node, context):
         except ValueError:
             pass
         focus = context == "root"
-        element = Element(name=value, capture=cap, focus=focus)
+        element = Element(
+            name=value,
+            capture=cap,
+            tags=frozenset({1}) if focus else frozenset(),
+        )
     return element
 
 

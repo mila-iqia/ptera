@@ -69,12 +69,14 @@ def test_parser_equivalencies():
 @one_test_per_assert
 def test_parser():
     assert sel.parse("apple") == sel.Element(
-        name="apple", capture="apple", focus=True
+        name="apple", capture="apple", tags=frozenset({1})
     )
 
     assert sel.parse("apple > banana") == sel.Call(
         sel.Element("apple"),
-        captures=(sel.Element("banana", capture="banana", focus=True),),
+        captures=(
+            sel.Element("banana", capture="banana", tags=frozenset({1})),
+        ),
         immediate=False,
     )
 
@@ -84,7 +86,11 @@ def test_parser():
         children=(
             sel.Call(
                 element=sel.Element(None),
-                captures=(sel.Element("banana", capture="banana", focus=True),),
+                captures=(
+                    sel.Element(
+                        "banana", capture="banana", tags=frozenset({1})
+                    ),
+                ),
                 immediate=False,
                 collapse=True,
             ),
@@ -97,7 +103,11 @@ def test_parser():
         children=(
             sel.Call(
                 element=sel.Element("banana"),
-                captures=(sel.Element("cherry", capture="cherry", focus=True),),
+                captures=(
+                    sel.Element(
+                        "cherry", capture="cherry", tags=frozenset({1})
+                    ),
+                ),
                 immediate=True,
             ),
         ),
@@ -111,7 +121,9 @@ def test_parser():
     assert sel.parse("apple > :Fruit") == sel.Call(
         element=sel.Element("apple"),
         captures=(
-            sel.Element(name=None, category=Fruit, capture=None, focus=True),
+            sel.Element(
+                name=None, category=Fruit, capture=None, tags=frozenset({1})
+            ),
         ),
         immediate=False,
     )
@@ -123,7 +135,7 @@ def test_parser():
 
     assert sel.parse("apple{!a}") == sel.Call(
         element=sel.Element("apple"),
-        captures=(sel.Element(name="a", capture="a", focus=True),),
+        captures=(sel.Element(name="a", capture="a", tags=frozenset({1})),),
     )
 
     assert sel.parse("apple{a, b, c, d as e}") == sel.Call(
@@ -174,6 +186,10 @@ def test_parser():
 
     assert sel.parse("$f:Fruit") == sel.Element(
         name=None, category=Fruit, capture="f", key_field="name"
+    )
+
+    assert sel.parse("!!x") == sel.Element(
+        name="x", category=None, capture="x", tags=frozenset({1, 2})
     )
 
 
