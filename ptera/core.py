@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from copy import copy
 from itertools import chain, count
 
+from .categories import Category, CategorySet, category_registry
 from .selector import Call, Element, to_pattern
 from .selfless import Override, Selfless, choose, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
@@ -88,9 +89,39 @@ class Capture:
         return None if self.element.name is None else False
 
     def check(self, varname, category, value):
+        def catmatch(elcat, cat):
+            if isinstance(elcat, str):
+                elcat = category_registry[elcat]
+
+            if category is None:
+                cats = set()
+            elif isinstance(category, CategorySet):
+                cats = category.members
+            else:
+                cats = {category}
+
+            rval = False
+            if elcat is None:
+                rval = True
+            elif isinstance(elcat, type) and isinstance(value, elcat):
+                rval = True
+
+            for cat in cats:
+                if isinstance(cat, type):
+                    if value is not ABSENT:
+                        assert isinstance(value, cat)
+                elif (
+                    isinstance(cat, Category)
+                    and isinstance(elcat, Category)
+                    and cat == elcat
+                ):
+                    rval = True
+
+            return rval
+
         el = self.element
         assert el.name is None or varname == el.name
-        if el.category and not el.category.contains(category):
+        if not catmatch(el.category, category):
             return self.nomatch()
         elif el.value is not ABSENT and el.value != value:
             return self.nomatch()

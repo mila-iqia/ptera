@@ -1,13 +1,11 @@
-from ptera import Category, ptera
+from ptera import Category, cat, ptera
 from ptera.storage import Storage, initializer, updater, valuer
-
-from .common import Bouffe, Fruit, Legume
 
 
 @ptera
 def mul(x):
-    factor1: Fruit
-    factor2: Legume
+    factor1: cat.Bouffe + cat.Fruit
+    factor2: cat.Bouffe + cat.Legume
     factor = factor1 + factor2
     return factor * x
 
@@ -64,11 +62,11 @@ def test_storage_valuer_3():
         pattern = "$f:Bouffe"
         default_target = "f"
 
-        @valuer(target_category=Fruit)
+        @valuer(target_category=cat.Fruit)
         def init_factor1(self):
             return 1
 
-        @valuer(target_category=Legume)
+        @valuer(target_category=cat.Legume)
         def init_factor2(self):
             return 2
 
@@ -127,15 +125,15 @@ def test_storage_updater_2():
         pattern = "$f:Bouffe"
         default_target = "f"
 
-        @initializer(target_category=Fruit)
+        @initializer(target_category=cat.Fruit)
         def init_factor1(self):
             return 1
 
-        @initializer(target_category=Legume)
+        @initializer(target_category=cat.Legume)
         def init_factor2(self):
             return 2
 
-        @updater(target_category=Fruit)
+        @updater(target_category=cat.Fruit)
         def update_factor(self, f):
             return f + 1
 

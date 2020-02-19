@@ -313,15 +313,13 @@ def make_class(node, element, klass, context):
     klass = evaluate(klass, context=context)
     assert isinstance(klass, Element)
     assert not element.category
-    return element.clone(category=category_registry[klass.name])
+    return element.clone(category=klass.name)
 
 
 @evaluate.register_action("_ : X")
 def make_class(node, _, klass, context):
     klass = evaluate(klass, context=context)
-    return Element(
-        name=None, category=category_registry[klass.name], capture=None
-    )
+    return Element(name=None, category=klass.name, capture=None,)
 
 
 @evaluate.register_action("_ ! X")

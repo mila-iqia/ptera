@@ -1,4 +1,4 @@
-from .categories import Category
+from .categories import Category, cat
 from .core import (
     PatternCollection,
     PteraFunction,

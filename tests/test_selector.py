@@ -1,8 +1,8 @@
 import pytest
 
-from ptera import Category, selector as sel
+from ptera import selector as sel
 
-from .common import Bouffe, Fruit, Weapon, one_test_per_assert
+from .common import one_test_per_assert
 
 
 def lex(code):
@@ -115,14 +115,14 @@ def test_parser():
     )
 
     assert sel.parse("*:Fruit") == sel.Element(
-        name=None, category=Fruit, capture=None,
+        name=None, category="Fruit", capture=None,
     )
 
     assert sel.parse("apple > :Fruit") == sel.Call(
         element=sel.Element("apple"),
         captures=(
             sel.Element(
-                name=None, category=Fruit, capture=None, tags=frozenset({1})
+                name=None, category="Fruit", capture=None, tags=frozenset({1})
             ),
         ),
         immediate=False,
@@ -166,7 +166,7 @@ def test_parser():
         element=sel.Element("axe"),
         children=(
             sel.Call(
-                element=sel.Element("bow", category=Weapon),
+                element=sel.Element("bow", category="Weapon"),
                 children=(
                     sel.Call(
                         element=sel.Element("crowbar"),
@@ -185,7 +185,7 @@ def test_parser():
     )
 
     assert sel.parse("$f:Fruit") == sel.Element(
-        name=None, category=Fruit, capture="f", key_field="name"
+        name=None, category="Fruit", capture="f", key_field="name"
     )
 
     assert sel.parse("!!x") == sel.Element(
@@ -277,9 +277,9 @@ def test_specialize():
     ) == sel.parse("co >> co[x as n] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name=None, category=Fruit)}
+        {"nut": sel.Element(name=None, category="Fruit")}
     ) == sel.parse("co >> co >> $nut:Fruit")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name="coconut", category=Fruit)}
+        {"nut": sel.Element(name="coconut", category="Fruit")}
     ) == sel.parse("co >> co >> (coconut as nut):Fruit")

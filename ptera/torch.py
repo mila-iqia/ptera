@@ -1,12 +1,9 @@
 import torch
 
-from .categories import Category
+from .categories import Category, register_category
 from .core import Capture, Collector, to_pattern
 
-Learnable = Category("Learnable")
-WeightMatrix = Category("WeightMatrix", [Learnable])
-BiasVector = Category("BiasVector", [Learnable])
-ActivationFunction = Category("ActivationFunction")
+register_category("Parameter", torch.nn.Parameter)
 
 
 class GradCollector(Collector):

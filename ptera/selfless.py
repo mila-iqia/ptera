@@ -223,19 +223,6 @@ def transform(fn, interact):
     glb["__ptera_interact"] = interact
     glb["__ptera_ABSENT"] = ABSENT
     exec(new_fn, glb, glb)
-    # def _get(v):
-    #     val = glb.get(v, ABSENT)
-    #     if val is ABSENT:
-    #         val = getattr(builtins, v, ABSENT)
-    #     return val
-    # state = {
-    #     v: _get(v)
-    #     for v in transformer.external
-    # }
-
-    # state = {}
-    # for k, v in transformer.defaults.items():
-    #     state[k] = eval(compile(ast.Expression(v), filename, "eval"), glb, glb)
 
     state = {
         k: eval(compile(ast.Expression(v), filename, "eval"), glb, glb)

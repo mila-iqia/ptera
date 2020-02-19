@@ -5,13 +5,6 @@ from textwrap import dedent
 
 from _pytest.assertion.rewrite import AssertionRewriter
 
-from ptera import Category
-
-Bouffe = Category("Bouffe")
-Fruit = Category("Fruit", [Bouffe])
-Legume = Category("Legume", [Bouffe])
-Weapon = Category("Weapon", [Bouffe])
-
 
 class AssertTransformer(NodeTransformer):
     def visit_FunctionDef(self, node):

@@ -4,6 +4,7 @@ import pytest
 from ptera import (
     PatternCollection,
     Recurrence,
+    cat,
     overlay,
     override,
     ptera,
@@ -11,13 +12,13 @@ from ptera import (
     to_pattern,
 )
 
-from .common import Bouffe, Fruit, Legume, one_test_per_assert
+from .common import one_test_per_assert
 
 
 @ptera
 def brie(x, y):
-    a: Bouffe = x * x
-    b: Bouffe = y * y
+    a: cat.Bouffe = x * x
+    b: cat.Bouffe = y * y
     return a + b
 
 
@@ -122,6 +123,9 @@ def test_patterns():
         {"a": [13], "v": [121]},
     ]
 
+    assert _dbrie("brie > x:int") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("brie > x:float") == []
+
 
 @ptera
 def snapple(x):
@@ -200,7 +204,7 @@ def test_nested_overlay():
 
 @ptera
 def mystery(hat):
-    surprise: Fruit
+    surprise: cat.MyStErY
     return surprise * hat
 
 
