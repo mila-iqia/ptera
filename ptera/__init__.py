@@ -11,6 +11,19 @@ from .selfless import Override, override, transform
 from .storage import Storage, initializer, updater, valuer
 
 
-def ptera(fn):
-    new_fn, state = transform(fn, interact=interact)
-    return PteraFunction(new_fn, state)
+class PteraDecorator:
+    def __init__(self, kwargs):
+        self.kwargs = kwargs
+
+    def defaults(self, **defaults):
+        return self({**self.kwargs, "defaults": defaults})
+
+    def __call__(self, fn):
+        new_fn, state = transform(fn, interact=interact)
+        fn = PteraFunction(new_fn, state)
+        if "defaults" in self.kwargs:
+            fn = fn.new(**self.kwargs)
+        return fn
+
+
+ptera = PteraDecorator({})
