@@ -18,16 +18,14 @@ This is very early and very experimental (like all of Ptera at the moment), but 
 import torch
 
 from ptera import Recurrence
-from ptera.torch import (
-    ActivationFunction, BiasVector, Grad, Learnable, WeightMatrix
-)
+from ptera.torch import Grad
 
 
 @ptera
 def layer(inp):
-    W: WeightMatrix
-    b: BiasVector
-    actfn: ActivationFunction
+    W: torch.nn.Parameter
+    b: torch.nn.Parameter
+    actfn: object
 
     act = inp @ W + b
     return actfn(act)
@@ -79,7 +77,7 @@ def train(dataset):
 
     model = make_network(784, 1000, 10).clone(return_object=True)
 
-    @model.on(Grad("step{!!loss} >> layer > $param:Learnable"))
+    @model.on(Grad("step{!!loss} >> $param:Parameter"))
     def update(param):
         param_value, param_grad = param
         param_value.data.add_(-0.01 * param_grad)
@@ -124,7 +122,7 @@ def step(inp, target):
     model: object
     lossfn: object
 
-    output = model.using(weights="$param:WeightMatrix")(inp)
+    output = model.using(weights="$param:Parameter")(inp)
     reg = sum(output.weights.map(lambda param: param.abs().mean()))
     loss = lossfn(output.value, target) + reg
     return loss
@@ -140,10 +138,10 @@ One neat feature of Ptera is that it is easy to add parameters anywhere in the p
 ```python
 @ptera
 def layer(inp):
-    W: WeightMatrix
-    b: BiasVector
+    W: torch.nn.Parameter
+    b: torch.nn.Parameter
     T: float  # Declare the new parameter here
-    actfn: ActivationFunction
+    actfn: object
 
     act = inp @ W + b
     return actfn(act / T)  # Use it here
@@ -153,16 +151,16 @@ Then, you can set this parameter and play with it:
 
 ```python
 # You can initially set it with new
-layer1 = layer.new(W=..., b=..., actfn=..., T=1)
+layer1 = layer.new(W=..., b=..., actfn=..., T=1.0)
 
 # Tweak the temperature to 1
-model.tweak({"layer > T": 1})(inp)
+model.tweak({"layer > T": 1.0})(inp)
 
 # Tweak the temperature to 2
-model.tweak({"layer > T": 2})(inp)
+model.tweak({"layer > T": 2.0})(inp)
 
 # Tweak the temperature to 10 but ONLY for layer 1
-model.tweak({"layer[1] > T": 10})(inp)
+model.tweak({"layer[1] > T": 10.0})(inp)
 ```
 
 You can also easily make it a parameter of the model and update it with gradient descent.
