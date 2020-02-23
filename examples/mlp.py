@@ -59,17 +59,17 @@ def sequential(inp):
 
 @ptera
 def step(inp, target):
-    # Regularize the magnitude of the weights
-    regularize_weights: cat.CliArgument = default(0)
+    # How much to regulate the magnitude of the weights
+    weight_reg: cat.CliArgument = default(0)
 
     model: cat.Model
     lossfn: cat.LossFunction
 
-    if regularize_weights:
+    if weight_reg:
         results = model.using(weights="$param:WeightMatrix")(inp)
         output = results.value
         reg = sum(results.weights.map(lambda param: param.abs().sum()))
-        loss = lossfn(output, target) + regularize_weights * reg
+        loss = lossfn(output, target) + weight_reg * reg
     else:
         output = model(inp)
         loss = lossfn(output, target)
