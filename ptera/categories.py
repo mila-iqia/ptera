@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from .utils import ABSENT
+
 category_registry = {
     "int": int,
     "float": float,
@@ -63,6 +65,40 @@ class CategorySet:
 class _CategoryFactory:
     def __getattr__(self, name):
         return Category(name)
+
+
+def match_category(to_match, category, value=ABSENT):
+    if isinstance(to_match, str):
+        to_match = category_registry[to_match]
+
+    if category is None:
+        cats = set()
+    elif isinstance(category, CategorySet):
+        cats = category.members
+    else:
+        cats = {category}
+
+    rval = False
+    if to_match is None:
+        rval = True
+    elif isinstance(to_match, type) and isinstance(value, to_match):
+        rval = True
+
+    for cat in cats:
+        if isinstance(cat, type):
+            if value is ABSENT:
+                if isinstance(to_match, type) and issubclass(cat, to_match):
+                    rval = True
+            else:
+                assert isinstance(value, cat)
+        elif (
+            isinstance(cat, Category)
+            and isinstance(to_match, Category)
+            and cat == to_match
+        ):
+            rval = True
+
+    return rval
 
 
 cat = _CategoryFactory()
