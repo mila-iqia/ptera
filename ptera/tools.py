@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 
 from .categories import match_category
-from .core import PteraFunction, overlay, Override
+from .core import Override, PteraFunction, overlay
 from .selfless import PreState
 from .utils import ABSENT
 
@@ -81,12 +81,14 @@ class Configurator:
         cli=True,
         argparser=None,
         eval_env=None,
+        argv=None,
     ):
         if catalogue is None:
             catalogue = _catalogue_fn(entry_point)
         catalogue = catalogue
 
         self.category = category
+        self.argv = argv
         self.names = _find_configurable(catalogue, category)
         if cli:
             if argparser is None:
@@ -113,7 +115,7 @@ class Configurator:
                 return arg
 
     def __enter__(self):
-        args = self.argparser.parse_args()
+        args = self.argparser.parse_args(self.argv)
         self.ov = overlay(
             {
                 f"{name}:{self.category}": {
@@ -132,7 +134,6 @@ class Configurator:
         return self.ov.__exit__(exc, typ, tb)
 
 
-def auto_cli(entry_point, **kwargs):
-    cf = Configurator(entry_point=entry_point, **kwargs)
-    with cf:
-        entry_point()
+def auto_cli(fn, args=(), **kwargs):
+    with Configurator(entry_point=fn, **kwargs):
+        return fn(*args)

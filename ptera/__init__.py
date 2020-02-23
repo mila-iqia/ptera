@@ -7,8 +7,9 @@ from .core import (
     to_pattern,
 )
 from .recur import Recurrence
-from .selfless import Override, default, override, transform
+from .selfless import ConflictError, Override, default, override, transform
 from .storage import Storage, initializer, updater, valuer
+from .tools import Configurator, auto_cli, catalogue
 
 
 class PteraDecorator:
