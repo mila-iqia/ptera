@@ -61,7 +61,7 @@ def _fill_argparser(parser, names):
             else:
                 docs.add(f"Parameter in {fn}")
         parser.add_argument(
-            f"--{name}",
+            f"--{name.replace('_', '-')}",
             dest=name,
             action="store",
             metavar="VALUE",

@@ -6,10 +6,11 @@
 
 Ptera is a bit like a tracer, a bit like aspect-oriented programming, a bit like a new way to program. It chiefly aims to facilitate algorithm research, especially machine learning.
 
-Within Ptera,
+**Features!**
 
 * **"Selfless objects"** are objects that are defined as functions. The fields of these objects are simply the variables used in the function.
 * **Execution trace queries** lets you address any variable anywhere in functions decorated with `@ptera`, at arbitrary depths in the call tree, and either collect the values of these variables, or set these values.
+* **Automatic CLI** will create a command-line interface from any properly annotated variable anywhere in the code.
 
 Although they can be used independently, selfless objects and trace queries interact together in Ptera in order to form a new programming paradigm.
 
@@ -182,6 +183,53 @@ This will apply to all calls to `square` within the execution of `sumsquares`. A
 result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
 assert result == 9
 ```
+
+## Automatic CLI
+
+Ptera can automatically create a command-line interface from variables annotated with a certain category. The main advantage of `ptera.auto_cli` relative to other solutions is that the arguments are declared wherever you actually use them. Consider the following program, for example:
+
+```python
+def main():
+    for i in range(1000):
+        do_something()
+
+if __name__ == "__main__":
+    main()
+```
+
+It would be nice to be able to configure the number of iterations instead of using the hard-coded number 1000. Enter `ptera.auto_cli`:
+
+```python
+from ptera import auto_cli, cat, default, ptera
+
+@ptera
+def main():
+    # Number of iterations
+    n: cat.CliArgument = default(1000)
+    for i in range(n):
+        do_something()
+
+if __name__ == "__main__":
+    auto_cli(main, category=cat.CliArgument)
+```
+
+Then you can run it like this, for example:
+
+```bash
+$ python script.py --n 15
+```
+
+* Ptera will look for any variable annotated with the specified category within `@ptera` functions that are accessible from `main`.
+  * There is no need to pass an options object around. If you need to add an argument to any function in any file, you can just plop it in there and ptera should find it and allow you to set it on the command line.
+  * You can declare multiple CLI arguments in multiple places with the same name. They will all be set to the same value.
+* The comment right above the declaration of the variable, if there is one, is used as documentation.
+* The `default` function provides a default value for the argument.
+  * You don't have to provide one.
+  * Ptera uses a priority system to determine which value to choose and `default` sets a low priority. If you set a value but don't wrap it with `default`, you will get a `ConflictError` when trying to set the variable on the command line. This is the intended behavior.
+
+In the future, `auto_cli` will also support environment variables, configuration files, and extra options to catalogue all the variables that can be queried. For example, a planned feature is to be able to display where in the code each variable with a given category is declared and used.
+
+Another future feature: since it is within ptera's ability to set different values for the parameter `param` depending on the call context (e.g. with the `tweak` method), the ability to do this in a configuration file will be added at some point (just need to figure out the format).
 
 
 ## Query language

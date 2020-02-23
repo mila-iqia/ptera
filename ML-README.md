@@ -80,7 +80,7 @@ def train(dataset):
     @model.on(Grad("step{!!loss} >> $param:Parameter"))
     def update(param):
         param_value, param_grad = param
-        param_value.data.add_(-0.01 * param_grad)
+        param_value.data.sub_(0.01 * param_grad)
 
     for inputs, targets in dataset:
         results = model(inputs, targets)
@@ -170,3 +170,12 @@ The beauty of this is that each tweak to the model uses the exact same parameter
 This is hard/annoying to do using conventional frameworks: if you set the flag in the constructor for a layer in your model, how do you change it? How do you change it for all layers at once? If you add the flag as a parameter to the call to the step function, how do you propagate the flag down the call stack?
 
 This is a software engineering problem and no one has time for this kind of nonsense. With Ptera, you simply define the flag where you will need it, with a sensible default, and you can just write a simple query to override it where necessary.
+
+
+## Adding hyperparameters
+
+Hyperparameters can be added literally anywhere in the code. Using `ptera.auto_cli`, `ptera` can find all variables in a specified category (e.g. the `ptera.cat.HyperParameter` category) and it will create a command line interface that lets you set them.
+
+Normally, the workflow to add a new parameter that can be set on the command line or in a configuration file would be to a) declare it at the top level, b) propagate the configuration object where the parameter should be used, and then c) use the parameter. You will therefore need to write some code in two different locations.
+
+With ptera, it is enough to declare the new parameter where you intend to use it, give it the right category, document it with a comment, and then use it. You only need to add code at a single location.
