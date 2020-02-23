@@ -119,7 +119,7 @@ class Configurator:
                 f"{name}:{self.category}": {
                     "value": lambda __v=self.resolve(
                         getattr(args, name)
-                    ), **_: Override(__v, priority=2)
+                    ), **_: __v
                 }
                 for name in self.names
                 if getattr(args, name) is not None

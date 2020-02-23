@@ -297,6 +297,10 @@ def override(value, priority=1):
         return Override(value, priority=priority)
 
 
+def default(value, priority=-1):
+    return override(value, priority)
+
+
 class PreState:
     def __init__(self, state, names, glbls):
         self.state = state
@@ -383,7 +387,7 @@ def choose(opts):
             (opt.value, -opt.priority)
             if isinstance(opt, Override)
             else (opt, 0)
-            for opt in opts
+            for opt in real_opts
         ]
         with_prio.sort(key=lambda x: x[1])
         if with_prio[1][1] == with_prio[0][1]:
