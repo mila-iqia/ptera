@@ -1,6 +1,7 @@
 import ast
 import builtins
 import inspect
+import tokenize
 from ast import NodeTransformer, NodeVisitor
 from copy import copy
 from textwrap import dedent
@@ -10,6 +11,21 @@ from .utils import ABSENT, keyword_decorator
 idx = 0
 
 
+def readline_mock(src):
+    curr = -1
+    src = bytes(src, encoding="utf8")
+    lines = [line + b"\n" for line in src.split(b"\n")]
+
+    def readline():
+        nonlocal curr
+        curr = curr + 1
+        if curr >= len(lines):
+            raise StopIteration
+        return lines[curr]
+
+    return readline
+
+
 def gensym():
     global idx
     idx += 1
@@ -17,14 +33,18 @@ def gensym():
 
 
 class ExternalVariableCollector(NodeVisitor):
-    def __init__(self):
+    def __init__(self, comments):
         self.used = set()
         self.assigned = set()
+        self.comments = comments
+        self.vardoc = {}
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Load):
             self.used.add(node.id)
         else:
+            if node.lineno in self.comments:
+                self.vardoc[node.id] = self.comments[node.lineno]
             self.assigned.add(node.id)
 
     def visit_arg(self, node):
@@ -32,13 +52,15 @@ class ExternalVariableCollector(NodeVisitor):
 
 
 class PteraTransformer(NodeTransformer):
-    def __init__(self, tree):
+    def __init__(self, tree, comments):
         super().__init__()
-        evc = ExternalVariableCollector()
+        evc = ExternalVariableCollector(comments)
         evc.visit(tree)
+        self.vardoc = evc.vardoc
         self.used = evc.used
         self.assigned = evc.assigned
         self.external = evc.used - evc.assigned
+        self.annotated = {}
         self.defaults = {}
         self.result = self.visit_FunctionDef(tree, root=True)
 
@@ -49,6 +71,8 @@ class PteraTransformer(NodeTransformer):
         return ast.Name("__ptera_ABSENT", ctx=ast.Load())
 
     def make_interaction(self, target, ann, value):
+        if ann and isinstance(target, ast.Name):
+            self.annotated[target.id] = ann
         ann_arg = ann if ann else ast.Constant(value=None)
         value_arg = self._absent() if value is None else value
         if isinstance(target, ast.Name):
@@ -206,12 +230,25 @@ class PteraTransformer(NodeTransformer):
 
 def transform(fn, interact):
     src = dedent(inspect.getsource(fn))
+
+    comments = {}
+    for tok in tokenize.tokenize(readline_mock(src)):
+        if tok.type == tokenize.COMMENT:
+            if tok.line.strip().startswith("#"):
+                line = tok.end[0]
+                comments[line + 1] = tok.string[1:].strip()
+                if line in comments:
+                    comments[line + 1] = (
+                        comments[line] + "\n" + comments[line + 1]
+                    )
+                    del comments[line]
+
     filename = inspect.getsourcefile(fn)
     tree = ast.parse(src, filename)
     tree = tree.body[0]
     assert isinstance(tree, ast.FunctionDef)
     tree.decorator_list = []
-    transformer = PteraTransformer(tree)
+    transformer = PteraTransformer(tree, comments)
     new_tree = transformer.result
     ast.fix_missing_locations(new_tree)
     _, lineno = inspect.getsourcelines(fn)
@@ -229,10 +266,17 @@ def transform(fn, interact):
         for k, v in transformer.defaults.items()
     }
 
+    annotations = {
+        k: eval(compile(ast.Expression(v), filename, "eval"), glb, glb)
+        for k, v in transformer.annotated.items()
+    }
+
     fname = fn.__name__
     actual_fn = glb[fname]
     all_vars = transformer.used | transformer.assigned
-    state_obj = state_class(fname, all_vars)(state)
+    state_obj = state_class(fname, all_vars, transformer.vardoc, annotations)(
+        state
+    )
     # The necessary globals may not yet be set, so we create a "PreState" that
     # will be filled in whenever we first need to fetch the state.
     state_obj = PreState(state=state_obj, names=transformer.external, glbls=glb)
@@ -276,8 +320,18 @@ class BaseState:
             setattr(self, k, v)
 
 
-def state_class(fname, slots):
-    return type(f"{fname}.state", (BaseState,), {"__slots__": tuple(slots)})
+def state_class(fname, slots, vardoc, annotations):
+    for slot in slots:
+        annotations.setdefault(slot, ABSENT)
+    return type(
+        f"{fname}.state",
+        (BaseState,),
+        {
+            "__slots__": tuple(slots),
+            "__vardoc__": vardoc,
+            "__annotations__": annotations,
+        },
+    )
 
 
 class Selfless:
@@ -296,10 +350,6 @@ class Selfless:
         for k, v in values.items():
             setattr(rval.state, k, v)
         return rval
-        # new_state = copy(self.state)
-        # for k, v in values.items():
-        #     setattr(new_state, k, v)
-        # return type(self)(self.fn, new_state)
 
     def clone(self, **kwargs):
         kwargs = {"fn": self.fn, "state": copy(self.state), **kwargs}
