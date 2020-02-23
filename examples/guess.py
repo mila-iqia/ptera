@@ -25,7 +25,10 @@ def guess():
     # Maximal number of tries
     maxtries: cat.CliArgument = default(10)
 
-    target = random.randint(minimum, maximum)
+    # Force the number to guess (defaults to random)
+    target: cat.CliArgument = default(random.randint(minimum, maximum))
+
+    assert minimum <= target <= maximum
 
     print(f"> Please guess a number between {minimum} and {maximum}")
     for i in range(maxtries):
