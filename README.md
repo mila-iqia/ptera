@@ -242,33 +242,32 @@ Here is some code annotated with queries that will match various variables. The 
 * The hash character "#" *is* part of the query if there is no space after it, otherwise it starts a comment.
 
 ```python
-Animal = Category("Animal")
-Thing = Category("Thing")
+from ptera import cat
 
 
-def art(a, b):           # art > a ; art > b ; art{!a, b} ; art{a, !b}
+def art(a, b):               # art > a ; art > b ; art{!a, b} ; art{a, !b}
 
-    a1: Animal = bee(a)  # a1 ; art > a1 ; art{!a1} ; art > $x
-                         # a1:Animal ; $x:Animal
-                         # art{!a1} > bee > d  # Focus on a1, also includes d
-                         # art > bee  # This refers to the bee function
-                         # * > a1 ; *{!a1}
+    a1: cat.Animal = bee(a)  # a1 ; art > a1 ; art{!a1} ; art > $x
+                             # a1:Animal ; $x:Animal
+                             # art{!a1} > bee > d  # Focus on a1, also includes d
+                             # art > bee  # This refers to the bee function
+                             # * > a1 ; *{!a1}
 
-    a2: Thing = cap(b)   # a2 ; art > a2 ; art{!a2} ; art > $x
-                         # a2:Thing ; $x:Thing
+    a2: cat.Thing = cap(b)   # a2 ; art > a2 ; art{!a2} ; art > $x
+                             # a2:Thing ; $x:Thing
 
-    return a1 + a2       # art > #value ; art{#value as art_result}
-                         # art{} as art_result
-                         # art > $x
+    return a1 + a2           # art > #value ; art{#value as art_result}
+                             # art{} as art_result
+                             # art > $x
 
 def bee(c):
-    c1 = c + 1           # bee > c1 ; art >> c1 ; art{a2} > bee > c1
-                         # bee > c1 as xyz
+    c1 = c + 1               # bee > c1 ; art >> c1 ; art{a2} > bee > c1
+                             # bee > c1 as xyz
 
-    return c1            # bee > #value ; bee{c} as bee_value
+    return c1                # bee > #value ; bee{c} as bee_value
 
-def cap(d: Thing):       # cap > d ; $x:Thing ; cap > $x
-                         # art{bee{c}} > cap > d
+def cap(d: cat.Thing & int): # cap > d ; $x:Thing ; $x:int ; cap > $x
+                             # art{bee{c}} > cap > d
     return d * d
 ```
 
@@ -283,7 +282,7 @@ def cap(d: Thing):       # cap > d ; $x:Thing ; cap > $x
   * Query: `art > $x`
   * Getting the names: `results.map_full(lambda x: x.name) == ["a1", "a2", "#value"]`
   * Other fields accessible from `map_full` are `value`, `names` and `values`, the latter two being needed if multiple results are captured together.
-* Variable annotations are preserved and can be filtered on, using the `:` operator. They must currently be created using `ptera.Category`.
+* Variable annotations are preserved and can be filtered on, using the `:` operator. They may be types or "categories" (created using `ptera.Category("XYZ")` or `ptera.cat.XYZ`).
 * `art{bee{c}} > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
   * If there are multiple calls to `bee`, all values of `c` will be pooled together, and it will be necessary to use `map_all` to retrieve the values (or `map_full`).
 
