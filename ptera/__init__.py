@@ -1,21 +1,15 @@
-from .categories import Category, cat  # noqa
-from .core import (  # noqa
+from .categories import Category, cat
+from .core import (
     PatternCollection,
     PteraFunction,
     interact,
     overlay,
     to_pattern,
 )
-from .recur import Recurrence  # noqa
-from .selfless import (  # noqa
-    ConflictError,
-    Override,
-    default,
-    override,
-    transform,
-)
-from .storage import Storage, initializer, updater, valuer  # noqa
-from .tools import Configurator, auto_cli, catalogue  # noqa
+from .recur import Recurrence
+from .selfless import ConflictError, Override, default, override, transform
+from .storage import Storage, initializer, updater, valuer
+from .tools import Configurator, auto_cli, catalogue
 
 
 class PteraDecorator:
