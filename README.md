@@ -242,9 +242,10 @@ Here is some code annotated with queries that will match various variables. The 
 * The hash character "#" *is* part of the query if there is no space after it, otherwise it starts a comment.
 
 ```python
-from ptera import cat
+from ptera import cat, ptera
 
 
+@ptera
 def art(a, b):               # art > a ; art > b ; art{!a, b} ; art{a, !b}
 
     a1: cat.Animal = bee(a)  # a1 ; art > a1 ; art{!a1} ; art > $x
@@ -260,12 +261,16 @@ def art(a, b):               # art > a ; art > b ; art{!a, b} ; art{a, !b}
                              # art{} as art_result
                              # art > $x
 
+
+@ptera
 def bee(c):
     c1 = c + 1               # bee > c1 ; art >> c1 ; art{a2} > bee > c1
                              # bee > c1 as xyz
 
     return c1                # bee > #value ; bee{c} as bee_value
 
+
+@ptera
 def cap(d: cat.Thing & int): # cap > d ; $x:Thing ; $x:int ; cap > $x
                              # art{bee{c}} > cap > d
     return d * d
