@@ -27,13 +27,13 @@ class Category:
     def __eq__(self, other):
         return isinstance(other, Category) and other.name == self.name
 
-    def __add__(self, other):
+    def __and__(self, other):
         if isinstance(other, CategorySet):
             return CategorySet(other.members | {self})
         else:
             return CategorySet({self, other})
 
-    __radd__ = __add__
+    __rand__ = __and__
 
     def __hash__(self):
         return hash(self.name)
@@ -48,16 +48,16 @@ class CategorySet:
     def __init__(self, members):
         self.members = set(members)
 
-    def __add__(self, other):
+    def __and__(self, other):
         if isinstance(other, CategorySet):
             return CategorySet(self.members | other.members)
         else:
             return CategorySet(self.members | {other})
 
-    __radd__ = __add__
+    __rand__ = __and__
 
     def __repr__(self):
-        return "+".join(map(str, self.members))
+        return "&".join(map(str, self.members))
 
     __str__ = __repr__
 

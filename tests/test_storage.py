@@ -4,8 +4,8 @@ from ptera.storage import Storage, initializer, updater, valuer
 
 @ptera
 def mul(x):
-    factor1: cat.Bouffe + cat.Fruit
-    factor2: cat.Bouffe + cat.Legume
+    factor1: cat.Bouffe & cat.Fruit
+    factor2: cat.Bouffe & cat.Legume
     factor = factor1 + factor2
     return factor * x
 

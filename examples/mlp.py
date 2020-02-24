@@ -38,8 +38,8 @@ def mnist():
 
 @ptera
 def layer(inp):
-    W: cat.Learnable + cat.WeightMatrix
-    b: cat.Learnable + cat.BiasVector
+    W: cat.Learnable & cat.WeightMatrix
+    b: cat.Learnable & cat.BiasVector
     actfn: cat.ActivationFunction
 
     act = inp @ W + b
