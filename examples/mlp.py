@@ -108,19 +108,19 @@ def train():
         hidden = (hidden,)
 
     # Number of epochs
-    epochs: cat.CliArgument = default(10)
+    epochs: cat.CliArgument & int = default(10)
 
     # Batch size
-    batch_size: cat.CliArgument = default(32)
+    batch_size: cat.CliArgument & int = default(32)
 
     # Learning rate
-    lr: cat.CliArgument = default(0.1)
+    lr: cat.CliArgument & float = default(0.1)
 
     # Seed
-    seed: cat.CliArgument = default(1234)
+    seed: cat.CliArgument & int = default(1234)
 
     # Display weight statistics
-    weight_statistics: cat.CliArgument = default(False)
+    weight_stats: cat.CliArgument & bool = default(False)
 
     torch.random.manual_seed(seed)
 
@@ -147,7 +147,7 @@ def train():
         param_value, param_grad = param
         param_value.data.sub_(lr * param_grad)
 
-    if weight_statistics:
+    if weight_stats:
 
         @my_step.on("$param:WeightMatrix")
         def wstat(param):
@@ -171,7 +171,7 @@ def train():
                 f"L: {res.value:2.5f}",
                 f"A: {accuracy:.0%}",
             ]
-            if weight_statistics:
+            if weight_stats:
                 data = tuple(zip(*res.wstat))
                 mx = max(data[0])
                 avg = sum(data[1]) / len(data[1])

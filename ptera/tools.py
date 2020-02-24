@@ -2,7 +2,7 @@ import argparse
 import re
 from collections import defaultdict
 
-from .categories import match_category
+from .categories import CategorySet, match_category
 from .core import Override, PteraFunction, overlay
 from .selfless import PreState
 from .utils import ABSENT
@@ -60,13 +60,46 @@ def _fill_argparser(parser, names):
                 docs.add(entry["doc"])
             else:
                 docs.add(f"Parameter in {fn}")
-        parser.add_argument(
-            f"--{name.replace('_', '-')}",
-            dest=name,
-            action="store",
-            metavar="VALUE",
-            help="; ".join(docs),
-        )
+
+        optname = name.replace("_", "-")
+        typ = []
+        for x in data.values():
+            ann = x["annotation"]
+            if isinstance(ann, CategorySet):
+                members = ann.members
+            else:
+                members = [ann]
+            for m in members:
+                if isinstance(m, type):
+                    typ.append(m)
+        if len(typ) != 1:
+            typ = None
+        else:
+            (typ,) = typ
+
+        if typ is bool:
+            parser.add_argument(
+                f"--{optname}",
+                dest=name,
+                action="store_true",
+                help="; ".join(docs),
+            )
+            parser.add_argument(
+                f"--no-{optname}",
+                dest=name,
+                action="store_false",
+                help=f"Set --{optname} to False",
+            )
+        else:
+            parser.add_argument(
+                f"--{optname}",
+                dest=name,
+                type=typ or None,
+                action="store",
+                metavar="VALUE",
+                help="; ".join(docs),
+            )
+
     return parser
 
 
@@ -97,7 +130,9 @@ class Configurator:
         self.eval_env = eval_env
 
     def resolve(self, arg):
-        if arg in ("True", "False", "None"):
+        if not isinstance(arg, str):
+            return arg
+        elif arg in ("True", "False", "None"):
             return eval(arg)
         elif re.match(r"^:[A-Za-z_0-9]+:", arg):
             _, modname, code = arg.split(":", 2)
