@@ -127,13 +127,10 @@ def train():
     mn = mnist()
     train_data = mn.data
     train_targets = mn.targets
-
     train_data = train_data.reshape((-1, 784)) * (2.0 / 255) - 1.0
 
-    running_hits = deque(maxlen=100)
-
     nbatch = len(train_data) // batch_size
-
+    running_hits = deque(maxlen=100)
     layer_sizes = (784, *hidden, 10)
 
     my_step = make_network(layer_sizes).clone(return_object=True)

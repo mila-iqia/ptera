@@ -1,13 +1,13 @@
 
 # Ptera and machine learning
 
-* **Debugging**: Grab the value of some variable deep into your model and plot it or properties of it such as its mean absolute value.
-
+* **Debug**: Grab the value of some variable deep into your model and plot it or properties of it such as its mean absolute value.
 * **Configure**: Add and configure new parameters with a minimum of code. Any function is, or can become a configurable object.
-
 * **Cross-function features**: You want to grab all activations in your model and regularize over some function of them? You can easily do that.
-
 * **Inspect gradients**: Take the gradient of anything with respect to anything else. The variables don't even need to be in the same scope.
+
+
+[See example here](https://github.com/breuleux/ptera/blob/master/examples/mlp.py)
 
 
 # Using Ptera with PyTorch
