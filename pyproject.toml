@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Call graph addressing library."
 authors = ["Olivier Breuleux <breuleux@gmail.com>"]
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/breuleux/ptera"
 
 [tool.poetry.dependencies]
 python = "^3.7"

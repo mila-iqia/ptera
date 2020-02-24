@@ -1,6 +1,8 @@
 
 # Ptera
 
+**Note**: This is super alpha. A lot of the features are implemented very inefficiently and the error reporting is not very good. That will be fixed in due time, and then this note will disappear into the mists of git history.
+
 
 ## What is Ptera?
 
