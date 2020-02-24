@@ -6,9 +6,9 @@ from contextvars import ContextVar
 from copy import copy
 from itertools import chain, count
 
-from .categories import Category, CategorySet, match_category
-from .selector import Call, Element, to_pattern
-from .selfless import Override, Selfless, choose, override
+from .categories import match_category
+from .selector import to_pattern
+from .selfless import Selfless, choose, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 _cnt = count()
@@ -378,7 +378,7 @@ def interact(sym, key, category, __self__, value):
 
     else:
         assert value is not ABSENT
-        with newframe() as frame:
+        with newframe():
             with proceed(sym):
                 interact("#key", None, None, __self__, key)
                 # TODO: merge the return value of interact (currently raises
@@ -598,7 +598,7 @@ class PteraFunction(Selfless):
 
     def __call__(self, *args, **kwargs):
         rulesets = []
-        with newframe() as frame:
+        with newframe():
             plugins = {
                 name: p.instantiate() for name, p in self.plugins.items()
             }

@@ -14,7 +14,6 @@ can be set on the command line. `ptera.auto_cli` will find them automatically.
 import os
 from collections import deque
 
-import numpy
 import torch
 import torchvision
 

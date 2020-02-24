@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 
 from .categories import CategorySet, match_category
-from .core import Override, PteraFunction, overlay
+from .core import PteraFunction, overlay
 from .selfless import PreState
 from .utils import ABSENT
 
@@ -144,7 +144,7 @@ class Configurator:
             return eval(arg[1:], self.eval_env)
         else:
             try:
-                f = float(arg)
+                float(arg)
                 return eval(arg)
             except ValueError:
                 return arg

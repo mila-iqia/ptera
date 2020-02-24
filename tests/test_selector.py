@@ -1,5 +1,3 @@
-import pytest
-
 from ptera import selector as sel
 
 from .common import one_test_per_assert

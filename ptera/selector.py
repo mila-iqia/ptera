@@ -4,8 +4,8 @@
 from dataclasses import dataclass, replace as dc_replace
 
 from . import opparse
-from .categories import Category, category_registry
-from .utils import ABSENT, Named
+from .categories import Category
+from .utils import ABSENT
 
 
 @dataclass(frozen=True)
@@ -317,27 +317,27 @@ def make_class(node, element, klass, context):
 
 
 @evaluate.register_action("_ : X")
-def make_class(node, _, klass, context):
+def make_class_prefix(node, _, klass, context):
     klass = evaluate(klass, context=context)
     return Element(name=None, category=klass.name, capture=None,)
 
 
 @evaluate.register_action("_ ! X")
-def make_class(node, _, element, context):
+def make_focus(node, _, element, context):
     element = evaluate(element, context=context)
     assert isinstance(element, Element)
     return element.with_focus()
 
 
 @evaluate.register_action("_ !! X")
-def make_class(node, _, element, context):
+def make_double_focus(node, _, element, context):
     element = evaluate(element, context=context)
     assert isinstance(element, Element)
     return element.clone(tags=frozenset(element.tags | {2}))
 
 
 @evaluate.register_action("_ $ X")
-def make_class(node, _, name, context):
+def make_dollar(node, _, name, context):
     name = evaluate(name, context=context)
     return Element(
         name=None, category=None, capture=name.name, key_field="name"

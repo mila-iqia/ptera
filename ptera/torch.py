@@ -1,7 +1,7 @@
 import torch
 
-from .categories import Category, register_category
-from .core import Capture, Collector, to_pattern
+from .categories import register_category
+from .core import Capture, Collector
 
 register_category("Parameter", torch.nn.Parameter)
 

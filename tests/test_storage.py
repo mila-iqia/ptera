@@ -1,4 +1,4 @@
-from ptera import Category, cat, ptera
+from ptera import cat, ptera
 from ptera.storage import Storage, initializer, updater, valuer
 
 

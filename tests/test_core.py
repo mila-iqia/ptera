@@ -1,16 +1,6 @@
-import numpy
 import pytest
 
-from ptera import (
-    PatternCollection,
-    Recurrence,
-    cat,
-    overlay,
-    override,
-    ptera,
-    selector as sel,
-    to_pattern,
-)
+from ptera import Recurrence, cat, overlay, ptera, to_pattern
 
 from .common import one_test_per_assert
 

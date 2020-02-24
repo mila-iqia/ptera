@@ -1,9 +1,7 @@
 import functools
 from collections import defaultdict
 from dataclasses import dataclass, replace as dc_replace
-from functools import partial
 
-from .categories import Category
 from .core import Capture, get_names
 from .selector import Element, to_pattern
 from .utils import ABSENT, call_with_captures, keyword_decorator
