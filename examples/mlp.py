@@ -77,6 +77,12 @@ def step(inp, target):
     return loss
 
 
+def param(nin, nout, bias=False):
+    return torch.nn.Parameter(
+        (torch.rand(1 if bias else nin, nout) * 2 - 1) / (nin ** 0.5)
+    )
+
+
 @ptera
 def make_network(layer_sizes):
     # Activation function for the network
@@ -84,11 +90,7 @@ def make_network(layer_sizes):
 
     layers = [
         layer.new(
-            W=torch.nn.Parameter(
-                (torch.rand(nin, nout) * 2 - 1) / (nin ** 0.5)
-            ),
-            b=torch.nn.Parameter((torch.rand(1, nout) * 2 - 1) / (nin ** 0.5)),
-            actfn=actfn,
+            W=param(nin, nout), b=param(nin, nout, bias=True), actfn=actfn,
         )
         for nin, nout in zip(layer_sizes[:-1], layer_sizes[1:])
     ]
@@ -130,6 +132,7 @@ def train():
     train_data = train_data.reshape((-1, 784)) * (2.0 / 255) - 1.0
 
     nbatch = len(train_data) // batch_size
+    running_losses = deque(maxlen=100)
     running_hits = deque(maxlen=100)
     layer_sizes = (784, *hidden, 10)
 
@@ -139,7 +142,7 @@ def train():
     def hits(output, target):
         return sum(output.max(dim=1).indices == target)
 
-    @my_step.on(Grad("step{!!loss} >> layer > $param:Parameter"))
+    @my_step.on(Grad("step{!!loss} >> $param:Parameter"))
     def update(param):
         param_value, param_grad = param
         param_value.data.sub_(lr * param_grad)
@@ -160,12 +163,14 @@ def train():
             tgt = train_targets[start:end]
 
             res = my_step(inp, tgt)
+            running_losses.append(res.value)
             running_hits.append(int(sum(res.hits)) / batch_size)
+            loss = sum(running_losses) / len(running_hits)
             accuracy = sum(running_hits) / len(running_hits)
             stats = [
                 f"E: {i + 1}/{epochs}",
                 f"B: {j + 1}/{nbatch}",
-                f"L: {res.value:2.5f}",
+                f"L: {loss:2.5f}",
                 f"A: {accuracy:.0%}",
             ]
             if weight_stats:
