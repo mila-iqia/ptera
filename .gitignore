@@ -5,5 +5,6 @@ __pycache__/
 .pytest_cache
 *.egg-info
 prof/
+dist/
 .benchmarks/
 .DS_Store
