@@ -152,6 +152,7 @@ def test_nested_function():
         a = child(x)
         b = child(x + 1)
         return a + b
+
     assert kangaroo(3) == 25
 
 

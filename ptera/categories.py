@@ -29,10 +29,13 @@ class Category:
 
 class CategorySet:
     def __init__(self, members):
-        self.members = set(members)
+        self.members = frozenset(members)
 
     __and__ = _merge
     __rand__ = _merge
+
+    def __eq__(self, other):
+        return isinstance(other, CategorySet) and other.members == self.members
 
     def __repr__(self):
         return "&".join(sorted(map(str, self.members)))
