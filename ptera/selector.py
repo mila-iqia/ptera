@@ -289,8 +289,12 @@ def make_nested(node, parent, child, context):
 @evaluate.register_action("_ > X")
 def make_nested_imm_pfx(node, _, child, context):
     child = evaluate(child, context=context)
-    child = _guarantee_call(child, context=context)
-    return child.clone(immediate=True)
+    if isinstance(child, Element):
+        return Call(
+            element=Element(name=None), captures=(child,), immediate=True,
+        )
+    else:
+        return child.clone(immediate=True)
 
 
 @evaluate.register_action("_ >> X")
@@ -474,7 +478,7 @@ def _find_eval_env(s, fr):
                     raise Exception(f"Ambiguous env for selector '{s}'")
             ev = (filename, fr.f_globals)
         fr = fr.f_back
-    return ev[1]
+    return ev and ev[1]
 
 
 def _eval(s, env):

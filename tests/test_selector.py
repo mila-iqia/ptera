@@ -1,3 +1,5 @@
+import pytest
+
 from ptera import cat, selector as sel
 
 from .common import one_test_per_assert
@@ -76,6 +78,22 @@ def test_parser():
             sel.Element("banana", capture="banana", tags=frozenset({1})),
         ),
         immediate=False,
+    )
+
+    assert sel.parse("> apple > banana") == sel.Call(
+        sel.Element("apple"),
+        captures=(
+            sel.Element("banana", capture="banana", tags=frozenset({1})),
+        ),
+        immediate=True,
+    )
+
+    assert sel.parse("> banana") == sel.Call(
+        sel.Element(None),
+        captures=(
+            sel.Element("banana", capture="banana", tags=frozenset({1})),
+        ),
+        immediate=True,
     )
 
     assert sel.parse("apple >> banana") == sel.Call(
@@ -191,6 +209,14 @@ def test_parser():
     )
 
 
+def test_bad_patterns():
+    with pytest.raises(SyntaxError):
+        sel.parse("{x}")
+
+    with pytest.raises(SyntaxError):
+        sel.parse("%")
+
+
 @one_test_per_assert
 def test_to_pattern():
 
@@ -210,6 +236,22 @@ def test_to_pattern():
     assert sel.to_pattern("pie:cat.Fruit") == sel.to_pattern(
         ">> *{!pie:cat.Fruit}"
     )
+
+
+def test_to_pattern_errors():
+    with pytest.raises(Exception):
+        sel.to_pattern("x:blahblahblah")
+
+    with pytest.raises(Exception):
+        sel.to_pattern("x" + "yz")
+
+    with pytest.raises(Exception):
+        # to_pattern searches for an unambiguous location where the exact
+        # string it is given is defined, as a literal string. To do so it
+        # goes all the way up in the call stack.
+        # Some file in pytest upstack from here contains the literal "y",
+        # which creates an ambiguity.
+        sel.to_pattern("y")
 
 
 @one_test_per_assert

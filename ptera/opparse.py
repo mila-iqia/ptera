@@ -94,7 +94,6 @@ class OperatorPrecedenceTower:
                 keys = (keys,)
             for key in keys:
                 self.operators[key] = prio
-        # self.defaults = operators[None]
 
     def resolve(self, op):
         if op is None:
@@ -165,7 +164,9 @@ class Parser:
                 left = right
                 right = _next()
             else:
-                raise AssertionError("Invalid operator ordering")
+                raise AssertionError(
+                    "Invalid operator ordering"
+                )  # pragma: no cover
 
     def finalize(self, parts):
         if len(parts) == 3 and parts[0] is None and parts[2] is None:
