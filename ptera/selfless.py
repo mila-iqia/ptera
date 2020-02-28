@@ -153,7 +153,7 @@ class PteraTransformer(NodeTransformer):
                 self.defaults[arg.arg] = dflt
             new_args.args.insert(0, ast.arg("__self__"))
         else:
-            new_args = node.args
+            raise SyntaxError("Nested functions are not supported")
 
         # node.args.args = new_args
         for stmt in map(self.visit, node.body):

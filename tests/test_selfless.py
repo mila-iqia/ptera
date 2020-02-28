@@ -7,6 +7,8 @@ from .common import one_test_per_assert
 
 @selfless
 def iceberg(x, y):
+    # The great
+    # zee
     z: int
     return sum([x, y, z])
 
@@ -121,3 +123,46 @@ def test_override_arguments():
     with pytest.raises(ConflictError):
         chocolat.new(x=Override(2), y=3)(Override(4))
     assert chocolat.new(x=Override(2), y=3)(Override(4, priority=2)) == 49
+
+
+def test_vardoc_and_ann():
+    assert type(iceberg.state).__annotations__["z"] is int
+    assert type(iceberg.state).__vardoc__["z"] == "The great\nzee"
+
+
+@selfless
+def spatula(x):
+    a, b = x
+    return a + b
+
+
+def test_tuple_assignment():
+    assert spatula((4, 5)) == 9
+    assert spatula.new(a=Override(70))((4, 5)) == 75
+    assert spatula.new(b=Override(70))((4, 5)) == 74
+
+
+@pytest.mark.xfail(reason="Nested functions are not yet supported")
+def test_nested_function():
+    @selfless
+    def kangaroo(x):
+        def child(y):
+            return y * y
+
+        a = child(x)
+        b = child(x + 1)
+        return a + b
+    assert kangaroo(3) == 25
+
+
+@pytest.mark.xfail(reason="Attribute assignment is not yet supported")
+def test_attribute_assignment():
+    class X:
+        pass
+
+    @selfless
+    def obelisk(x):
+        x.y = 2
+        return x.y
+
+    assert obelisk(X()) == 2
