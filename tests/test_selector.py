@@ -298,6 +298,21 @@ def test_specialize():
     ) == sel.parse("co >> co >> (coconut as nut):Fruit")
 
 
+def test_find_tag():
+    expr = sel.parse("f{!!x} > g > y")
+    t1 = expr.find_tag(1)
+    assert len(t1) == 1
+    (t1,) = t1
+    assert t1.name == "y" and t1 in list(expr.children)[0].captures
+
+    t2 = expr.find_tag(2)
+    assert len(t2) == 1
+    (t2,) = t2
+    assert t2.name == "x" and t2 in expr.captures
+
+    assert sel.parse("f{x} > y").find_tag(2) == set()
+
+
 def _encode(x):
     return sel.parse(x).encode()
 
