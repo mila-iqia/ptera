@@ -300,3 +300,13 @@ def test_readme():
 
     result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
     assert result == 9
+
+
+@ptera.defaults(x=10, y=20)
+def vanilla(x, y):
+    return x * y
+
+
+def test_ptera_defaults():
+    assert vanilla() == 200
+    assert vanilla(4, 5) == 20

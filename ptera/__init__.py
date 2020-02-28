@@ -17,13 +17,13 @@ class PteraDecorator:
         self.kwargs = kwargs
 
     def defaults(self, **defaults):
-        return self({**self.kwargs, "defaults": defaults})
+        return PteraDecorator({**self.kwargs, "defaults": defaults})
 
     def __call__(self, fn):
         new_fn, state = transform(fn, interact=interact)
         fn = PteraFunction(new_fn, state)
         if "defaults" in self.kwargs:
-            fn = fn.new(**self.kwargs)
+            fn = fn.new(**self.kwargs["defaults"])
         return fn
 
 
