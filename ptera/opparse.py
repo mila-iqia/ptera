@@ -10,9 +10,6 @@ class Location:
     start: int
     end: int
 
-    def get(self):
-        return self.source[self.start : self.end]
-
     def syntax_error(self, msg="Invalid syntax"):
         err = SyntaxError(msg)
         err.lineno = 1
@@ -29,12 +26,6 @@ class Token:
         self.location = Location(
             source=source, filename="<string>", start=start, end=end,
         )
-
-    def to_sexp(self):
-        return self.value
-
-    def __str__(self):
-        return self.value
 
 
 class ASTNode:
@@ -53,13 +44,6 @@ class ASTNode:
             start=nonnulls[0].location.start,
             end=nonnulls[-1].location.end,
         )
-
-    def to_sexp(self):
-        return (self.key, *[arg and arg.to_sexp() for arg in self.args])
-
-    def __str__(self):
-        args = " ".join(map(str, self.args))
-        return f"({self.key} {args})"
 
 
 class Lexer:
