@@ -177,7 +177,7 @@ class Call:
             caps.append(cap.encode())
         for child in self.children:
             enc = child.encode()
-            enc = f"> {enc}" if child.immediate else enc
+            enc = f"> {enc}" if child.immediate else f">> {enc}"
             caps.append(enc)
         caps = "" if not caps else "{" + ", ".join(caps) + "}"
         return f"{name}{caps}"
@@ -234,15 +234,12 @@ class Evaluator:
         return deco
 
     def __call__(self, ast, context="root"):
-        if ast is None:
-            return None
+        assert ast is not None
         if isinstance(ast, opparse.Token):
             key = "SYMBOL"
         else:
             key = ast.key
         action = self.actions.get(key, None)
-        if action is None:
-            action = self.actions.get("DEFAULT", None)
         if action is None:
             msg = f"Unrecognized operator: {key}"
             focus = ast.ops[0] if hasattr(ast, "ops") else ast

@@ -296,3 +296,20 @@ def test_specialize():
     assert sel.parse("co >> co >> $nut").specialize(
         {"nut": sel.Element(name="coconut", category="Fruit")}
     ) == sel.parse("co >> co >> (coconut as nut):Fruit")
+
+
+def _encode(x):
+    return sel.parse(x).encode()
+
+
+@one_test_per_assert
+def test_encode():
+    assert _encode("a > b") == "a{!b}"
+    assert _encode("a{b}") == "a{b}"
+    assert _encode("a{b} >> c") == "a{b, >> *{!c}}"
+    assert _encode("a{b, c{d}}") == "a{b, > c{d}}"
+    assert _encode("$x") == "$x"
+    assert _encode("$x:Zoom") == "$x:Zoom"
+
+    assert str(sel.parse("a")) == 'sel("!a")'
+    assert str(sel.parse("a > b")) == 'sel("a{!b}")'
