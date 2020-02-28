@@ -1,6 +1,13 @@
 from .utils import ABSENT
 
 
+def _merge(a, b):
+    members = set()
+    members.update(a.members if isinstance(a, CategorySet) else {a})
+    members.update(b.members if isinstance(b, CategorySet) else {b})
+    return CategorySet(members)
+
+
 class Category:
     def __init__(self, name):
         self.name = name
@@ -8,16 +15,11 @@ class Category:
     def __eq__(self, other):
         return isinstance(other, Category) and other.name == self.name
 
-    def __and__(self, other):
-        if isinstance(other, CategorySet):
-            return CategorySet(other.members | {self})
-        else:
-            return CategorySet({self, other})
-
-    __rand__ = __and__
-
     def __hash__(self):
         return hash(self.name)
+
+    __and__ = _merge
+    __rand__ = _merge
 
     def __repr__(self):
         return self.name
@@ -29,16 +31,11 @@ class CategorySet:
     def __init__(self, members):
         self.members = set(members)
 
-    def __and__(self, other):
-        if isinstance(other, CategorySet):
-            return CategorySet(self.members | other.members)
-        else:
-            return CategorySet(self.members | {other})
-
-    __rand__ = __and__
+    __and__ = _merge
+    __rand__ = _merge
 
     def __repr__(self):
-        return "&".join(map(str, self.members))
+        return "&".join(sorted(map(str, self.members)))
 
     __str__ = __repr__
 
@@ -65,10 +62,10 @@ def match_category(to_match, category, value=ABSENT):
     for cat in cats:
         if isinstance(cat, type):
             if value is ABSENT:
-                if isinstance(to_match, type) and issubclass(cat, to_match):
+                if isinstance(to_match, type) and issubclass(to_match, cat):
                     rval = True
-            else:
-                assert isinstance(value, cat)
+            elif not isinstance(value, cat):
+                raise TypeError(f"Expected type {cat} for {value}")
         elif (
             isinstance(cat, Category)
             and isinstance(to_match, Category)
