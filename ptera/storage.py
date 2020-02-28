@@ -84,12 +84,10 @@ class Storage:
         def wrapped(**cap):
             role = fn._ptera_role
             cap = {**role.make_capture(), **cap}
-            try:
-                key = tuple(
-                    getattr(cap[k], field) for k, field in self._key_captures
-                )
-            except ValueError:
-                return
+            key = tuple(
+                getattr(cap[k], field) for k, field in self._key_captures
+            )
+            # TODO: It could be appropriate to catch a ValueError here
             assert key in self.store
             self.update_queue[key] = call_with_captures(fn, cap, full=role.full)
 
@@ -146,7 +144,7 @@ class Storage:
             elif role.role == "updater":
                 self._rules[patt]["listeners"].append(self._update_wrap(fn))
 
-            else:
+            else:  # pragma: no cover
                 raise AssertionError(f"Unknown role: {role.role}")
 
     def instantiate(self):
