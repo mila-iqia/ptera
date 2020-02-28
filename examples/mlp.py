@@ -141,7 +141,7 @@ def train():
     def hits(output, target):
         return sum(output.max(dim=1).indices == target)
 
-    @my_step.on(Grad("step{!!loss} >> $param:Parameter"))
+    @my_step.on(Grad("step{!!loss} >> $param:torch.nn.Parameter"))
     def update(param):
         param_value, param_grad = param
         param_value.data.sub_(lr * param_grad)

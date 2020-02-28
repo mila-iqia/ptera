@@ -1,4 +1,4 @@
-from ptera import selector as sel
+from ptera import cat, selector as sel
 
 from .common import one_test_per_assert
 
@@ -193,8 +193,23 @@ def test_parser():
 
 @one_test_per_assert
 def test_to_pattern():
+
+    assert sel.to_pattern("apple > banana:cat.Sublime") == sel.Call(
+        element=sel.Element(name="apple"),
+        captures=(
+            sel.Element(
+                name="banana",
+                capture="banana",
+                category=cat.Sublime,
+                tags=frozenset({1}),
+            ),
+        ),
+    )
+
     assert sel.to_pattern("apple") == sel.to_pattern(">> *{!apple}")
-    assert sel.to_pattern("pie:Fruit") == sel.to_pattern(">> *{!pie:Fruit}")
+    assert sel.to_pattern("pie:cat.Fruit") == sel.to_pattern(
+        ">> *{!pie:cat.Fruit}"
+    )
 
 
 @one_test_per_assert

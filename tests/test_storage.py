@@ -40,7 +40,7 @@ def test_storage_valuer_1():
 def test_storage_valuer_2():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:Bouffe"
+        pattern = "$f:cat.Bouffe"
         default_target = "f"
 
         @valuer(target_name="factor1")
@@ -59,7 +59,7 @@ def test_storage_valuer_2():
 def test_storage_valuer_3():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:Bouffe"
+        pattern = "$f:cat.Bouffe"
         default_target = "f"
 
         @valuer(target_category=cat.Fruit)
@@ -78,7 +78,7 @@ def test_storage_valuer_3():
 def test_storage_valuer_4():
     class UpdateStrategy(Storage):
 
-        pattern = "grind{start} >> $f:Bouffe"
+        pattern = "grind{start} >> $f:cat.Bouffe"
         default_target = "f"
 
         @valuer
@@ -96,7 +96,7 @@ def test_storage_valuer_4():
 def test_storage_updater_1():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:Bouffe"
+        pattern = "$f:cat.Bouffe"
         default_target = "f"
 
         @initializer(target_name="factor1")
@@ -122,7 +122,7 @@ def test_storage_updater_1():
 def test_storage_updater_2():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:Bouffe"
+        pattern = "$f:cat.Bouffe"
         default_target = "f"
 
         @initializer(target_category=cat.Fruit)

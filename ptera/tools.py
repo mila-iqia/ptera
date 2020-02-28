@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from .categories import CategorySet, match_category
 from .core import PteraFunction, overlay
+from .selector import to_pattern
 from .selfless import PreState
 from .utils import ABSENT
 
@@ -150,18 +151,13 @@ class Configurator:
                 return arg
 
     def __enter__(self):
+        def _resolve(arg):
+            v = getattr(args, arg.name)
+            return ABSENT if v is None else self.resolve(v)
+
         args = self.argparser.parse_args(self.argv)
-        self.ov = overlay(
-            {
-                f"{name}:{self.category}": {
-                    "value": lambda __v=self.resolve(
-                        getattr(args, name)
-                    ), **_: __v
-                }
-                for name in self.names
-                if getattr(args, name) is not None
-            }
-        )
+        pattern = to_pattern(f"$arg:##X", env={"##X": self.category})
+        self.ov = overlay({pattern: {"value": _resolve}})
         self.ov.__enter__()
         return self
 

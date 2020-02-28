@@ -1,9 +1,6 @@
 import torch
 
-from .categories import register_category
-from .core import Capture, Collector
-
-register_category("Parameter", torch.nn.Parameter)
+from .core import Capture, Collector, to_pattern
 
 
 class GradCollector(Collector):
@@ -55,7 +52,7 @@ class Grad:
     hasoutput = True
 
     def __init__(self, selector, finalizer=None):
-        self.selector = selector
+        self.selector = to_pattern(selector)
         self.finalizer = finalizer
 
     def hook(self, finalizer):

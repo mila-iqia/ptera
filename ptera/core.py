@@ -393,7 +393,7 @@ def interact(sym, key, category, __self__, value):
 class Collector:
     def __init__(self, pattern, finalize=None):
         self.data = []
-        self.pattern = to_pattern(pattern)
+        self.pattern = pattern
         self.finalizer = finalize
 
         def listener(**kwargs):
@@ -464,7 +464,7 @@ class Tap:
     hasoutput = True
 
     def __init__(self, selector, finalize=None):
-        self.selector = selector
+        self.selector = to_pattern(selector)
         self.finalize = finalize
 
     def hook(self, finalize):
@@ -542,7 +542,7 @@ class PteraFunction(Selfless):
 
     def tweak(self, values, priority=2):
         values = {
-            k: lambda __v=v, **_: override(__v, priority)
+            to_pattern(k): lambda __v=v, **_: override(__v, priority)
             for k, v in values.items()
         }
         return self.using(StateOverlay(values))

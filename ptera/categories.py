@@ -1,26 +1,9 @@
 from .utils import ABSENT
 
-category_registry = {
-    "int": int,
-    "float": float,
-    "str": str,
-    "dict": dict,
-    "list": list,
-    "tuple": tuple,
-}
-
-
-def register_category(name, obj):
-    if name in category_registry:
-        assert category_registry[name] == obj
-    else:
-        category_registry[name] = obj
-
 
 class Category:
     def __init__(self, name):
         self.name = name
-        register_category(self.name, self)
 
     def __eq__(self, other):
         return isinstance(other, Category) and other.name == self.name
@@ -66,9 +49,6 @@ class _CategoryFactory:
 
 
 def match_category(to_match, category, value=ABSENT):
-    if isinstance(to_match, str):
-        to_match = category_registry[to_match]
-
     if category is None:
         cats = set()
     elif isinstance(category, CategorySet):

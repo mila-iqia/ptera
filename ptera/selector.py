@@ -1,6 +1,9 @@
 """Specifications for call paths."""
 
 
+import ast
+import builtins
+import sys
 from dataclasses import dataclass, replace as dc_replace
 
 from . import opparse
@@ -188,8 +191,8 @@ class Call:
 parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r"\s*(?:\bas\b|>>|!+|[(){}\[\]>.:,$=])?\s*": "OPERATOR",
-            r"[a-zA-Z_0-9#*]+": "WORD",
+            r"\s*(?:\bas\b|>>|!+|[(){}\[\]>:,$=])?\s*": "OPERATOR",
+            r"[a-zA-Z_0-9#*.]+": "WORD",
         }
     ),
     order=opparse.OperatorPrecedenceTower(
@@ -442,7 +445,70 @@ def parse(x):
     return evaluate(parser(x))
 
 
-def to_pattern(pattern, context="root"):
+_string_cache = {}
+
+
+class _StringFinder(ast.NodeVisitor):
+    def __init__(self):
+        self.strings = {}
+
+    def visit_Str(self, node):
+        self.strings[node.s] = node.lineno
+
+
+def _find_string(s, filename):
+    if filename not in _string_cache:
+        with open(filename) as module:
+            tree = ast.parse(module.read(), filename)
+            finder = _StringFinder()
+            finder.visit(tree)
+            _string_cache[filename] = finder.strings
+    return _string_cache[filename].get(s, None)
+
+
+def _find_eval_env(s, fr):
+    ev = None
+    while fr is not None:
+        filename = fr.f_code.co_filename
+        lineno = _find_string(s, filename)
+        if lineno is not None:
+            if ev is not None:
+                if ev[0] != filename:
+                    raise Exception(f"Ambiguous env for selector '{s}'")
+            ev = (filename, fr.f_globals)
+        fr = fr.f_back
+    return ev[1]
+
+
+def _eval(s, env):
+    if not isinstance(s, str):
+        return s
+    start, *parts = s.split(".")
+    if start in env:
+        curr = env[start]
+    elif hasattr(builtins, start):
+        return getattr(builtins, start)
+    else:
+        raise Exception(f"Could not resolve '{start}'.")
+
+    for part in parts:
+        curr = getattr(curr, part)
+    return curr
+
+
+def _resolve(pattern, env):
+    if isinstance(pattern, Call):
+        el = _resolve(pattern.element, env)
+        return pattern.clone(
+            element=el,
+            captures=tuple(_resolve(x, env) for x in pattern.captures),
+            children=tuple(_resolve(x, env) for x in pattern.children),
+        )
+    elif isinstance(pattern, Element):
+        return pattern.clone(category=_eval(pattern.category, env))
+
+
+def _to_pattern(pattern, context="root"):
     if isinstance(pattern, str):
         pattern = parse(pattern)
     if isinstance(pattern, Element):
@@ -453,3 +519,15 @@ def to_pattern(pattern, context="root"):
         )
     assert isinstance(pattern, Call)
     return pattern
+
+
+def to_pattern(s, env=None):
+    if not isinstance(s, str):
+        return s
+    if env is None:
+        fr = sys._getframe(1)
+        env = _find_eval_env(s, fr)
+    if env is None:
+        raise Exception(f"Could not find env for selector '{s}'")
+    pattern = _to_pattern(s)
+    return _resolve(pattern, env)

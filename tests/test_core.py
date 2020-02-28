@@ -99,14 +99,14 @@ def test_patterns():
     assert _dbrie("brie[2]{!a}") == [{"a": [100]}]
 
     # Parameter
-    assert _dbrie("brie{$v:Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
-    assert _dbrie("brie{!$v:Bouffe}") == [
+    assert _dbrie("brie{$v:cat.Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
+    assert _dbrie("brie{!$v:cat.Bouffe}") == [
         {"v": [4]},
         {"v": [9]},
         {"v": [100]},
         {"v": [121]},
     ]
-    assert _dbrie("*{a} >> brie{!$v:Bouffe}") == [
+    assert _dbrie("*{a} >> brie{!$v:cat.Bouffe}") == [
         {"a": [13], "v": [4]},
         {"a": [13], "v": [9]},
         {"a": [13], "v": [100]},
@@ -229,7 +229,7 @@ def test_tap_map_named():
 
 
 def test_tap_map_full():
-    rval, acoll = double_brie.using("brie > $param:Bouffe")(2, 10)
+    rval, acoll = double_brie.using("brie > $param:cat.Bouffe")(2, 10)
     assert acoll.map_full(lambda param: param.value) == [4, 9, 100, 121]
     assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
 
