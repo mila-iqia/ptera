@@ -142,7 +142,6 @@ def test_tuple_assignment():
     assert spatula.new(b=Override(70))((4, 5)) == 74
 
 
-@pytest.mark.xfail(reason="Nested functions are not yet supported")
 def test_nested_function():
     @selfless
     def kangaroo(x):

@@ -33,11 +33,18 @@ def gensym():
 
 
 class ExternalVariableCollector(NodeVisitor):
-    def __init__(self, comments):
+    def __init__(self, comments, tree):
         self.used = set()
         self.assigned = set()
         self.comments = comments
         self.vardoc = {}
+        self.funcnames = set()
+        self.visit(tree)
+        self.used -= self.funcnames
+
+    def visit_FunctionDef(self, node):
+        self.funcnames.add(node.name)
+        self.generic_visit(node)
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Load):
@@ -54,8 +61,7 @@ class ExternalVariableCollector(NodeVisitor):
 class PteraTransformer(NodeTransformer):
     def __init__(self, tree, comments):
         super().__init__()
-        evc = ExternalVariableCollector(comments)
-        evc.visit(tree)
+        evc = ExternalVariableCollector(comments, tree)
         self.vardoc = evc.vardoc
         self.used = evc.used
         self.assigned = evc.assigned
@@ -153,7 +159,7 @@ class PteraTransformer(NodeTransformer):
                 self.defaults[arg.arg] = dflt
             new_args.args.insert(0, ast.arg("__self__"))
         else:
-            raise SyntaxError("Nested functions are not supported")
+            new_args = node.args
 
         # node.args.args = new_args
         for stmt in map(self.visit, node.body):
