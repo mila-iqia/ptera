@@ -1,6 +1,8 @@
 import pytest
 
 from ptera import Recurrence, cat, overlay, ptera, to_pattern
+from ptera.core import Capture
+from ptera.selector import Element, parse
 
 from .common import one_test_per_assert
 
@@ -208,11 +210,18 @@ def test_provide_var():
         assert mystery(8) == 64
 
 
+def test_missing_var():
+    with pytest.raises(NameError):
+        mystery(3)
+
+
 def test_tap_map():
     rval, acoll = double_brie.using("brie{!a, b}")(2, 10)
     assert acoll.map("a") == [4, 100]
     assert acoll.map("b") == [9, 121]
     assert acoll.map(lambda a, b: a + b) == [13, 221]
+    assert acoll.map() == [{"a": 4, "b": 9}, {"a": 100, "b": 121}]
+    assert acoll.map(lambda **kwargs: kwargs["a"] + kwargs["b"]) == [13, 221]
 
 
 def test_tap_map_all():
@@ -220,6 +229,7 @@ def test_tap_map_all():
     with pytest.raises(ValueError):
         acoll.map("x1", "x")
     assert acoll.map_all("x1", "x") == [([2], [2, 10])]
+    assert acoll.map_all() == [{"x1": [2], "x": [2, 10]}]
 
 
 def test_tap_map_named():
@@ -241,8 +251,27 @@ def test_on():
     def minx(x):
         return -x
 
+    @dbrie.on("brie > x", all=True)
+    def minx_all(x):
+        return [-v for v in x]
+
+    @dbrie.on("brie > x", full=True)
+    def minx_full(x):
+        assert x.name == "x"
+        return -x.value
+
     results = dbrie(2, 10)
     assert results.minx == [-2, -10]
+    assert results.minx_all == [[-2], [-10]]
+    assert results.minx_full == [-2, -10]
+
+
+def test_use():
+    dbrie = double_brie.clone(return_object=True)
+    dbrie.use(data="brie{!a, b}")
+    rval = dbrie(2, 10)
+    assert rval.value == 236
+    assert rval.data.map("a") == [4, 100]
 
 
 def test_collect():
@@ -310,3 +339,30 @@ def vanilla(x, y):
 def test_ptera_defaults():
     assert vanilla() == 200
     assert vanilla(4, 5) == 20
+
+
+def test_capture():
+    cap = Capture(parse("x"))
+    assert cap.name == "x"
+    with pytest.raises(ValueError):
+        cap.value
+    cap.acquire("x", 1)
+    assert cap.name == "x"
+    assert cap.value == 1
+    cap.acquire("x", 2)
+    with pytest.raises(ValueError):
+        cap.value
+
+    assert str(cap) == "Capture(sel(\"!x\"), ['x', 'x'], [1, 2])"
+
+    cap = Capture(Element(None))
+    with pytest.raises(ValueError):
+        cap.name
+    cap.acquire("y", 7)
+    assert cap.name == "y"
+    assert cap.value == 7
+    cap.acquire("z", 31)
+    with pytest.raises(ValueError):
+        cap.name
+    with pytest.raises(ValueError):
+        cap.value

@@ -11,8 +11,6 @@ from .selector import to_pattern
 from .selfless import Selfless, choose, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
-_cnt = count()
-
 
 class Frame:
 
@@ -30,7 +28,13 @@ class Frame:
             self.to_close.append(acc)
 
     def get_accumulators(self, varname):
-        return chain(self.accumulators[varname], self.accumulators[None])
+        return [
+            (element, acc)
+            for element, acc in chain(
+                self.accumulators[varname], self.accumulators[None]
+            )
+            if acc.status is ACTIVE
+        ]
 
     def run(self, method, varname, category, value=ABSENT, mayfail=True):
         rval = ABSENT
@@ -119,7 +123,6 @@ class Accumulator:
         pattern=None,
         focus=True,
     ):
-        self.id = next(_cnt)
         self.names = set(names)
         self.pattern = pattern
         self.parent = parent
@@ -144,8 +147,7 @@ class Accumulator:
             leaf.status = FAILED
 
     def match(self, element, varname, category, value, mayfail=True):
-        if self.status is FAILED:
-            return None
+        assert self.status is ACTIVE
         if element.focus:
             acc = self.fork()
         else:
@@ -162,13 +164,13 @@ class Accumulator:
             return None
 
     def varset(self, element, varname, category, value):
-        if self.status is FAILED:
-            return
+        assert self.status is ACTIVE
         cap = self.getcap(element)
         cap.acquire(varname, value)
 
     def varget(self, element, varname, category, _):
-        if not element.focus or self.status is FAILED:
+        assert self.status is ACTIVE
+        if not element.focus:
             return ABSENT
         cap = self.getcap(element)
         cap.names.append(varname)
@@ -194,8 +196,7 @@ class Accumulator:
         return rval
 
     def run(self, rulename, may_fail):
-        if self.status is FAILED:
-            return FAILED
+        assert self.status is ACTIVE
         rval = ABSENT
         for fn in self.rules[rulename]:
             args = self.build()
@@ -251,14 +252,6 @@ class Accumulator:
             pattern=self.pattern,
             focus=focus,
         )
-
-    def __str__(self):
-        rval = str(self.id)
-        curr = self.parent
-        while curr:
-            rval = f"{curr.id} > {rval}"
-            curr = curr.parent
-        return f"Accumulator({self.pattern}, {rval})"
 
 
 def get_names(fn):
@@ -317,10 +310,6 @@ class PatternCollection:
                         next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
         return rval
-
-    def show(self):
-        for pattern, acc in self.patterns:
-            print(pattern.encode(), "\t", acc)
 
 
 @contextmanager
@@ -385,8 +374,9 @@ def interact(sym, key, category, __self__, value):
                 # ConflictError)
                 interact("#value", None, category, __self__, value)
                 success, value = choose([value, from_state])
-                if not success:
-                    raise NameError(f"Variable {sym} of {__self__} is not set.")
+                # TODO: it is not clear at the moment in what circumstance
+                # success may fail to be true
+                assert success
                 return value
 
 
