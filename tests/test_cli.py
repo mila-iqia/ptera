@@ -116,7 +116,7 @@ def test_conflict():
 
 @ptera
 def patriotism():
-    flag: cat.Argument & bool
+    flag: cat.Argument & bool = default(True)
     times: cat.Argument & int = default(1)
     if flag:
         return "wave" * times
@@ -125,9 +125,7 @@ def patriotism():
 
 
 def test_types():
-    assert (
-        auto_cli(patriotism, (), category=cat.Argument, argv=[]) == "don't wave"
-    )
+    assert auto_cli(patriotism, (), category=cat.Argument, argv=[]) == "wave"
     assert (
         auto_cli(patriotism, (), category=cat.Argument, argv="--flag".split())
         == "wave"

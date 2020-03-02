@@ -126,12 +126,16 @@ class Configurator:
         self.names = _find_configurable(catalogue, category)
         if cli:
             if argparser is None:
-                argparser = argparse.ArgumentParser(description=description)
+                argparser = argparse.ArgumentParser(
+                    description=description, argument_default=argparse.SUPPRESS
+                )
         self.argparser = _fill_argparser(argparser, self.names)
         self.eval_env = eval_env
 
     def resolve(self, arg):
-        if not isinstance(arg, str):
+        if arg is ABSENT:
+            return arg
+        elif not isinstance(arg, str):
             return arg
         elif arg in ("True", "False", "None"):
             return eval(arg)
@@ -152,8 +156,7 @@ class Configurator:
 
     def __enter__(self):
         def _resolve(arg):
-            v = getattr(args, arg.name)
-            return ABSENT if v is None else self.resolve(v)
+            return self.resolve(getattr(args, arg.name, ABSENT))
 
         args = self.argparser.parse_args(self.argv)
         pattern = to_pattern(f"$arg:##X", env={"##X": self.category})
