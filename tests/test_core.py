@@ -8,7 +8,7 @@ from .common import one_test_per_assert
 
 
 @ptera
-def brie(x, y):
+def brie(x, y) -> cat.Fromage:
     a: cat.Bouffe = x * x
     b: cat.Bouffe = y * y
     return a + b
@@ -117,6 +117,9 @@ def test_patterns():
 
     assert _dbrie("brie > x:int") == [{"x": [2]}, {"x": [10]}]
     assert _dbrie("brie > x:float") == []
+
+    # Function category
+    assert _dbrie("*:cat.Fromage{a}") == [{"a": [4]}, {"a": [100]}]
 
 
 @ptera

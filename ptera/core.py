@@ -12,6 +12,17 @@ from .selfless import Selfless, choose, override
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures, setvar
 
 
+def check_element(el, name, category, value=ABSENT):
+    if el.name is not None and el.name != name:
+        return False
+    elif not match_category(el.category, category, value):
+        return False
+    elif el.value is not ABSENT and el.value != value:
+        return False
+    else:
+        return True
+
+
 class Frame:
 
     top = ContextVar("Frame.top", default=None)
@@ -93,14 +104,11 @@ class Capture:
         return None if self.element.name is None else False
 
     def check(self, varname, category, value):
-        el = self.element
-        assert el.name is None or varname == el.name
-        if not match_category(el.category, category, value):
-            return self.nomatch()
-        elif el.value is not ABSENT and el.value != value:
-            return self.nomatch()
-        else:
+        rval = check_element(self.element, varname, category, value)
+        if rval:
             return True
+        else:
+            return self.nomatch()
 
     def acquire(self, varname, value):
         assert varname is not None
@@ -291,15 +299,20 @@ class PatternCollection:
     def __init__(self, patterns=None):
         self.patterns = patterns or []
 
-    def proceed(self, fname, frame):
+    def proceed(self, fn, frame):
+        if isinstance(fn, str):
+            fname = fn
+            fcat = None
+        else:
+            fname = fn.__name__
+            fcat = fn.__annotations__.get("return", None)
         next_patterns = []
         to_process = list(self.patterns)
         while to_process:
             pattern, acc = to_process.pop()
-            ename = pattern.element.name
             if not pattern.immediate:
                 next_patterns.append((pattern, acc))
-            if ename is None or ename == fname:
+            if check_element(pattern.element, fname, fcat):
                 is_template = acc.template
                 acc = acc.fork(focus=pattern.focus or is_template)
                 frame.register(acc, pattern.captures, close_at_exit=is_template)
@@ -323,13 +336,13 @@ def newframe():
 
 
 @contextmanager
-def proceed(fname):
+def proceed(fn):
     curr = PatternCollection.current.get()
     frame = Frame.top.get()
     if curr is None:
         yield None
     else:
-        new = curr.proceed(fname, frame)
+        new = curr.proceed(fn, frame)
         with setvar(PatternCollection.current, new):
             yield new
 
@@ -595,7 +608,7 @@ class PteraFunction(Selfless):
             for plugin in plugins.values():
                 rulesets.append(plugin.rules())
             with overlay(*rulesets):
-                with proceed(self.fn.__name__):
+                with proceed(self.fn):
                     if self.callkey is not None:
                         interact("#key", None, None, self, self.callkey)
                     rval = super().__call__(*args, **kwargs)

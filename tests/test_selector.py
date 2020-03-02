@@ -65,6 +65,8 @@ def test_parser_equivalencies():
     assert sel.parse("a[b] as c") == sel.parse("a{#key=b, !#value as c}")
     assert sel.parse("a{} as b") == sel.parse("a{!#value as b}")
 
+    assert sel.parse("a:b{c}") == sel.parse("(a:b){c}")
+
 
 @one_test_per_assert
 def test_parser():
