@@ -1,5 +1,8 @@
 import argparse
+import json
+import os
 import re
+import sys
 from collections import defaultdict
 
 from .categories import CategorySet, match_category
@@ -37,9 +40,6 @@ def catalogue(functions):
     results = {}
     _catalogue(set(), results, functions)
     return results
-
-
-_catalogue_fn = catalogue
 
 
 def _find_configurable(catalogue, category):
@@ -108,29 +108,45 @@ class Configurator:
     def __init__(
         self,
         *,
-        description=None,
-        catalogue=None,
-        category=None,
         entry_point=None,
+        category=None,
         cli=True,
+        description=None,
         argparser=None,
         eval_env=None,
         argv=None,
+        config_option=False,
+        default_config_file=None,
     ):
-        if catalogue is None:
-            catalogue = _catalogue_fn(entry_point)
-        catalogue = catalogue
-
+        cg = catalogue(entry_point)
         self.category = category
         self.argv = argv
-        self.names = _find_configurable(catalogue, category)
+        self.names = _find_configurable(cg, category)
         if cli:
             if argparser is None:
                 argparser = argparse.ArgumentParser(
                     description=description, argument_default=argparse.SUPPRESS
                 )
         self.argparser = _fill_argparser(argparser, self.names)
+        if config_option:
+            if config_option is True:
+                config_option = "config"
+            self.argparser.add_argument(
+                f"--{config_option}",
+                action="store",
+                dest="#config",
+                metavar="FILE",
+                help="Configuration file to read options from.",
+            )
+            self.argparser.add_argument(
+                f"--save-{config_option}",
+                action="store",
+                dest="#save_config",
+                metavar="FILE",
+                help="Configuration file to save the options to.",
+            )
         self.eval_env = eval_env
+        self.default_config_file = default_config_file
 
     def resolve(self, arg):
         if arg is ABSENT:
@@ -154,11 +170,40 @@ class Configurator:
             except ValueError:
                 return arg
 
+    def get_options(self):
+        args = self.argparser.parse_args(self.argv)
+        opts = {k: v for k, v in vars(args).items() if not k.startswith("#")}
+
+        cfg, must_exist = getattr(args, "#config", None), True
+        if not cfg:
+            cfg, must_exist = self.default_config_file, False
+        if cfg:
+            exists = os.path.exists(cfg)
+            if exists:
+                with open(cfg) as f:
+                    opts2 = json.load(f)
+                    opts = {**opts2, **opts}
+            elif must_exist:
+                print(
+                    f"Error: configuration file '{cfg}' does not exist",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        save = getattr(args, "#save_config", None)
+        if save:
+            print(f"Saving configuration to {save}")
+            with open(save, "w") as f:
+                json.dump(opts, f, indent=4)
+                f.write("\n")
+            sys.exit(0)
+        return opts
+
     def __enter__(self):
         def _resolve(arg):
-            return self.resolve(getattr(args, arg.name, ABSENT))
+            return self.resolve(opts.get(arg.name, ABSENT))
 
-        args = self.argparser.parse_args(self.argv)
+        opts = self.get_options()
         pattern = to_pattern(f"$arg:##X", env={"##X": self.category})
         self.ov = overlay({pattern: {"value": _resolve}})
         self.ov.__enter__()

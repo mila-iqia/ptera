@@ -4,7 +4,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import copy
-from itertools import chain, count
+from itertools import chain
 
 from .categories import match_category
 from .selector import to_pattern

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from ptera import ConflictError, auto_cli, cat, catalogue, default, ptera
@@ -99,12 +101,15 @@ def test_no_env():
 
 
 def test_unknown_argument():
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         auto_cli(stout, (3,), category=cat.Argument, argv="--x=4".split())
-    with pytest.raises(SystemExit):
+    assert exc.value.code == 2
+
+    with pytest.raises(SystemExit) as exc:
         auto_cli(
             stout, (3,), category=cat.Bargument, argv="--z=3 --w=10".split()
         )
+    assert exc.value.code == 2
 
 
 def test_conflict():
@@ -145,9 +150,74 @@ def test_types():
         )
         == "wavewavewave"
     )
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         auto_cli(patriotism, (), category=cat.Argument, argv="--flag=1".split())
-    with pytest.raises(SystemExit):
+    assert exc.value.code == 2
+
+    with pytest.raises(SystemExit) as exc:
         auto_cli(
             patriotism, (), category=cat.Argument, argv="--times=ohno".split()
         )
+    assert exc.value.code == 2
+
+
+def test_config_file(tmpdir):
+    cfg1 = tmpdir.join("config1.json")
+    cfg1.write(json.dumps({"z": 3, "w": 10}))
+
+    assert auto_cli(
+        stout, (3,), category=cat.Argument, argv=[], default_config_file=cfg1
+    ) == (16, 8)
+
+    assert auto_cli(
+        stout,
+        (3,),
+        category=cat.Argument,
+        argv=["--config", cfg1.strpath],
+        config_option=True,
+    ) == (16, 8)
+
+    assert auto_cli(
+        stout,
+        (3,),
+        category=cat.Argument,
+        argv=["--xxxx", cfg1.strpath],
+        config_option="xxxx",
+    ) == (16, 8)
+
+    cfg2 = tmpdir.join("config2.json")
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            stout,
+            (3,),
+            category=cat.Argument,
+            argv=f"--z=4 --w=11 --save-config {cfg2.strpath}".split(),
+            config_option=True,
+        )
+    assert exc.value.code == 0
+
+    assert json.loads(cfg2.read()) == {"z": "4", "w": "11"}
+
+    cfg3 = tmpdir.join("config3.json")
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            stout,
+            (3,),
+            category=cat.Argument,
+            argv=f"--xxxx {cfg1.strpath} --save-xxxx {cfg3.strpath}".split(),
+            config_option="xxxx",
+        )
+    assert exc.value.code == 0
+
+    assert json.loads(cfg1.read()) == json.loads(cfg3.read())
+
+    cfg4 = tmpdir.join("config4.json")
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            stout,
+            (3,),
+            category=cat.Argument,
+            argv=f"--config {cfg4.strpath}".split(),
+            config_option=True,
+        )
+    assert exc.value.code == 1

@@ -182,4 +182,6 @@ def train():
 
 
 if __name__ == "__main__":
-    auto_cli(train, category=cat.CliArgument, eval_env=globals())
+    auto_cli(
+        train, category=cat.CliArgument, eval_env=globals(), config_option=True
+    )
