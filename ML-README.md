@@ -7,7 +7,7 @@
 * **Inspect gradients**: Take the gradient of anything with respect to anything else. The variables don't even need to be in the same scope.
 
 
-[See example here](https://github.com/breuleux/ptera/blob/master/examples/mlp.py)
+[See example here](https://github.com/mila-iqia/ptera/blob/master/examples/mlp.py)
 
 
 # Using Ptera with PyTorch

@@ -22,7 +22,7 @@ Although they can be used independently, selfless objects and trace queries inte
 
 Ptera can also be combined with other libraries to make certain tasks very easy:
 
-* [Using Ptera with PyTorch](https://github.com/breuleux/ptera/blob/master/ML-README.md), it is easy to get the gradient of any quantity with respect to any other quantity. These quantities can be *anywhere* in the program! They don't need to be in the same scope!
+* [Using Ptera with PyTorch](https://github.com/mila-iqia/ptera/blob/master/ML-README.md), it is easy to get the gradient of any quantity with respect to any other quantity. These quantities can be *anywhere* in the program! They don't need to be in the same scope!
 
 
 ## Selfless objects
