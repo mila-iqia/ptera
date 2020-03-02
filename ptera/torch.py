@@ -15,13 +15,25 @@ class GradCollector(Collector):
 
             return hook
 
-        new_entries = []
+        groups = {}
         for entry in self.map_full():
-            hooks = []
             target = entry[self.target.capture].value
-            new_entry = {}
-            for name, cap in entry.items():
-                if name != self.target.capture:
+            groups.setdefault(id(target), {"target": target, "entries": []})
+            groups[id(target)]["entries"].append(
+                {
+                    name: cap
+                    for name, cap in entry.items()
+                    if name != self.target.capture
+                }
+            )
+
+        new_entries = []
+        for x in groups.values():
+            hooks = []
+            target = x["target"]
+            for entry in x["entries"]:
+                new_entry = {}
+                for name, cap in entry.items():
                     new_cap = Capture(cap.element)
                     new_entry[name] = new_cap
                     for realname, value in zip(cap.names, cap.values):
@@ -34,10 +46,10 @@ class GradCollector(Collector):
                                     _log(new_cap, realname, value)
                                 )
                             )
+                new_entries.append(new_entry)
             target.backward(torch.ones(target.shape), retain_graph=True)
             for h in hooks:
                 h.remove()
-            new_entries.append(new_entry)
 
         final_collector = Collector(self.pattern)
         final_collector.data = new_entries
