@@ -44,7 +44,7 @@ class GrabAll:
                 {name: cap.values for name, cap in kwargs.items()}
             )
 
-        listener._ptera_argspec = None, set(pattern.all_captures())
+        listener._ptera_argspec = set(pattern.all_captures())
         self.rules = {pattern: {"listeners": listener}}
 
 
@@ -115,31 +115,16 @@ def test_patterns():
         {"a": [13], "v": [121]},
     ]
 
-    assert _dbrie("brie > x:int") == [{"x": [2]}, {"x": [10]}]
-    assert _dbrie("brie > x:float") == []
-
     # Function category
     assert _dbrie("*:cat.Fromage{a}") == [{"a": [4]}, {"a": [100]}]
 
     # Inexistent category
     assert _dbrie("brie > $x:cat.Xylophone") == []
 
-
-@pytest.mark.xfail(
-    reason="Type selectors with generic variable names are currently broken."
-)
-def test_type_selectors():
-    assert _dbrie("brie > $i:int") == [
-        {"i": [2]},
-        {"i": [3]},
-        {"i": [4]},
-        {"i": [9]},
-        {"i": [10]},
-        {"i": [11]},
-        {"i": [100]},
-        {"i": [121]},
-    ]
-    assert _dbrie("brie > $s:str") == []
+    # Filter on value
+    assert _dbrie("brie{!x, y, a=4}") == [{"x": [2], "y": [3]}]
+    assert _dbrie("double_brie{x1=2} > brie > x") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("double_brie{#value=1234} > brie > x") == []
 
 
 @ptera
@@ -236,6 +221,9 @@ def test_provide_var():
 def test_missing_var():
     with pytest.raises(NameError):
         mystery(3)
+
+    with pytest.raises(NameError):
+        mystery.tweak({"mystery{hat=10} > surprise": 0})(3)
 
 
 def test_tap_map():
@@ -378,7 +366,7 @@ def test_capture():
 
     assert str(cap) == "Capture(sel(\"!x\"), ['x', 'x'], [1, 2])"
 
-    cap = Capture(Element(None))
+    cap = Capture(Element(name=None))
     with pytest.raises(ValueError):
         cap.name
     cap.acquire("y", 7)

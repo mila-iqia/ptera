@@ -23,7 +23,12 @@ class PteraDecorator:
         new_fn, state = transform(fn, interact=interact)
         fn = PteraFunction(new_fn, state)
         if "defaults" in self.kwargs:
-            fn = fn.new(**self.kwargs["defaults"])
+            fn = fn.new(
+                **{
+                    k: override(v, -0.5)
+                    for k, v in self.kwargs["defaults"].items()
+                }
+            )
         return fn
 
 

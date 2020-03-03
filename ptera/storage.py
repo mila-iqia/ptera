@@ -1,6 +1,6 @@
 import functools
 from collections import defaultdict
-from dataclasses import dataclass, replace as dc_replace
+from dataclasses import dataclass
 
 from .core import Capture, get_names
 from .selector import Element, to_pattern
@@ -40,9 +40,7 @@ def role_wrapper(role):
             ),
             full=full,
         )
-        _, names = get_names(fn)
-        focus = target
-        fn._ptera_argspec = focus, names
+        fn._ptera_argspec = get_names(fn)
         return fn
 
     return wrap
@@ -91,10 +89,8 @@ class Storage:
             assert key in self.store
             self.update_queue[key] = call_with_captures(fn, cap, full=role.full)
 
-        focus, names = fn._ptera_argspec
-        wrapped._ptera_argspec = (
-            focus,
-            set(names) | set(k for k, _ in self._key_captures),
+        wrapped._ptera_argspec = set(fn._ptera_argspec) | set(
+            k for k, _ in self._key_captures
         )
         return wrapped
 
@@ -105,10 +101,8 @@ class Storage:
             cap = {**role.make_capture(), **cap}
             return call_with_captures(fn, cap, full=role.full)
 
-        focus, names = fn._ptera_argspec
-        wrapped._ptera_argspec = (
-            focus,
-            set(names) | set(k for k, _ in self._key_captures),
+        wrapped._ptera_argspec = set(fn._ptera_argspec) | set(
+            k for k, _ in self._key_captures
         )
         return wrapped
 
@@ -126,11 +120,9 @@ class Storage:
                 continue
 
             if role.target.capture is None:
-                role.target = dc_replace(
-                    role.target, capture=self.default_target
-                )
+                role.target = role.target.clone(capture=self.default_target)
 
-            _, names = get_names(fn)
+            names = get_names(fn)
             names = {*names, *[k for k, param in self._key_captures]}
             patt = pattern.rewrite(names, focus=role.target.capture)
             patt = patt.specialize({role.target.capture: role.target})

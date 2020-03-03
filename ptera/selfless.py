@@ -268,7 +268,10 @@ def transform(fn, interact):
     exec(new_fn, glb, glb)
 
     state = {
-        k: eval(compile(ast.Expression(v), filename, "eval"), glb, glb)
+        k: override(
+            eval(compile(ast.Expression(v), filename, "eval"), glb, glb),
+            priority=-0.5,
+        )
         for k, v in transformer.defaults.items()
     }
 
@@ -347,30 +350,33 @@ def state_class(fname, slots, vardoc, annotations):
 class Selfless:
     def __init__(self, fn, state):
         self.fn = fn
-        self._state = state
+        self.state_obj = state
 
     @property
     def state(self):
-        if isinstance(self._state, PreState):
-            self._state = self._state.make()
-        return self._state
+        self.ensure_state()
+        return self.state_obj
+
+    def ensure_state(self):
+        if isinstance(self.state_obj, PreState):
+            self.state_obj = self.state_obj.make()
 
     def new(self, **values):
         rval = self.clone()
         for k, v in values.items():
-            setattr(rval.state, k, v)
+            setattr(rval.state_obj, k, v)
         return rval
 
     def clone(self, **kwargs):
-        kwargs = {"fn": self.fn, "state": copy(self.state), **kwargs}
+        self.ensure_state()
+        kwargs = {"fn": self.fn, "state": copy(self.state_obj), **kwargs}
         return type(self)(**kwargs)
 
     def get(self, name):
-        return getattr(self.state, name, ABSENT)
+        return getattr(self.state_obj, name, ABSENT)
 
     def __call__(self, *args, **kwargs):
-        args = [override(arg, priority=0.5) for arg in args]
-        kwargs = {k: override(arg, priority=0.5) for k, arg in kwargs.items()}
+        self.ensure_state()
         return self.fn(self, *args, **kwargs)
 
     def __str__(self):
@@ -384,10 +390,10 @@ class ConflictError(Exception):
 def choose(opts):
     real_opts = [opt for opt in opts if opt is not ABSENT]
     if not real_opts:
-        return False, None
+        return ABSENT
     elif len(real_opts) == 1:
         (opt,) = real_opts
-        return True, opt.value if isinstance(opt, Override) else opt
+        return opt.value if isinstance(opt, Override) else opt
     else:
         with_prio = [
             (opt.value, -opt.priority)
@@ -398,13 +404,13 @@ def choose(opts):
         with_prio.sort(key=lambda x: x[1])
         if with_prio[1][1] == with_prio[0][1]:
             raise ConflictError("Multiple values with same priority conflict.")
-        return True, with_prio[0][0]
+        return with_prio[0][0]
 
 
 def selfless_interact(sym, key, category, __self__, value):
     from_state = __self__.get(sym)
-    success, rval = choose([value, from_state])
-    if not success:
+    rval = choose([value, from_state])
+    if rval is ABSENT:
         raise NameError(f"Variable {sym} of {__self__} is not set.")
     assert not isinstance(rval, Override)
     return rval

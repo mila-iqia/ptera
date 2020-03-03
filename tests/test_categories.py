@@ -1,6 +1,4 @@
-import pytest
-
-from ptera.categories import Category, cat, match_category as mc
+from ptera.categories import cat, match_category as mc
 
 from .common import one_test_per_assert
 
@@ -8,7 +6,7 @@ from .common import one_test_per_assert
 @one_test_per_assert
 def test_category():
     assert cat.Fruit == cat.Fruit
-    assert cat.Fruit == Category("Fruit")
+    assert cat.Fruit is cat.Fruit
 
 
 @one_test_per_assert
@@ -30,26 +28,9 @@ def test_category_repr():
     assert str(cat.Foo & cat.Bar & cat.Baz) == "Bar&Baz&Foo"
 
 
-class A:
-    pass
-
-
-class B(A):
-    pass
-
-
 @one_test_per_assert
 def test_match_category():
     assert mc(cat.Fruit, cat.Fruit)
     assert mc(cat.Fruit, cat.Fruit & cat.Legume)
     assert not mc(cat.Fruit, cat.Legume)
-
     assert mc(cat.Fruit, cat.Fruit & int)
-    assert mc(A, A)
-    assert mc(B, A)
-    assert not mc(A, B)
-
-
-def test_match_category_type_error():
-    with pytest.raises(TypeError):
-        mc(int, int, value=3.5)

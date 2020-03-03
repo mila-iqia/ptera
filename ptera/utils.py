@@ -1,6 +1,6 @@
 import functools
 import inspect
-from contextlib import contextmanager
+from types import FunctionType
 
 
 class Named:
@@ -32,15 +32,6 @@ COMPLETE = Named("COMPLETE")
 FAILED = Named("FAILED")
 
 
-@contextmanager
-def setvar(var, value):
-    reset = var.set(value)
-    try:
-        yield value
-    finally:
-        var.reset(reset)
-
-
 def keyword_decorator(deco):
     """Wrap a decorator to optionally takes keyword arguments."""
 
@@ -60,14 +51,19 @@ def keyword_decorator(deco):
 
 
 def call_with_captures(fn, captures, full=True):
-    args = inspect.getfullargspec(fn)
-    if args.varkw:
-        kwargs = captures
+    # TODO: merge with get_names
+    if not hasattr(fn, "_ptera_argnames"):
+        args = inspect.getfullargspec(fn)
+        assert not args.varkw
+        args = args.args + args.kwonlyargs
+        if isinstance(fn, FunctionType):
+            fn._ptera_argnames = args
     else:
-        kwargs = {}
-        for k, v in captures.items():
-            if k in args.args or k in args.kwonlyargs or args.varkw:
-                kwargs[k] = v
+        args = fn._ptera_argnames
+    kwargs = {}
+    for k in args:
+        if k != "self":
+            kwargs[k] = captures[k]
     if not full:
         kwargs = {k: v.value for k, v in kwargs.items()}
     return fn(**kwargs)

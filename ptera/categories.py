@@ -1,6 +1,3 @@
-from .utils import ABSENT
-
-
 def _merge(a, b):
     members = set()
     members.update(a.members if isinstance(a, CategorySet) else {a})
@@ -11,12 +8,6 @@ def _merge(a, b):
 class Category:
     def __init__(self, name):
         self.name = name
-
-    def __eq__(self, other):
-        return isinstance(other, Category) and other.name == self.name
-
-    def __hash__(self):
-        return hash(self.name)
 
     __and__ = _merge
     __rand__ = _merge
@@ -44,39 +35,24 @@ class CategorySet:
 
 
 class _CategoryFactory:
+    def __init__(self):
+        self._cache = {}
+
     def __getattr__(self, name):
-        return Category(name)
+        if name not in self._cache:
+            self._cache[name] = Category(name)
+        return self._cache[name]
 
 
-def match_category(to_match, category, value=ABSENT):
-    if category is None:
-        cats = set()
-    elif isinstance(category, CategorySet):
-        cats = category.members
-    else:
-        cats = {category}
-
-    rval = False
+def match_category(to_match, category):
     if to_match is None:
-        rval = True
-    elif isinstance(to_match, type) and isinstance(value, to_match):
-        rval = True
-
-    for cat in cats:
-        if isinstance(cat, type):
-            if value is ABSENT:
-                if isinstance(to_match, type) and issubclass(to_match, cat):
-                    rval = True
-            elif not isinstance(value, cat):
-                raise TypeError(f"Expected type {cat} for {value}")
-        elif (
-            isinstance(cat, Category)
-            and isinstance(to_match, Category)
-            and cat == to_match
-        ):
-            rval = True
-
-    return rval
+        return True
+    if category is None:
+        return False
+    elif isinstance(category, CategorySet):
+        return any(cat == to_match for cat in category.members)
+    else:
+        return category == to_match
 
 
 cat = _CategoryFactory()

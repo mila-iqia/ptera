@@ -149,9 +149,7 @@ class Configurator:
         self.default_config_file = default_config_file
 
     def resolve(self, arg):
-        if arg is ABSENT:
-            return arg
-        elif not isinstance(arg, str):
+        if not isinstance(arg, str):
             return arg
         elif arg in ("True", "False", "None"):
             return eval(arg)
@@ -200,12 +198,19 @@ class Configurator:
         return opts
 
     def __enter__(self):
-        def _resolve(arg):
-            return self.resolve(opts.get(arg.name, ABSENT))
+        def _resolver(value):
+            return lambda **_: value
 
         opts = self.get_options()
-        pattern = to_pattern(f"$arg:##X", env={"##X": self.category})
-        self.ov = overlay({pattern: {"value": _resolve}})
+        opts = {name: self.resolve(value) for name, value in opts.items()}
+        self.ov = overlay(
+            {
+                to_pattern(f"{name}:##X", env={"##X": self.category}): {
+                    "value": _resolver(value)
+                }
+                for name, value in opts.items()
+            }
+        )
         self.ov.__enter__()
         return self
 
