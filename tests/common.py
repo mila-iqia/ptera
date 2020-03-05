@@ -22,7 +22,6 @@ class AssertTransformer(NodeTransformer):
                         body=[stmt],
                         decorator_list=node.decorator_list,
                         returns=node.returns,
-                        # type_comment=node.type_comment,
                     )
                 )
         return ast.Module(body=newfns, type_ignores=[])

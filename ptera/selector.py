@@ -495,8 +495,13 @@ class _StringFinder(ast.NodeVisitor):
     def __init__(self):
         self.strings = {}
 
-    def visit_Str(self, node):
+    def visit_Str(self, node):  # pragma: no cover
+        # Python <3.8
         self.strings[node.s] = node.lineno
+
+    def visit_Constant(self, node):  # pragma: no cover
+        # Python >=3.8
+        self.strings[node.value] = node.lineno
 
 
 def _find_string(s, filename):

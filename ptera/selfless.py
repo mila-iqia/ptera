@@ -142,7 +142,7 @@ class PteraTransformer(NodeTransformer):
                     )
                 )
             new_args = ast.arguments(
-                # posonlyargs=[],
+                posonlyargs=[],
                 args=list(node.args.args),
                 vararg=None,
                 kwonlyargs=[],
