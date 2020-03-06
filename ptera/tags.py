@@ -1,11 +1,11 @@
 def _merge(a, b):
     members = set()
-    members.update(a.members if isinstance(a, CategorySet) else {a})
-    members.update(b.members if isinstance(b, CategorySet) else {b})
-    return CategorySet(members)
+    members.update(a.members if isinstance(a, TagSet) else {a})
+    members.update(b.members if isinstance(b, TagSet) else {b})
+    return TagSet(members)
 
 
-class Category:
+class Tag:
     def __init__(self, name):
         self.name = name
 
@@ -18,7 +18,7 @@ class Category:
     __str__ = __repr__
 
 
-class CategorySet:
+class TagSet:
     def __init__(self, members):
         self.members = frozenset(members)
 
@@ -26,7 +26,7 @@ class CategorySet:
     __rand__ = _merge
 
     def __eq__(self, other):
-        return isinstance(other, CategorySet) and other.members == self.members
+        return isinstance(other, TagSet) and other.members == self.members
 
     def __repr__(self):
         return "&".join(sorted(map(str, self.members)))
@@ -40,19 +40,19 @@ class _TagFactory:
 
     def __getattr__(self, name):
         if name not in self._cache:
-            self._cache[name] = Category(name)
+            self._cache[name] = Tag(name)
         return self._cache[name]
 
 
-def match_category(to_match, category):
+def match_tag(to_match, tg):
     if to_match is None:
         return True
-    if category is None:
+    if tg is None:
         return False
-    elif isinstance(category, CategorySet):
-        return any(cat == to_match for cat in category.members)
+    elif isinstance(tg, TagSet):
+        return any(cat == to_match for cat in tg.members)
     else:
-        return category == to_match
+        return tg == to_match
 
 
 tag = _TagFactory()

@@ -6,7 +6,7 @@ from copy import copy
 
 from .selector import Element, to_pattern
 from .selfless import Override, Selfless, choose, override
-from .tags import match_category
+from .tags import match_tag
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures
 
 _pattern_fit_cache = {}
@@ -249,7 +249,7 @@ def dict_to_collection(*rulesets):
 def check_element(el, name, category):
     if el.name is not None and el.name != name:
         return False
-    elif not match_category(el.category, category):
+    elif not match_tag(el.category, category):
         return False
     else:
         return True

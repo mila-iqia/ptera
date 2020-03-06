@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from .core import PteraFunction, overlay
 from .selector import to_pattern
 from .selfless import PreState
-from .tags import CategorySet, match_category
+from .tags import TagSet, match_tag
 from .utils import ABSENT
 
 
@@ -43,12 +43,12 @@ def catalogue(functions):
     return results
 
 
-def _find_configurable(catalogue, category):
+def _find_configurable(catalogue, tag):
     rval = defaultdict(dict)
     for fn, variables in catalogue.items():
         for name, data in variables.items():
             ann = data["annotation"]
-            if match_category(category, ann):
+            if match_tag(tag, ann):
                 rval[name][fn] = data
     return rval
 
@@ -154,7 +154,7 @@ class Configurator:
             typ = []
             for x in data.values():
                 ann = x["annotation"]
-                if isinstance(ann, CategorySet):
+                if isinstance(ann, TagSet):
                     members = ann.members
                 else:
                     members = [ann]

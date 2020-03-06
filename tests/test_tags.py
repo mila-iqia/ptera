@@ -1,4 +1,4 @@
-from ptera.tags import match_category as mc, tag
+from ptera.tags import match_tag as mt, tag
 
 from .common import one_test_per_assert
 
@@ -29,8 +29,8 @@ def test_category_repr():
 
 
 @one_test_per_assert
-def test_match_category():
-    assert mc(tag.Fruit, tag.Fruit)
-    assert mc(tag.Fruit, tag.Fruit & tag.Legume)
-    assert not mc(tag.Fruit, tag.Legume)
-    assert mc(tag.Fruit, tag.Fruit & int)
+def test_match_tag():
+    assert mt(tag.Fruit, tag.Fruit)
+    assert mt(tag.Fruit, tag.Fruit & tag.Legume)
+    assert not mt(tag.Fruit, tag.Legume)
+    assert mt(tag.Fruit, tag.Fruit & int)

@@ -6,7 +6,7 @@ import builtins
 import sys
 
 from . import opparse
-from .tags import Category
+from .tags import Tag
 from .utils import ABSENT
 
 
@@ -557,8 +557,8 @@ def _resolve(pattern, env):
         )
     elif isinstance(pattern, Element):
         category = _eval(pattern.category, env)
-        if category is not None and not isinstance(category, Category):
-            raise TypeError(f"A pattern can only be a Category.")
+        if category is not None and not isinstance(category, Tag):
+            raise TypeError(f"A pattern can only be a Tag.")
         return pattern.clone(category=category)
 
 
