@@ -188,7 +188,7 @@ assert result == 9
 
 ## Automatic CLI
 
-Ptera can automatically create a command-line interface from variables annotated with a certain category. The main advantage of `ptera.auto_cli` relative to other solutions is that the arguments are declared wherever you actually use them. Consider the following program, for example:
+Ptera can automatically create a command-line interface from variables annotated with a certain tag. The main advantage of `ptera.auto_cli` relative to other solutions is that the arguments are declared wherever you actually use them. Consider the following program, for example:
 
 ```python
 def main():
@@ -202,17 +202,17 @@ if __name__ == "__main__":
 It would be nice to be able to configure the number of iterations instead of using the hard-coded number 1000. Enter `ptera.auto_cli`:
 
 ```python
-from ptera import auto_cli, cat, default, ptera
+from ptera import auto_cli, tag, default, ptera
 
 @ptera
 def main():
     # Number of iterations
-    n: cat.CliArgument = default(1000)
+    n: tag.CliArgument = default(1000)
     for i in range(n):
         do_something()
 
 if __name__ == "__main__":
-    auto_cli(main, category=cat.CliArgument)
+    auto_cli(main, tag=tag.CliArgument)
 ```
 
 Then you can run it like this, for example:
@@ -221,7 +221,7 @@ Then you can run it like this, for example:
 $ python script.py --n 15
 ```
 
-* Ptera will look for any variable annotated with the specified category within `@ptera` functions that are accessible from `main`.
+* Ptera will look for any variable annotated with the specified tag within `@ptera` functions that are accessible from `main`.
   * There is no need to pass an options object around. If you need to add an argument to any function in any file, you can just plop it in there and ptera should find it and allow you to set it on the command line.
   * You can declare multiple CLI arguments in multiple places with the same name. They will all be set to the same value.
 * The comment right above the declaration of the variable, if there is one, is used as documentation.
@@ -229,7 +229,7 @@ $ python script.py --n 15
   * You don't have to provide one.
   * Ptera uses a priority system to determine which value to choose and `default` sets a low priority. If you set a value but don't wrap it with `default`, you will get a `ConflictError` when trying to set the variable on the command line. This is the intended behavior.
 
-In the future, `auto_cli` will also support environment variables, configuration files, and extra options to catalogue all the variables that can be queried. For example, a planned feature is to be able to display where in the code each variable with a given category is declared and used.
+In the future, `auto_cli` will also support environment variables, configuration files, and extra options to catalogue all the variables that can be queried. For example, a planned feature is to be able to display where in the code each variable with a given tag is declared and used.
 
 Another future feature: since it is within ptera's ability to set different values for the parameter `param` depending on the call context (e.g. with the `tweak` method), the ability to do this in a configuration file will be added at some point (just need to figure out the format).
 
@@ -242,19 +242,21 @@ Here is some code annotated with queries that will match various variables. The 
 * The hash character "#" *is* part of the query if there is no space after it, otherwise it starts a comment.
 
 ```python
-from ptera import cat, ptera
+from ptera import ptera, tag
 
+Animal = tag.Animal
+Thing = tag.Thing
 
 @ptera
 def art(a, b):               # art > a ; art > b ; art{!a, b} ; art{a, !b}
 
-    a1: cat.Animal = bee(a)  # a1 ; art > a1 ; art{!a1} ; art > $x
+    a1: Animal = bee(a)      # a1 ; art > a1 ; art{!a1} ; art > $x
                              # a1:Animal ; $x:Animal
                              # art{!a1} > bee > d  # Focus on a1, also includes d
                              # art > bee  # This refers to the bee function
                              # * > a1 ; *{!a1}
 
-    a2: cat.Thing = cap(b)   # a2 ; art > a2 ; art{!a2} ; art > $x
+    a2: Thing = cap(b)       # a2 ; art > a2 ; art{!a2} ; art > $x
                              # a2:Thing ; $x:Thing
 
     return a1 + a2           # art > #value ; art{#value as art_result}
@@ -271,7 +273,7 @@ def bee(c):
 
 
 @ptera
-def cap(d: cat.Thing & int): # cap > d ; $x:Thing ; $x:int ; cap > $x
+def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
                              # art{bee{c}} > cap > d
     return d * d
 ```
@@ -287,7 +289,7 @@ def cap(d: cat.Thing & int): # cap > d ; $x:Thing ; $x:int ; cap > $x
   * Query: `art > $x`
   * Getting the names: `results.map_full(lambda x: x.name) == ["a1", "a2", "#value"]`
   * Other fields accessible from `map_full` are `value`, `names` and `values`, the latter two being needed if multiple results are captured together.
-* Variable annotations are preserved and can be filtered on, using the `:` operator. They may be types or "categories" (created using `ptera.Category("XYZ")` or `ptera.cat.XYZ`).
+* Variable annotations are preserved and can be filtered on, using the `:` operator. They may be types or "tags" (created using `ptera.Tag("XYZ")` or `ptera.tag.XYZ`).
 * `art{bee{c}} > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
   * If there are multiple calls to `bee`, all values of `c` will be pooled together, and it will be necessary to use `map_all` to retrieve the values (or `map_full`).
 

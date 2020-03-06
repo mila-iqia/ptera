@@ -7,7 +7,7 @@ Example usage:
 To see all options:
   python mlp.py -h
 
-Any variable that is annotated with `cat.CliArgument` in a `@ptera` function
+Any variable that is annotated with `tag.CliArgument` in a `@ptera` function
 can be set on the command line. `ptera.auto_cli` will find them automatically.
 """
 
@@ -17,14 +17,14 @@ from collections import deque
 import torch
 import torchvision
 
-from ptera import Recurrence, auto_cli, cat, default, ptera
+from ptera import Recurrence, auto_cli, default, ptera, tag
 from ptera.torch import Grad
 
 
 @ptera
 def mnist():
     # Path to the directory where the datasets are
-    dataroot: cat.CliArgument
+    dataroot: tag.CliArgument
 
     return torchvision.datasets.MNIST(
         root=os.path.expanduser(dataroot),
@@ -37,9 +37,9 @@ def mnist():
 
 @ptera
 def layer(inp):
-    W: cat.Learnable & cat.WeightMatrix
-    b: cat.Learnable & cat.BiasVector
-    actfn: cat.ActivationFunction
+    W: tag.Learnable & tag.WeightMatrix
+    b: tag.Learnable & tag.BiasVector
+    actfn: tag.ActivationFunction
 
     act = torch.nn.functional.linear(inp, W, b)
     return actfn(act)
@@ -59,13 +59,13 @@ def sequential(inp):
 @ptera
 def step(inp, target):
     # How much to regulate the magnitude of the weights
-    weight_reg: cat.CliArgument & float = default(0)
+    weight_reg: tag.CliArgument & float = default(0)
 
-    model: cat.Model
-    lossfn: cat.LossFunction
+    model: tag.Model
+    lossfn: tag.LossFunction
 
     if weight_reg:
-        results = model.using(weights="$param:cat.WeightMatrix")(inp)
+        results = model.using(weights="$param:tag.WeightMatrix")(inp)
         output = results.value
         reg = sum(results.weights.map(lambda param: param.abs().sum()))
         loss = lossfn(output, target) + weight_reg * reg
@@ -88,7 +88,7 @@ def param(nin, nout, bias=False):
 @ptera
 def make_network(layer_sizes):
     # Activation function for the network
-    actfn: cat.CliArgument = default(torch.relu)
+    actfn: tag.CliArgument = default(torch.relu)
 
     layers = [
         layer.new(
@@ -107,24 +107,24 @@ def make_network(layer_sizes):
 def train():
 
     # Sizes of the hidden layers
-    hidden: cat.CliArgument & int = default(1000)
+    hidden: tag.CliArgument & int = default(1000)
     if isinstance(hidden, int):
         hidden = (hidden,)
 
     # Number of epochs
-    epochs: cat.CliArgument & int = default(10)
+    epochs: tag.CliArgument & int = default(10)
 
     # Batch size
-    batch_size: cat.CliArgument & int = default(32)
+    batch_size: tag.CliArgument & int = default(32)
 
     # Learning rate
-    lr: cat.CliArgument & float = default(0.1)
+    lr: tag.CliArgument & float = default(0.1)
 
     # Seed
-    seed: cat.CliArgument & int = default(1234)
+    seed: tag.CliArgument & int = default(1234)
 
     # Display weight statistics
-    weight_stats: cat.CliArgument & bool = default(False)
+    weight_stats: tag.CliArgument & bool = default(False)
 
     torch.random.manual_seed(seed)
 
@@ -144,14 +144,14 @@ def train():
     def hits(output, target):
         return (output.max(dim=1).indices == target).sum()
 
-    @my_step.on(Grad("step{!!loss} >> $param:cat.Learnable"))
+    @my_step.on(Grad("step{!!loss} >> $param:tag.Learnable"))
     def update(param):
         param_value, param_grad = param
         param_value.data.add_(param_grad, alpha=-lr)
 
     if weight_stats:
 
-        @my_step.on("$param:cat.WeightMatrix")
+        @my_step.on("$param:tag.WeightMatrix")
         def wstat(param):
             absw = param.abs()
             return absw.max(), absw.mean(), absw.min()
@@ -187,18 +187,15 @@ def train():
 
 if __name__ == "__main__":
     auto_cli(
-        train,
-        category=cat.CliArgument,
-        eval_env=globals(),
-        fromfile_prefix_chars="@",
+        train, tag=tag.CliArgument, eval_env=globals(), expand="@",
     )
 
 
 def test_mlp():
     auto_cli(
         train,
-        category=cat.CliArgument,
+        tag=tag.CliArgument,
         eval_env=globals(),
-        fromfile_prefix_chars="@",
+        expand="@",
         argv="@config.json".split(),
     )

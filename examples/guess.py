@@ -7,26 +7,26 @@ Example usage:
 To see all options:
   python guess.py -h
 
-Any variable that is annotated with `cat.CliArgument` in a `@ptera` function
+Any variable that is annotated with `Argument` in a `@ptera` function
 can be set on the command line. `ptera.auto_cli` will find them automatically.
 """
 
 import random
 
-from ptera import auto_cli, cat, default, ptera
+from ptera import Argument, auto_cli, default, ptera
 
 
 @ptera
 def guess():
     # Minimal possible number
-    minimum: cat.CliArgument & int = default(0)
+    minimum: Argument & int = default(0)
     # Maximal possible number
-    maximum: cat.CliArgument & int = default(100)
+    maximum: Argument & int = default(100)
     # Maximal number of tries
-    maxtries: cat.CliArgument & int = default(10)
+    maxtries: Argument & int = default(10)
 
     # Force the number to guess (defaults to random)
-    target: cat.CliArgument & int = default(random.randint(minimum, maximum))
+    target: Argument & int = default(random.randint(minimum, maximum))
 
     assert minimum <= target <= maximum
 
@@ -48,11 +48,11 @@ def guess():
 @ptera
 def main():
     # Number of rounds of guessing
-    rounds: cat.CliArgument & int = default(1)
+    rounds: Argument & int = default(1)
 
     for i in range(rounds):
         guess()
 
 
 if __name__ == "__main__":
-    auto_cli(main, description="Guessing game", category=cat.CliArgument)
+    auto_cli(main, description="Guessing game")

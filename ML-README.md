@@ -174,8 +174,8 @@ This is a software engineering problem and no one has time for this kind of nons
 
 ## Adding hyperparameters
 
-Hyperparameters can be added literally anywhere in the code. Using `ptera.auto_cli`, `ptera` can find all variables in a specified category (e.g. the `ptera.cat.HyperParameter` category) and it will create a command line interface that lets you set them.
+Hyperparameters can be added literally anywhere in the code. Using `ptera.auto_cli`, `ptera` can find all variables in a specified tag (e.g. the `ptera.tag.HyperParameter` tag) and it will create a command line interface that lets you set them.
 
 Normally, the workflow to add a new parameter that can be set on the command line or in a configuration file would be to a) declare it at the top level, b) propagate the configuration object where the parameter should be used, and then c) use the parameter. You will therefore need to write some code in two different locations.
 
-With ptera, it is enough to declare the new parameter where you intend to use it, give it the right category, document it with a comment, and then use it. You only need to add code at a single location.
+With ptera, it is enough to declare the new parameter where you intend to use it, give it the right tag, document it with a comment, and then use it. You only need to add code at a single location.
