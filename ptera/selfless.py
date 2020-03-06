@@ -161,7 +161,16 @@ class PteraTransformer(NodeTransformer):
         else:
             new_args = node.args
 
-        # node.args.args = new_args
+        first = node.body[0]
+        if isinstance(first, ast.Expr):
+            v = first.value
+            if (
+                isinstance(v, ast.Str)
+                or isinstance(v, ast.Constant)
+                and isinstance(v.value, str)
+            ):
+                new_body.insert(0, first)
+
         for stmt in map(self.visit, node.body):
             if isinstance(stmt, list):
                 new_body.extend(stmt)
@@ -173,7 +182,6 @@ class PteraTransformer(NodeTransformer):
             body=new_body,
             decorator_list=node.decorator_list,
             returns=node.returns,
-            # type_comment=node.type_comment,
         )
 
     def visit_Return(self, node):
@@ -350,6 +358,7 @@ def state_class(fname, slots, vardoc, annotations):
 class Selfless:
     def __init__(self, fn, state):
         self.fn = fn
+        self.__doc__ = fn.__doc__
         self.state_obj = state
 
     @property
