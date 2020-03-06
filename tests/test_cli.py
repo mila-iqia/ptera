@@ -166,23 +166,28 @@ def test_config_file(tmpdir):
     cfg1.write(json.dumps({"z": 3, "w": 10}))
 
     assert auto_cli(
-        stout, (3,), category=cat.Argument, argv=[], default_config_file=cfg1
+        stout,
+        (3,),
+        category=cat.Argument,
+        argv=[],
+        default_config_file=cfg1,
+        fromfile_prefix_chars="@",
     ) == (16, 8)
 
     assert auto_cli(
         stout,
         (3,),
         category=cat.Argument,
-        argv=["--config", cfg1.strpath],
-        config_option=True,
+        argv=[f"@{cfg1.strpath}"],
+        fromfile_prefix_chars="@",
     ) == (16, 8)
 
     assert auto_cli(
         stout,
         (3,),
         category=cat.Argument,
-        argv=["--xxxx", cfg1.strpath],
-        config_option="xxxx",
+        argv=[f"&{cfg1.strpath}"],
+        fromfile_prefix_chars="@&",
     ) == (16, 8)
 
     cfg2 = tmpdir.join("config2.json")
@@ -191,33 +196,7 @@ def test_config_file(tmpdir):
             stout,
             (3,),
             category=cat.Argument,
-            argv=f"--z=4 --w=11 --save-config {cfg2.strpath}".split(),
-            config_option=True,
-        )
-    assert exc.value.code == 0
-
-    assert json.loads(cfg2.read()) == {"z": 4, "w": 11}
-
-    cfg3 = tmpdir.join("config3.json")
-    with pytest.raises(SystemExit) as exc:
-        auto_cli(
-            stout,
-            (3,),
-            category=cat.Argument,
-            argv=f"--xxxx {cfg1.strpath} --save-xxxx {cfg3.strpath}".split(),
-            config_option="xxxx",
-        )
-    assert exc.value.code == 0
-
-    assert json.loads(cfg1.read()) == json.loads(cfg3.read())
-
-    cfg4 = tmpdir.join("config4.json")
-    with pytest.raises(SystemExit) as exc:
-        auto_cli(
-            stout,
-            (3,),
-            category=cat.Argument,
-            argv=f"--config {cfg4.strpath}".split(),
-            config_option=True,
+            argv=f"@{cfg2.strpath}".split(),
+            fromfile_prefix_chars="@",
         )
     assert exc.value.code == 2

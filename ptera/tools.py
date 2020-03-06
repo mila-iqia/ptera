@@ -62,42 +62,67 @@ class Configurator:
         description=None,
         argparser=None,
         eval_env=None,
-        config_option=False,
         default_config_file=None,
+        fromfile_prefix_chars=(),
+        fromfile_loader=json.loads,
     ):
         cg = catalogue(entry_point)
         self.category = category
         self.names = _find_configurable(cg, category)
         if argparser is None:
             argparser = argparse.ArgumentParser(
-                description=description,
-                argument_default=argparse.SUPPRESS,
-                fromfile_prefix_chars="@",
+                description=description, argument_default=argparse.SUPPRESS,
             )
         self.argparser = argparser
         self._fill_argparser()
-        if config_option:
-            if config_option is True:
-                config_option = "config"
-            self.argparser.add_argument(
-                f"--{config_option}",
-                action="store",
-                dest="#config",
-                metavar="FILE",
-                nargs="+",
-                type=argparse.FileType("r"),
-                help="Configuration file to read options from.",
-            )
-            self.argparser.add_argument(
-                f"--save-{config_option}",
-                action="store",
-                dest="#save_config",
-                metavar="FILE",
-                type=argparse.FileType("w"),
-                help="Configuration file to save the options to.",
-            )
         self.eval_env = eval_env
+        self.fromfile_prefix_chars = fromfile_prefix_chars
+        self.fromfile_loader = fromfile_loader
         self.default_config_file = default_config_file
+        if default_config_file:
+            assert self.fromfile_prefix_chars is not None
+
+    def _generate_args_from_dict(self, contents):
+        results = []
+        for key, value in contents.items():
+            if key == "#include":
+                if not isinstance(value, (list, tuple)):
+                    value = [value]
+                for other_filename in value:
+                    results.extend(
+                        self._generate_args_from_file(other_filename)
+                    )
+
+            elif isinstance(value, bool):
+                if value:
+                    results.append(f"--{key}")
+                else:
+                    results.append(f"--no-{key}")
+
+            else:
+                results.append(f"--{key}")
+                results.append(str(value))
+        return results
+
+    def _generate_args_from_file(self, filename):
+        try:
+            with open(filename) as args_file:
+                contents = self.fromfile_loader(args_file.read())
+                return self._generate_args_from_dict(contents)
+        except OSError:
+            err = sys.exc_info()[1]
+            self.argparser.error(str(err))
+
+    def _expand_args(self, args):
+        new_args = []
+        for arg in args:
+            if isinstance(arg, dict):
+                new_args.extend(self._generate_args_from_dict(arg))
+            elif not arg or arg[0] not in self.fromfile_prefix_chars:
+                new_args.append(arg)
+            else:
+                new_args.extend(self._generate_args_from_file(arg[1:]))
+        return new_args
 
     def _fill_argparser(self):
         entries = list(sorted(list(self.names.items())))
@@ -170,25 +195,14 @@ class Configurator:
         if isinstance(argv, argparse.Namespace):
             args = argv
         else:
+            argv = sys.argv[1:] if argv is None else argv
+            if self.default_config_file:
+                if os.path.exists(self.default_config_file):
+                    pfx = self.fromfile_prefix_chars[0]
+                    argv.insert(0, f"{pfx}{self.default_config_file}")
+            argv = self._expand_args(argv)
             args = self.argparser.parse_args(argv)
         opts = {k: v for k, v in vars(args).items() if not k.startswith("#")}
-
-        cfglist = getattr(args, "#config", [])
-        if self.default_config_file:
-            if os.path.exists(self.default_config_file):
-                cfglist.insert(0, open(self.default_config_file))
-        for cfg in cfglist:
-            with cfg:
-                opts2 = json.load(cfg)
-                opts = {**opts2, **opts}
-
-        save = getattr(args, "#save_config", None)
-        if save:
-            print(f"Saving configuration to {save.name}")
-            with save:
-                json.dump(opts, save, indent=4)
-                save.write("\n")
-            sys.exit(0)
         return opts
 
     @contextmanager
@@ -217,8 +231,9 @@ def auto_cli(
     category=None,
     description=None,
     eval_env=None,
-    config_option=False,
     default_config_file=None,
+    fromfile_prefix_chars=(),
+    fromfile_loader=json.loads,
 ):
     if isinstance(entry, dict):
         parser = argparse.ArgumentParser(
@@ -236,8 +251,9 @@ def auto_cli(
                 category=category,
                 description=description,
                 eval_env=eval_env,
-                config_option=config_option,
                 default_config_file=default_config_file,
+                fromfile_prefix_chars=fromfile_prefix_chars,
+                fromfile_loader=fromfile_loader,
             )
             p.set_defaults(**{"#cfg": cfg, "#fn": fn})
 
@@ -254,8 +270,9 @@ def auto_cli(
             category=category,
             description=description,
             eval_env=eval_env,
-            config_option=config_option,
             default_config_file=default_config_file,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            fromfile_loader=fromfile_loader,
         )
         with cfg(argv):
             return entry(*args)

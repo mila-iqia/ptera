@@ -187,7 +187,10 @@ def train():
 
 if __name__ == "__main__":
     auto_cli(
-        train, category=cat.CliArgument, eval_env=globals(), config_option=True
+        train,
+        category=cat.CliArgument,
+        eval_env=globals(),
+        fromfile_prefix_chars="@",
     )
 
 
@@ -196,6 +199,6 @@ def test_mlp():
         train,
         category=cat.CliArgument,
         eval_env=globals(),
-        config_option=True,
-        argv="--config config.json".split(),
+        fromfile_prefix_chars="@",
+        argv="@config.json".split(),
     )
