@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import cat, selector as sel
+from ptera import selector as sel, tag
 
 from .common import one_test_per_assert
 
@@ -225,21 +225,21 @@ def test_bad_patterns():
 @one_test_per_assert
 def test_to_pattern():
 
-    assert sel.to_pattern("apple > banana:cat.Sublime") == sel.Call(
+    assert sel.to_pattern("apple > banana:tag.Sublime") == sel.Call(
         element=sel.Element(name="apple"),
         captures=(
             sel.Element(
                 name="banana",
                 capture="banana",
-                category=cat.Sublime,
+                category=tag.Sublime,
                 tags=frozenset({1}),
             ),
         ),
     )
 
     assert sel.to_pattern("apple") == sel.to_pattern(">> *{!apple}")
-    assert sel.to_pattern("pie:cat.Fruit") == sel.to_pattern(
-        ">> *{!pie:cat.Fruit}"
+    assert sel.to_pattern("pie:tag.Fruit") == sel.to_pattern(
+        ">> *{!pie:tag.Fruit}"
     )
 
 

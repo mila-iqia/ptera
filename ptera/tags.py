@@ -34,7 +34,7 @@ class CategorySet:
     __str__ = __repr__
 
 
-class _CategoryFactory:
+class _TagFactory:
     def __init__(self):
         self._cache = {}
 
@@ -55,4 +55,4 @@ def match_category(to_match, category):
         return category == to_match
 
 
-cat = _CategoryFactory()
+tag = _TagFactory()

@@ -1,36 +1,36 @@
-from ptera.tags import cat, match_category as mc
+from ptera.tags import match_category as mc, tag
 
 from .common import one_test_per_assert
 
 
 @one_test_per_assert
 def test_category():
-    assert cat.Fruit == cat.Fruit
-    assert cat.Fruit is cat.Fruit
+    assert tag.Fruit == tag.Fruit
+    assert tag.Fruit is tag.Fruit
 
 
 @one_test_per_assert
 def test_category_set():
-    assert (cat.Foo & cat.Baz & cat.Bar & cat.Baz).members == {
-        cat.Foo,
-        cat.Bar,
-        cat.Baz,
+    assert (tag.Foo & tag.Baz & tag.Bar & tag.Baz).members == {
+        tag.Foo,
+        tag.Bar,
+        tag.Baz,
     }
-    assert (cat.Foo & int).members == {cat.Foo, int}
-    assert (int & cat.Foo).members == {cat.Foo, int}
+    assert (tag.Foo & int).members == {tag.Foo, int}
+    assert (int & tag.Foo).members == {tag.Foo, int}
 
 
 @one_test_per_assert
 def test_category_repr():
-    assert str(cat.Fruit) == "Fruit"
-    assert repr(cat.Fruit) == "Fruit"
-    assert str(cat.Foo & cat.Bar) == "Bar&Foo"
-    assert str(cat.Foo & cat.Bar & cat.Baz) == "Bar&Baz&Foo"
+    assert str(tag.Fruit) == "Fruit"
+    assert repr(tag.Fruit) == "Fruit"
+    assert str(tag.Foo & tag.Bar) == "Bar&Foo"
+    assert str(tag.Foo & tag.Bar & tag.Baz) == "Bar&Baz&Foo"
 
 
 @one_test_per_assert
 def test_match_category():
-    assert mc(cat.Fruit, cat.Fruit)
-    assert mc(cat.Fruit, cat.Fruit & cat.Legume)
-    assert not mc(cat.Fruit, cat.Legume)
-    assert mc(cat.Fruit, cat.Fruit & int)
+    assert mc(tag.Fruit, tag.Fruit)
+    assert mc(tag.Fruit, tag.Fruit & tag.Legume)
+    assert not mc(tag.Fruit, tag.Legume)
+    assert mc(tag.Fruit, tag.Fruit & int)

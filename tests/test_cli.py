@@ -6,10 +6,10 @@ from ptera import (
     ArgsExpander,
     ConflictError,
     auto_cli,
-    cat,
     catalogue,
     default,
     ptera,
+    tag,
 )
 from ptera.core import ABSENT
 
@@ -18,7 +18,7 @@ from .common import one_test_per_assert
 
 @ptera
 def lager(x, y):
-    z: cat.Argument & cat.Bargument & int
+    z: tag.Argument & tag.Bargument & int
     return x + y + z
 
 
@@ -26,9 +26,9 @@ def lager(x, y):
 def stout(v):
     # Double you,
     # Double me
-    w: cat.Argument & int = default(1)
+    w: tag.Argument & int = default(1)
     # This is your cue
-    q: cat.Argument & int = 2
+    q: tag.Argument & int = 2
     a = lager(v, w)
     b = lager(v, q)
     return a, b
@@ -36,25 +36,25 @@ def stout(v):
 
 @ptera
 def thing():
-    arg: cat.Argument & str
+    arg: tag.Argument & str
     return arg
 
 
 @ptera
 def thingy():
-    arg: cat.Argument
+    arg: tag.Argument
     return arg
 
 
 def test_catalogue():
     assert catalogue(lager) == {
         lager: {
-            "cat": {"annotation": ABSENT, "doc": None},
+            "tag": {"annotation": ABSENT, "doc": None},
             "int": {"annotation": ABSENT, "doc": None},
             "x": {"annotation": ABSENT, "doc": None},
             "y": {"annotation": ABSENT, "doc": None},
             "z": {
-                "annotation": cat.Argument & cat.Bargument & int,
+                "annotation": tag.Argument & tag.Bargument & int,
                 "doc": None,
             },
         },
@@ -63,13 +63,13 @@ def test_catalogue():
     assert catalogue(stout) == {
         **catalogue(lager),
         stout: {
-            "cat": {"annotation": ABSENT, "doc": None},
+            "tag": {"annotation": ABSENT, "doc": None},
             "int": {"annotation": ABSENT, "doc": None},
             "w": {
-                "annotation": cat.Argument & int,
+                "annotation": tag.Argument & int,
                 "doc": "Double you,\nDouble me",
             },
-            "q": {"annotation": cat.Argument & int, "doc": "This is your cue"},
+            "q": {"annotation": tag.Argument & int, "doc": "This is your cue"},
             "a": {"annotation": ABSENT, "doc": None},
             "b": {"annotation": ABSENT, "doc": None},
             "default": {"annotation": ABSENT, "doc": None},
@@ -87,7 +87,7 @@ def test_cli():
         auto_cli(
             lager,
             ("a", "b"),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="--z=:foo".split(),
             eval_env={"foo": "c"},
         )
@@ -97,33 +97,33 @@ def test_cli():
         auto_cli(
             lager,
             (3, 2),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="--z=:math:cos(0)".split(),
         )
         == 6
     )
     assert auto_cli(
-        stout, (3,), category=cat.Argument, argv="--z=3".split()
+        stout, (3,), category=tag.Argument, argv="--z=3".split()
     ) == (7, 8)
     assert auto_cli(
-        stout, (3,), category=cat.Argument, argv="--z=3 --w=10".split()
+        stout, (3,), category=tag.Argument, argv="--z=3 --w=10".split()
     ) == (16, 8)
     assert auto_cli(
-        stout, (3,), category=cat.Bargument, argv="--z=3".split()
+        stout, (3,), category=tag.Bargument, argv="--z=3".split()
     ) == (7, 8)
 
     assert (
-        auto_cli(thingy, (), category=cat.Argument, argv=["--arg", "1"]) == "1"
+        auto_cli(thingy, (), category=tag.Argument, argv=["--arg", "1"]) == "1"
     )
     assert (
-        auto_cli(thingy, (), category=cat.Argument, argv=["--arg", "xyz"])
+        auto_cli(thingy, (), category=tag.Argument, argv=["--arg", "xyz"])
         == "xyz"
     )
     assert (
         auto_cli(
             thingy,
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             eval_env={"foo": "bar"},
             argv=["--arg", ":foo"],
         )
@@ -132,7 +132,7 @@ def test_cli():
     assert auto_cli(
         thingy,
         (),
-        category=cat.Argument,
+        category=tag.Argument,
         eval_env={"foo": [1, 2, 3]},
         argv=["--arg", ":foo"],
     ) == [1, 2, 3]
@@ -141,7 +141,7 @@ def test_cli():
         auto_cli(
             thing,
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             eval_env={"foo": [1, 2, 3]},
             argv=["--arg", ":foo"],
         )
@@ -152,18 +152,18 @@ def test_cli():
 def test_no_env():
     with pytest.raises(Exception):
         auto_cli(
-            lager, ("a", "b"), category=cat.Argument, argv="--z=:foo".split(),
+            lager, ("a", "b"), category=tag.Argument, argv="--z=:foo".split(),
         )
 
 
 def test_unknown_argument():
     with pytest.raises(SystemExit) as exc:
-        auto_cli(stout, (3,), category=cat.Argument, argv="--x=4".split())
+        auto_cli(stout, (3,), category=tag.Argument, argv="--x=4".split())
     assert exc.value.code == 2
 
     with pytest.raises(SystemExit) as exc:
         auto_cli(
-            stout, (3,), category=cat.Bargument, argv="--z=3 --w=10".split()
+            stout, (3,), category=tag.Bargument, argv="--z=3 --w=10".split()
         )
     assert exc.value.code == 2
 
@@ -171,14 +171,14 @@ def test_unknown_argument():
 def test_conflict():
     with pytest.raises(ConflictError):
         auto_cli(
-            stout, (3,), category=cat.Argument, argv="--z=3 --q=10".split()
+            stout, (3,), category=tag.Argument, argv="--z=3 --q=10".split()
         )
 
 
 @ptera
 def patriotism():
-    flag: cat.Argument & bool = default(True)
-    times: cat.Argument & int = default(1)
+    flag: tag.Argument & bool = default(True)
+    times: tag.Argument & int = default(1)
     if flag:
         return "wave" * times
     else:
@@ -186,14 +186,14 @@ def patriotism():
 
 
 def test_types():
-    assert auto_cli(patriotism, (), category=cat.Argument, argv=[]) == "wave"
+    assert auto_cli(patriotism, (), category=tag.Argument, argv=[]) == "wave"
     assert (
-        auto_cli(patriotism, (), category=cat.Argument, argv="--flag".split())
+        auto_cli(patriotism, (), category=tag.Argument, argv="--flag".split())
         == "wave"
     )
     assert (
         auto_cli(
-            patriotism, (), category=cat.Argument, argv="--no-flag".split()
+            patriotism, (), category=tag.Argument, argv="--no-flag".split()
         )
         == "don't wave"
     )
@@ -201,18 +201,18 @@ def test_types():
         auto_cli(
             patriotism,
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="--flag --times=3".split(),
         )
         == "wavewavewave"
     )
     with pytest.raises(SystemExit) as exc:
-        auto_cli(patriotism, (), category=cat.Argument, argv="--flag=1".split())
+        auto_cli(patriotism, (), category=tag.Argument, argv="--flag=1".split())
     assert exc.value.code == 2
 
     with pytest.raises(SystemExit) as exc:
         auto_cli(
-            patriotism, (), category=cat.Argument, argv="--times=ohno".split()
+            patriotism, (), category=tag.Argument, argv="--times=ohno".split()
         )
     assert exc.value.code == 2
 
@@ -224,7 +224,7 @@ def test_config_file(tmpdir):
     assert auto_cli(
         stout,
         (3,),
-        category=cat.Argument,
+        category=tag.Argument,
         argv=[],
         expand=ArgsExpander("@", default_file=cfg1),
     ) == (16, 8)
@@ -232,7 +232,7 @@ def test_config_file(tmpdir):
     assert auto_cli(
         stout,
         (3,),
-        category=cat.Argument,
+        category=tag.Argument,
         argv=[f"@{cfg1.strpath}"],
         expand="@",
     ) == (16, 8)
@@ -240,7 +240,7 @@ def test_config_file(tmpdir):
     assert auto_cli(
         stout,
         (3,),
-        category=cat.Argument,
+        category=tag.Argument,
         argv=[f"&{cfg1.strpath}"],
         expand="@&",
     ) == (16, 8)
@@ -250,7 +250,7 @@ def test_config_file(tmpdir):
         auto_cli(
             stout,
             (3,),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=f"@{cfg2.strpath}".split(),
             expand="@",
         )
@@ -261,33 +261,33 @@ def test_config_file(tmpdir):
     assert auto_cli(
         stout,
         (3,),
-        category=cat.Argument,
+        category=tag.Argument,
         argv=[],
         expand=ArgsExpander("@", default_file=cfg3),
     ) == (16, 8)
 
     assert auto_cli(
-        stout, (3,), category=cat.Argument, argv=[{"#include": cfg1.strpath}],
+        stout, (3,), category=tag.Argument, argv=[{"#include": cfg1.strpath}],
     ) == (16, 8)
 
 
 def test_config_dict():
     assert auto_cli(
-        stout, (3,), category=cat.Argument, argv=[{"z": 3, "w": 10}],
+        stout, (3,), category=tag.Argument, argv=[{"z": 3, "w": 10}],
     ) == (16, 8)
 
     assert (
         auto_cli(
             patriotism,
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=[{"flag": True, "times": 2}],
         )
         == "wavewave"
     )
 
     assert (
-        auto_cli(patriotism, (), category=cat.Argument, argv=[{"flag": False}],)
+        auto_cli(patriotism, (), category=tag.Argument, argv=[{"flag": False}],)
         == "don't wave"
     )
 
@@ -297,7 +297,7 @@ def test_subcommands():
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="thingy --arg xyz".split(),
         )
         == "xyz"
@@ -307,7 +307,7 @@ def test_subcommands():
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="patriotism --flag".split(),
         )
         == "wave"
@@ -317,7 +317,7 @@ def test_subcommands():
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv="thingy --flag".split(),
         )
     assert exc.value.code == 2
@@ -326,7 +326,7 @@ def test_subcommands():
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=["patriotism", {"flag": True}],
         )
         == "wave"
@@ -341,7 +341,7 @@ def test_config_subcommands(tmpdir):
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=f"patriotism @{cfg1.strpath}".split(),
             expand="@",
         )
@@ -353,7 +353,7 @@ def test_config_subcommands(tmpdir):
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=f"patriotism @{cfg2.strpath}".split(),
             expand="@",
         )
@@ -365,7 +365,7 @@ def test_config_subcommands(tmpdir):
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
             (),
-            category=cat.Argument,
+            category=tag.Argument,
             argv=f"@{cfg3.strpath}".split(),
             expand="@",
         )

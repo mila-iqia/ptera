@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import Recurrence, cat, overlay, ptera, to_pattern
+from ptera import Recurrence, overlay, ptera, tag, to_pattern
 from ptera.core import Capture
 from ptera.selector import Element, parse
 
@@ -8,10 +8,10 @@ from .common import one_test_per_assert
 
 
 @ptera
-def brie(x, y) -> cat.Fromage:
+def brie(x, y) -> tag.Fromage:
     """Brie is a sort of cheese."""
-    a: cat.Bouffe = x * x
-    b: cat.Bouffe = y * y
+    a: tag.Bouffe = x * x
+    b: tag.Bouffe = y * y
     return a + b
 
 
@@ -102,14 +102,14 @@ def test_patterns():
     assert _dbrie("brie[2]{!a}") == [{"a": [100]}]
 
     # Parameter
-    assert _dbrie("brie{$v:cat.Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
-    assert _dbrie("brie{!$v:cat.Bouffe}") == [
+    assert _dbrie("brie{$v:tag.Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
+    assert _dbrie("brie{!$v:tag.Bouffe}") == [
         {"v": [4]},
         {"v": [9]},
         {"v": [100]},
         {"v": [121]},
     ]
-    assert _dbrie("*{a} >> brie{!$v:cat.Bouffe}") == [
+    assert _dbrie("*{a} >> brie{!$v:tag.Bouffe}") == [
         {"a": [13], "v": [4]},
         {"a": [13], "v": [9]},
         {"a": [13], "v": [100]},
@@ -117,10 +117,10 @@ def test_patterns():
     ]
 
     # Function category
-    assert _dbrie("*:cat.Fromage{a}") == [{"a": [4]}, {"a": [100]}]
+    assert _dbrie("*:tag.Fromage{a}") == [{"a": [4]}, {"a": [100]}]
 
     # Inexistent category
-    assert _dbrie("brie > $x:cat.Xylophone") == []
+    assert _dbrie("brie > $x:tag.Xylophone") == []
 
     # Filter on value
     assert _dbrie("brie{!x, y, a=4}") == [{"x": [2], "y": [3]}]
@@ -205,7 +205,7 @@ def test_nested_overlay():
 
 @ptera
 def mystery(hat):
-    surprise: cat.MyStErY
+    surprise: tag.MyStErY
     return surprise * hat
 
 
@@ -251,7 +251,7 @@ def test_tap_map_named():
 
 
 def test_tap_map_full():
-    rval, acoll = double_brie.using("brie > $param:cat.Bouffe")(2, 10)
+    rval, acoll = double_brie.using("brie > $param:tag.Bouffe")(2, 10)
     assert acoll.map_full(lambda param: param.value) == [4, 9, 100, 121]
     assert acoll.map_full(lambda param: param.name) == ["a", "b", "a", "b"]
 
@@ -382,7 +382,7 @@ def test_capture():
 
 @ptera
 def cake():
-    flavour: cat.Flavour
+    flavour: tag.Flavour
     return f"This is a {flavour} cake"
 
 

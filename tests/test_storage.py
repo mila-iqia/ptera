@@ -1,11 +1,11 @@
-from ptera import cat, ptera
+from ptera import ptera, tag
 from ptera.storage import Storage, initializer, updater, valuer
 
 
 @ptera
 def mul(x):
-    factor1: cat.Bouffe & cat.Fruit
-    factor2: cat.Bouffe & cat.Legume
+    factor1: tag.Bouffe & tag.Fruit
+    factor2: tag.Bouffe & tag.Legume
     factor = factor1 + factor2
     return factor * x
 
@@ -40,7 +40,7 @@ def test_storage_valuer_1():
 def test_storage_valuer_2():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:cat.Bouffe"
+        pattern = "$f:tag.Bouffe"
         default_target = "f"
 
         @valuer(target_name="factor1")
@@ -59,14 +59,14 @@ def test_storage_valuer_2():
 def test_storage_valuer_3():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:cat.Bouffe"
+        pattern = "$f:tag.Bouffe"
         default_target = "f"
 
-        @valuer(target_category=cat.Fruit)
+        @valuer(target_category=tag.Fruit)
         def init_factor1(self):
             return 1
 
-        @valuer(target_category=cat.Legume)
+        @valuer(target_category=tag.Legume)
         def init_factor2(self):
             return 2
 
@@ -78,7 +78,7 @@ def test_storage_valuer_3():
 def test_storage_valuer_4():
     class UpdateStrategy(Storage):
 
-        pattern = "grind{start} >> $f:cat.Bouffe"
+        pattern = "grind{start} >> $f:tag.Bouffe"
         default_target = "f"
 
         @valuer
@@ -96,7 +96,7 @@ def test_storage_valuer_4():
 def test_storage_updater_1():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:cat.Bouffe"
+        pattern = "$f:tag.Bouffe"
         default_target = "f"
 
         @initializer(target_name="factor1")
@@ -122,18 +122,18 @@ def test_storage_updater_1():
 def test_storage_updater_2():
     class UpdateStrategy(Storage):
 
-        pattern = "$f:cat.Bouffe"
+        pattern = "$f:tag.Bouffe"
         default_target = "f"
 
-        @initializer(target_category=cat.Fruit)
+        @initializer(target_category=tag.Fruit)
         def init_factor1(self):
             return 1
 
-        @initializer(target_category=cat.Legume)
+        @initializer(target_category=tag.Legume)
         def init_factor2(self):
             return 2
 
-        @updater(target_category=cat.Fruit)
+        @updater(target_category=tag.Fruit)
         def update_factor(self, f):
             return f + 1
 

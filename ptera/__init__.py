@@ -8,7 +8,7 @@ from .core import (
 from .recur import Recurrence
 from .selfless import ConflictError, Override, default, override, transform
 from .storage import Storage, initializer, updater, valuer
-from .tags import Category, cat
+from .tags import Category, tag
 from .tools import ArgsExpander, Configurator, auto_cli, catalogue
 
 
