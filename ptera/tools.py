@@ -55,18 +55,13 @@ def _find_configurable(catalogue, category):
 
 class ArgsExpander:
     def __init__(
-        self,
-        argparser,
-        fromfile_prefix_chars,
-        fromfile_loader,
-        default_file,
+        self, prefix, loader=json.loads, default_file=None,
     ):
-        self.argparser = argparser
-        self.fromfile_prefix_chars = fromfile_prefix_chars
-        self.fromfile_loader = fromfile_loader
+        self.prefix = prefix
+        self.loader = loader
         self.default_file = default_file
         if default_file:
-            assert self.fromfile_prefix_chars
+            assert self.prefix
 
     def _generate_args_from_dict(self, contents):
         results = []
@@ -78,6 +73,9 @@ class ArgsExpander:
                     results.extend(
                         self._generate_args_from_file(other_filename)
                     )
+
+            elif key == "#command":
+                results.insert(0, value)
 
             elif isinstance(value, bool):
                 if value:
@@ -91,29 +89,32 @@ class ArgsExpander:
         return results
 
     def _generate_args_from_file(self, filename):
-        try:
-            with open(filename) as args_file:
-                contents = self.fromfile_loader(args_file.read())
-                return self._generate_args_from_dict(contents)
-        except OSError:
-            err = sys.exc_info()[1]
-            self.argparser.error(str(err))
+        with open(filename) as args_file:
+            contents = self.loader(args_file.read())
+            return self._generate_args_from_dict(contents)
 
-    def __call__(self, argv):
+    def expand(self, argv):
         if self.default_file:
             if os.path.exists(self.default_file):
-                pfx = self.fromfile_prefix_chars[0]
+                pfx = self.prefix[0]
                 argv.insert(0, f"{pfx}{self.default_file}")
 
         new_args = []
         for arg in argv:
             if isinstance(arg, dict):
                 new_args.extend(self._generate_args_from_dict(arg))
-            elif not arg or arg[0] not in self.fromfile_prefix_chars:
+            elif not arg or arg[0] not in self.prefix:
                 new_args.append(arg)
             else:
                 new_args.extend(self._generate_args_from_file(arg[1:]))
         return new_args
+
+    def __call__(self, argv, *, parser):
+        try:
+            return self.expand(argv)
+        except OSError:
+            err = sys.exc_info()[1]
+            parser.error(str(err))
 
 
 class Configurator:
@@ -125,9 +126,7 @@ class Configurator:
         description=None,
         argparser=None,
         eval_env=None,
-        default_config_file=None,
-        fromfile_prefix_chars=(),
-        fromfile_loader=json.loads,
+        expand=None,
     ):
         cg = catalogue(entry_point)
         self.category = category
@@ -139,12 +138,7 @@ class Configurator:
         self.argparser = argparser
         self._fill_argparser()
         self.eval_env = eval_env
-        self.expand = ArgsExpander(
-            argparser=argparser,
-            fromfile_prefix_chars=fromfile_prefix_chars,
-            fromfile_loader=fromfile_loader,
-            default_file=default_config_file,
-        )
+        self.expand = expand
 
     def _fill_argparser(self):
         entries = list(sorted(list(self.names.items())))
@@ -218,7 +212,8 @@ class Configurator:
             args = argv
         else:
             argv = sys.argv[1:] if argv is None else argv
-            argv = self.expand(argv)
+            if self.expand:
+                argv = self.expand(argv, parser=self.argparser)
             args = self.argparser.parse_args(argv)
         opts = {k: v for k, v in vars(args).items() if not k.startswith("#")}
         return opts
@@ -249,10 +244,13 @@ def auto_cli(
     category=None,
     description=None,
     eval_env=None,
-    default_config_file=None,
-    fromfile_prefix_chars=(),
-    fromfile_loader=json.loads,
+    expand=None,
 ):
+    if expand is None or isinstance(expand, str):
+        expand = ArgsExpander(
+            prefix=expand or "", loader=json.loads, default_file=None,
+        )
+
     if isinstance(entry, dict):
         parser = argparse.ArgumentParser(
             description=description, argument_default=argparse.SUPPRESS,
@@ -269,11 +267,11 @@ def auto_cli(
                 category=category,
                 description=description,
                 eval_env=eval_env,
-                default_config_file=default_config_file,
-                fromfile_prefix_chars=fromfile_prefix_chars,
-                fromfile_loader=fromfile_loader,
             )
             p.set_defaults(**{"#cfg": cfg, "#fn": fn})
+
+        argv = sys.argv[1:] if argv is None else argv
+        argv = expand(argv, parser=parser)
 
         opts = parser.parse_args(argv)
         cfg = getattr(opts, "#cfg")
@@ -288,9 +286,7 @@ def auto_cli(
             category=category,
             description=description,
             eval_env=eval_env,
-            default_config_file=default_config_file,
-            fromfile_prefix_chars=fromfile_prefix_chars,
-            fromfile_loader=fromfile_loader,
+            expand=expand,
         )
         with cfg(argv):
             return entry(*args)

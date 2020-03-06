@@ -2,7 +2,15 @@ import json
 
 import pytest
 
-from ptera import ConflictError, auto_cli, cat, catalogue, default, ptera
+from ptera import (
+    ArgsExpander,
+    ConflictError,
+    auto_cli,
+    cat,
+    catalogue,
+    default,
+    ptera,
+)
 from ptera.core import ABSENT
 
 from .common import one_test_per_assert
@@ -218,8 +226,7 @@ def test_config_file(tmpdir):
         (3,),
         category=cat.Argument,
         argv=[],
-        default_config_file=cfg1,
-        fromfile_prefix_chars="@",
+        expand=ArgsExpander("@", default_file=cfg1),
     ) == (16, 8)
 
     assert auto_cli(
@@ -227,7 +234,7 @@ def test_config_file(tmpdir):
         (3,),
         category=cat.Argument,
         argv=[f"@{cfg1.strpath}"],
-        fromfile_prefix_chars="@",
+        expand="@",
     ) == (16, 8)
 
     assert auto_cli(
@@ -235,7 +242,7 @@ def test_config_file(tmpdir):
         (3,),
         category=cat.Argument,
         argv=[f"&{cfg1.strpath}"],
-        fromfile_prefix_chars="@&",
+        expand="@&",
     ) == (16, 8)
 
     cfg2 = tmpdir.join("config2.json")
@@ -245,7 +252,7 @@ def test_config_file(tmpdir):
             (3,),
             category=cat.Argument,
             argv=f"@{cfg2.strpath}".split(),
-            fromfile_prefix_chars="@",
+            expand="@",
         )
     assert exc.value.code == 2
 
@@ -256,8 +263,7 @@ def test_config_file(tmpdir):
         (3,),
         category=cat.Argument,
         argv=[],
-        default_config_file=cfg3,
-        fromfile_prefix_chars="@",
+        expand=ArgsExpander("@", default_file=cfg3),
     ) == (16, 8)
 
     assert auto_cli(
@@ -285,20 +291,83 @@ def test_config_dict():
         == "don't wave"
     )
 
-def test_subcommands():
-    assert auto_cli(
-        {"thingy": thingy, "patriotism": patriotism},
-        (), category=cat.Argument, argv="thingy --arg xyz".split(),
-    ) == "xyz"
 
-    assert auto_cli(
-        {"thingy": thingy, "patriotism": patriotism},
-        (), category=cat.Argument, argv="patriotism --flag".split(),
-    ) == "wave"
+def test_subcommands():
+    assert (
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv="thingy --arg xyz".split(),
+        )
+        == "xyz"
+    )
+
+    assert (
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv="patriotism --flag".split(),
+        )
+        == "wave"
+    )
 
     with pytest.raises(SystemExit) as exc:
         auto_cli(
             {"thingy": thingy, "patriotism": patriotism},
-            (), category=cat.Argument, argv="thingy --flag".split(),
+            (),
+            category=cat.Argument,
+            argv="thingy --flag".split(),
         )
     assert exc.value.code == 2
+
+    assert (
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv=["patriotism", {"flag": True}],
+        )
+        == "wave"
+    )
+
+
+def test_config_subcommands(tmpdir):
+    cfg1 = tmpdir.join("config1.json")
+    cfg1.write(json.dumps({"flag": True}))
+
+    assert (
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv=f"patriotism @{cfg1.strpath}".split(),
+            expand="@",
+        )
+        == "wave"
+    )
+
+    cfg2 = tmpdir.join("config2.json")
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv=f"patriotism @{cfg2.strpath}".split(),
+            expand="@",
+        )
+    assert exc.value.code == 2
+
+    cfg3 = tmpdir.join("config1.json")
+    cfg3.write(json.dumps({"#command": "patriotism", "flag": True}))
+    assert (
+        auto_cli(
+            {"thingy": thingy, "patriotism": patriotism},
+            (),
+            category=cat.Argument,
+            argv=f"@{cfg3.strpath}".split(),
+            expand="@",
+        )
+        == "wave"
+    )

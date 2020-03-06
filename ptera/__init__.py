@@ -9,7 +9,7 @@ from .core import (
 from .recur import Recurrence
 from .selfless import ConflictError, Override, default, override, transform
 from .storage import Storage, initializer, updater, valuer
-from .tools import Configurator, auto_cli, catalogue
+from .tools import ArgsExpander, Configurator, auto_cli, catalogue
 
 
 class PteraDecorator:
