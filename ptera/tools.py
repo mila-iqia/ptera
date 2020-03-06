@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from .core import PteraFunction, overlay
 from .selector import to_pattern
 from .selfless import PreState
-from .tags import TagSet, match_tag, tag
+from .tags import Tag, TagSet, match_tag, tag
 from .utils import ABSENT
 
 Argument = tag.Argument
@@ -157,7 +157,7 @@ class Configurator:
                 else:
                     members = [ann]
                 for m in members:
-                    if isinstance(m, type):
+                    if not isinstance(m, Tag):
                         typ.append(m)
             if len(typ) != 1:
                 typ = None
@@ -178,12 +178,19 @@ class Configurator:
                     help=f"Set --{optname} to False",
                 )
             else:
+                _metavars = {
+                    int: "NUM",
+                    float: "NUM",
+                    argparse.FileType: "FILE",
+                }
+                ttyp = typ if isinstance(typ, type) else type(typ)
+                mv = _metavars.get(ttyp, "VALUE")
                 self.argparser.add_argument(
                     f"--{optname}",
                     dest=name,
                     type=self.resolver(typ or None),
                     action="store",
-                    metavar="VALUE",
+                    metavar=mv,
                     help="; ".join(docs),
                 )
 
