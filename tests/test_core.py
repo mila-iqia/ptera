@@ -9,6 +9,7 @@ from .common import one_test_per_assert
 
 @ptera
 def brie(x, y) -> cat.Fromage:
+    """Brie is a sort of cheese."""
     a: cat.Bouffe = x * x
     b: cat.Bouffe = y * y
     return a + b
@@ -400,3 +401,7 @@ def test_listener_within_ptera():
     res = fruitcake()
     assert res.value == "This is a fruit cake"
     assert res.yum == ["fruitfruit"]
+
+
+def test_doc():
+    assert brie.__doc__ == """Brie is a sort of cheese."""

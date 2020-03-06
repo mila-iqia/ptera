@@ -53,34 +53,20 @@ def _find_configurable(catalogue, category):
     return rval
 
 
-class Configurator:
+class ArgsExpander:
     def __init__(
         self,
-        *,
-        entry_point=None,
-        category=None,
-        description=None,
-        argparser=None,
-        eval_env=None,
-        default_config_file=None,
-        fromfile_prefix_chars=(),
-        fromfile_loader=json.loads,
+        argparser,
+        fromfile_prefix_chars,
+        fromfile_loader,
+        default_file,
     ):
-        cg = catalogue(entry_point)
-        self.category = category
-        self.names = _find_configurable(cg, category)
-        if argparser is None:
-            argparser = argparse.ArgumentParser(
-                description=description, argument_default=argparse.SUPPRESS,
-            )
         self.argparser = argparser
-        self._fill_argparser()
-        self.eval_env = eval_env
         self.fromfile_prefix_chars = fromfile_prefix_chars
         self.fromfile_loader = fromfile_loader
-        self.default_config_file = default_config_file
-        if default_config_file:
-            assert self.fromfile_prefix_chars is not None
+        self.default_file = default_file
+        if default_file:
+            assert self.fromfile_prefix_chars
 
     def _generate_args_from_dict(self, contents):
         results = []
@@ -113,9 +99,14 @@ class Configurator:
             err = sys.exc_info()[1]
             self.argparser.error(str(err))
 
-    def _expand_args(self, args):
+    def __call__(self, argv):
+        if self.default_file:
+            if os.path.exists(self.default_file):
+                pfx = self.fromfile_prefix_chars[0]
+                argv.insert(0, f"{pfx}{self.default_file}")
+
         new_args = []
-        for arg in args:
+        for arg in argv:
             if isinstance(arg, dict):
                 new_args.extend(self._generate_args_from_dict(arg))
             elif not arg or arg[0] not in self.fromfile_prefix_chars:
@@ -123,6 +114,37 @@ class Configurator:
             else:
                 new_args.extend(self._generate_args_from_file(arg[1:]))
         return new_args
+
+
+class Configurator:
+    def __init__(
+        self,
+        *,
+        entry_point=None,
+        category=None,
+        description=None,
+        argparser=None,
+        eval_env=None,
+        default_config_file=None,
+        fromfile_prefix_chars=(),
+        fromfile_loader=json.loads,
+    ):
+        cg = catalogue(entry_point)
+        self.category = category
+        self.names = _find_configurable(cg, category)
+        if argparser is None:
+            argparser = argparse.ArgumentParser(
+                description=description, argument_default=argparse.SUPPRESS,
+            )
+        self.argparser = argparser
+        self._fill_argparser()
+        self.eval_env = eval_env
+        self.expand = ArgsExpander(
+            argparser=argparser,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            fromfile_loader=fromfile_loader,
+            default_file=default_config_file,
+        )
 
     def _fill_argparser(self):
         entries = list(sorted(list(self.names.items())))
@@ -196,11 +218,7 @@ class Configurator:
             args = argv
         else:
             argv = sys.argv[1:] if argv is None else argv
-            if self.default_config_file:
-                if os.path.exists(self.default_config_file):
-                    pfx = self.fromfile_prefix_chars[0]
-                    argv.insert(0, f"{pfx}{self.default_config_file}")
-            argv = self._expand_args(argv)
+            argv = self.expand(argv)
             args = self.argparser.parse_args(argv)
         opts = {k: v for k, v in vars(args).items() if not k.startswith("#")}
         return opts
@@ -257,11 +275,11 @@ def auto_cli(
             )
             p.set_defaults(**{"#cfg": cfg, "#fn": fn})
 
-        opts = parser.parse_args()
+        opts = parser.parse_args(argv)
         cfg = getattr(opts, "#cfg")
         fn = getattr(opts, "#fn")
         with cfg(opts):
-            fn()
+            return fn(*args)
 
     else:
         assert isinstance(entry, PteraFunction)
