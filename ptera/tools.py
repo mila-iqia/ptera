@@ -9,8 +9,10 @@ from contextlib import contextmanager
 from .core import PteraFunction, overlay
 from .selector import to_pattern
 from .selfless import PreState
-from .tags import TagSet, match_tag
+from .tags import TagSet, match_tag, tag
 from .utils import ABSENT
+
+Argument = tag.Argument
 
 
 def _catalogue(seen, results, fn):
@@ -122,15 +124,15 @@ class Configurator:
         self,
         *,
         entry_point=None,
-        category=None,
+        tag=Argument,
         description=None,
         argparser=None,
         eval_env=None,
         expand=None,
     ):
         cg = catalogue(entry_point)
-        self.category = category
-        self.names = _find_configurable(cg, category)
+        self.tag = tag
+        self.names = _find_configurable(cg, tag)
         if argparser is None:
             argparser = argparse.ArgumentParser(
                 description=description, argument_default=argparse.SUPPRESS,
@@ -226,7 +228,7 @@ class Configurator:
         opts = self.get_options(argv)
         with overlay(
             {
-                to_pattern(f"{name}:##X", env={"##X": self.category}): {
+                to_pattern(f"{name}:##X", env={"##X": self.tag}): {
                     "value": _resolver(value)
                 }
                 for name, value in opts.items()
@@ -241,7 +243,7 @@ def auto_cli(
     *,
     argv=None,
     entry_point=None,
-    category=None,
+    tag=Argument,
     description=None,
     eval_env=None,
     expand=None,
@@ -264,7 +266,7 @@ def auto_cli(
             cfg = Configurator(
                 entry_point=fn,
                 argparser=p,
-                category=category,
+                tag=tag,
                 description=description,
                 eval_env=eval_env,
             )
@@ -283,7 +285,7 @@ def auto_cli(
         assert isinstance(entry, PteraFunction)
         cfg = Configurator(
             entry_point=entry,
-            category=category,
+            tag=tag,
             description=description,
             eval_env=eval_env,
             expand=expand,

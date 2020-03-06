@@ -22,10 +22,13 @@ def test_category_set():
 
 @one_test_per_assert
 def test_category_repr():
-    assert str(tag.Fruit) == "Fruit"
-    assert repr(tag.Fruit) == "Fruit"
-    assert str(tag.Foo & tag.Bar) == "Bar&Foo"
-    assert str(tag.Foo & tag.Bar & tag.Baz) == "Bar&Baz&Foo"
+    assert str(tag.Fruit) == "ptera.tag.Fruit"
+    assert repr(tag.Fruit) == "ptera.tag.Fruit"
+    assert str(tag.Foo & tag.Bar) == "ptera.tag.Bar & ptera.tag.Foo"
+    assert (
+        str(tag.Foo & tag.Bar & tag.Baz)
+        == "ptera.tag.Bar & ptera.tag.Baz & ptera.tag.Foo"
+    )
 
 
 @one_test_per_assert

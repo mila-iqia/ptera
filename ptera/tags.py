@@ -13,7 +13,7 @@ class Tag:
     __rand__ = _merge
 
     def __repr__(self):
-        return self.name
+        return f"ptera.tag.{self.name}"
 
     __str__ = __repr__
 
@@ -29,7 +29,7 @@ class TagSet:
         return isinstance(other, TagSet) and other.members == self.members
 
     def __repr__(self):
-        return "&".join(sorted(map(str, self.members)))
+        return " & ".join(sorted(map(str, self.members)))
 
     __str__ = __repr__
 
