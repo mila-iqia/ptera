@@ -164,12 +164,27 @@ class Configurator:
             else:
                 (typ,) = typ
 
+            aliases = []
+            optdoc = []
+            for entry in docs:
+                new_entry = []
+                for line in entry.split("\n"):
+                    m = re.match(r"\[([A-Za-z0-9_-]+): (.*)\]", line)
+                    if m:
+                        command, arg = m.groups()
+                        command = command.lower()
+                        if command in ["alias", "aliases"]:
+                            aliases.extend(re.split(r"[ ,;]+", arg))
+                    else:
+                        new_entry.append(line)
+                optdoc.append("\n".join(new_entry))
+
             if typ is bool:
                 self.argparser.add_argument(
-                    f"--{optname}",
+                    f"--{optname}", *aliases,
                     dest=name,
                     action="store_true",
-                    help="; ".join(docs),
+                    help="; ".join(optdoc),
                 )
                 self.argparser.add_argument(
                     f"--no-{optname}",
@@ -186,12 +201,12 @@ class Configurator:
                 ttyp = typ if isinstance(typ, type) else type(typ)
                 mv = _metavars.get(ttyp, "VALUE")
                 self.argparser.add_argument(
-                    f"--{optname}",
+                    f"--{optname}", *aliases,
                     dest=name,
                     type=self.resolver(typ or None),
                     action="store",
                     metavar=mv,
-                    help="; ".join(docs),
+                    help="; ".join(optdoc),
                 )
 
     def resolver(self, typ):

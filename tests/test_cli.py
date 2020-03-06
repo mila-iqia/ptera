@@ -141,6 +141,8 @@ def test_conflict():
 
 @ptera
 def patriotism():
+    # Whether to wave the flag or not
+    # [aliases: -f --yay]
     flag: tag.Argument & bool = default(True)
     times: tag.Argument & int = default(1)
     if flag:
@@ -151,6 +153,7 @@ def patriotism():
 
 def test_types():
     assert auto_cli(patriotism, (), argv=[]) == "wave"
+    assert auto_cli(patriotism, (), argv="-f".split()) == "wave"
     assert auto_cli(patriotism, (), argv="--flag".split()) == "wave"
     assert auto_cli(patriotism, (), argv="--no-flag".split()) == "don't wave"
     assert (
