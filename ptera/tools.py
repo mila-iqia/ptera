@@ -4,6 +4,7 @@ import os
 import re
 import sys
 from collections import defaultdict
+from contextlib import contextmanager
 
 from .categories import CategorySet, match_category
 from .core import PteraFunction, overlay
@@ -114,13 +115,11 @@ class Configurator:
         description=None,
         argparser=None,
         eval_env=None,
-        argv=None,
         config_option=False,
         default_config_file=None,
     ):
         cg = catalogue(entry_point)
         self.category = category
-        self.argv = argv
         self.names = _find_configurable(cg, category)
         if cli:
             if argparser is None:
@@ -136,6 +135,8 @@ class Configurator:
                 action="store",
                 dest="#config",
                 metavar="FILE",
+                nargs="+",
+                type=argparse.FileType("r"),
                 help="Configuration file to read options from.",
             )
             self.argparser.add_argument(
@@ -143,6 +144,7 @@ class Configurator:
                 action="store",
                 dest="#save_config",
                 metavar="FILE",
+                type=argparse.FileType("w"),
                 help="Configuration file to save the options to.",
             )
         self.eval_env = eval_env
@@ -168,56 +170,99 @@ class Configurator:
             except ValueError:
                 return arg
 
-    def get_options(self):
-        args = self.argparser.parse_args(self.argv)
+    def get_options(self, argv):
+        if isinstance(argv, argparse.Namespace):
+            args = argv
+        else:
+            args = self.argparser.parse_args(argv)
         opts = {k: v for k, v in vars(args).items() if not k.startswith("#")}
 
-        cfg, must_exist = getattr(args, "#config", None), True
-        if not cfg:
-            cfg, must_exist = self.default_config_file, False
-        if cfg:
-            exists = os.path.exists(cfg)
-            if exists:
-                with open(cfg) as f:
-                    opts2 = json.load(f)
-                    opts = {**opts2, **opts}
-            elif must_exist:
-                print(
-                    f"Error: configuration file '{cfg}' does not exist",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+        cfglist = getattr(args, "#config", [])
+        if self.default_config_file:
+            if os.path.exists(self.default_config_file):
+                cfglist.insert(0, open(self.default_config_file))
+        for cfg in cfglist:
+            with cfg:
+                opts2 = json.load(cfg)
+                opts = {**opts2, **opts}
 
         save = getattr(args, "#save_config", None)
         if save:
-            print(f"Saving configuration to {save}")
-            with open(save, "w") as f:
-                json.dump(opts, f, indent=4)
-                f.write("\n")
+            print(f"Saving configuration to {save.name}")
+            with save:
+                json.dump(opts, save, indent=4)
+                save.write("\n")
             sys.exit(0)
         return opts
 
-    def __enter__(self):
+    @contextmanager
+    def __call__(self, argv=None):
         def _resolver(value):
             return lambda **_: value
 
-        opts = self.get_options()
+        opts = self.get_options(argv)
         opts = {name: self.resolve(value) for name, value in opts.items()}
-        self.ov = overlay(
+        with overlay(
             {
                 to_pattern(f"{name}:##X", env={"##X": self.category}): {
                     "value": _resolver(value)
                 }
                 for name, value in opts.items()
             }
+        ):
+            yield opts
+
+
+def auto_cli(
+    entry,
+    args=(),
+    *,
+    argv=None,
+    entry_point=None,
+    category=None,
+    description=None,
+    eval_env=None,
+    config_option=False,
+    default_config_file=None,
+):
+    if isinstance(entry, dict):
+        parser = argparse.ArgumentParser(
+            description=description, argument_default=argparse.SUPPRESS,
         )
-        self.ov.__enter__()
-        return self
+        subparsers = parser.add_subparsers()
+        for name, fn in entry.items():
+            assert isinstance(fn, PteraFunction)
+            p = subparsers.add_parser(
+                name, help=fn.__doc__, argument_default=argparse.SUPPRESS
+            )
+            cfg = Configurator(
+                entry_point=fn,
+                argparser=p,
+                category=category,
+                cli=True,
+                description=description,
+                eval_env=eval_env,
+                config_option=config_option,
+                default_config_file=default_config_file,
+            )
+            p.set_defaults(**{"#cfg": cfg, "#fn": fn})
 
-    def __exit__(self, exc, typ, tb):
-        return self.ov.__exit__(exc, typ, tb)
+        opts = parser.parse_args()
+        cfg = getattr(opts, "#cfg")
+        fn = getattr(opts, "#fn")
+        with cfg(opts):
+            fn()
 
-
-def auto_cli(fn, args=(), **kwargs):
-    with Configurator(entry_point=fn, **kwargs):
-        return fn(*args)
+    else:
+        assert isinstance(entry, PteraFunction)
+        cfg = Configurator(
+            entry_point=entry,
+            category=category,
+            cli=True,
+            description=description,
+            eval_env=eval_env,
+            config_option=config_option,
+            default_config_file=default_config_file,
+        )
+        with cfg(argv):
+            return entry(*args)

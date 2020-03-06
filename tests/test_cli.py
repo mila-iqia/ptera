@@ -220,4 +220,4 @@ def test_config_file(tmpdir):
             argv=f"--config {cfg4.strpath}".split(),
             config_option=True,
         )
-    assert exc.value.code == 1
+    assert exc.value.code == 2
