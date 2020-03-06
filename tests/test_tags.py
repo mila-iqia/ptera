@@ -1,4 +1,4 @@
-from ptera.categories import cat, match_category as mc
+from ptera.tags import cat, match_category as mc
 
 from .common import one_test_per_assert
 

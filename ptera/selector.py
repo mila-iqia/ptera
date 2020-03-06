@@ -6,7 +6,7 @@ import builtins
 import sys
 
 from . import opparse
-from .categories import Category
+from .tags import Category
 from .utils import ABSENT
 
 

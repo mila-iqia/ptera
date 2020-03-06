@@ -6,10 +6,10 @@ import sys
 from collections import defaultdict
 from contextlib import contextmanager
 
-from .categories import CategorySet, match_category
 from .core import PteraFunction, overlay
 from .selector import to_pattern
 from .selfless import PreState
+from .tags import CategorySet, match_category
 from .utils import ABSENT
 
 

@@ -4,9 +4,9 @@ from collections import deque
 from contextvars import ContextVar
 from copy import copy
 
-from .categories import match_category
 from .selector import Element, to_pattern
 from .selfless import Override, Selfless, choose, override
+from .tags import match_category
 from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures
 
 _pattern_fit_cache = {}
