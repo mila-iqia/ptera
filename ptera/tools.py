@@ -53,65 +53,12 @@ def _find_configurable(catalogue, category):
     return rval
 
 
-def _fill_argparser(parser, names):
-    entries = list(sorted(list(names.items())))
-    for name, data in entries:
-        docs = set()
-        for fn, entry in data.items():
-            if entry["doc"]:
-                docs.add(entry["doc"])
-            else:
-                docs.add(f"Parameter in {fn}")
-
-        optname = name.replace("_", "-")
-        typ = []
-        for x in data.values():
-            ann = x["annotation"]
-            if isinstance(ann, CategorySet):
-                members = ann.members
-            else:
-                members = [ann]
-            for m in members:
-                if isinstance(m, type):
-                    typ.append(m)
-        if len(typ) != 1:
-            typ = None
-        else:
-            (typ,) = typ
-
-        if typ is bool:
-            parser.add_argument(
-                f"--{optname}",
-                dest=name,
-                action="store_true",
-                help="; ".join(docs),
-            )
-            parser.add_argument(
-                f"--no-{optname}",
-                dest=name,
-                action="store_false",
-                help=f"Set --{optname} to False",
-            )
-        else:
-            parser.add_argument(
-                f"--{optname}",
-                dest=name,
-                type=typ or None,
-                action="store",
-                metavar="VALUE",
-                help="; ".join(docs),
-            )
-
-    return parser
-
-
 class Configurator:
     def __init__(
         self,
         *,
         entry_point=None,
         category=None,
-        cli=True,
         description=None,
         argparser=None,
         eval_env=None,
@@ -121,12 +68,14 @@ class Configurator:
         cg = catalogue(entry_point)
         self.category = category
         self.names = _find_configurable(cg, category)
-        if cli:
-            if argparser is None:
-                argparser = argparse.ArgumentParser(
-                    description=description, argument_default=argparse.SUPPRESS
-                )
-        self.argparser = _fill_argparser(argparser, self.names)
+        if argparser is None:
+            argparser = argparse.ArgumentParser(
+                description=description,
+                argument_default=argparse.SUPPRESS,
+                fromfile_prefix_chars="@",
+            )
+        self.argparser = argparser
+        self._fill_argparser()
         if config_option:
             if config_option is True:
                 config_option = "config"
@@ -150,25 +99,72 @@ class Configurator:
         self.eval_env = eval_env
         self.default_config_file = default_config_file
 
-    def resolve(self, arg):
-        if not isinstance(arg, str):
-            return arg
-        elif arg in ("True", "False", "None"):
-            return eval(arg)
-        elif re.match(r"^:[A-Za-z_0-9]+:", arg):
-            _, modname, code = arg.split(":", 2)
-            mod = __import__(modname)
-            return eval(code, vars(mod))
-        elif arg.startswith(":"):
-            if not self.eval_env:
-                raise Exception(f"No environment to evaluate {arg}")
-            return eval(arg[1:], self.eval_env)
-        else:
-            try:
-                float(arg)
-                return eval(arg)
-            except ValueError:
+    def _fill_argparser(self):
+        entries = list(sorted(list(self.names.items())))
+        for name, data in entries:
+            docs = set()
+            for fn, entry in data.items():
+                if entry["doc"]:
+                    docs.add(entry["doc"])
+                else:
+                    docs.add(f"Parameter in {fn}")
+
+            optname = name.replace("_", "-")
+            typ = []
+            for x in data.values():
+                ann = x["annotation"]
+                if isinstance(ann, CategorySet):
+                    members = ann.members
+                else:
+                    members = [ann]
+                for m in members:
+                    if isinstance(m, type):
+                        typ.append(m)
+            if len(typ) != 1:
+                typ = None
+            else:
+                (typ,) = typ
+
+            if typ is bool:
+                self.argparser.add_argument(
+                    f"--{optname}",
+                    dest=name,
+                    action="store_true",
+                    help="; ".join(docs),
+                )
+                self.argparser.add_argument(
+                    f"--no-{optname}",
+                    dest=name,
+                    action="store_false",
+                    help=f"Set --{optname} to False",
+                )
+            else:
+                self.argparser.add_argument(
+                    f"--{optname}",
+                    dest=name,
+                    type=self.resolver(typ or None),
+                    action="store",
+                    metavar="VALUE",
+                    help="; ".join(docs),
+                )
+
+    def resolver(self, typ):
+        def resolve(arg):
+            if typ is str:
                 return arg
+            elif re.match(r"^:[A-Za-z_0-9]+:", arg):
+                _, modname, code = arg.split(":", 2)
+                mod = __import__(modname)
+                return eval(code, vars(mod))
+            elif arg.startswith(":"):
+                if not self.eval_env:
+                    raise Exception(f"No environment to evaluate {arg}")
+                return eval(arg[1:], self.eval_env)
+            else:
+                return arg if typ is None else typ(arg)
+
+        resolve.__name__ = getattr(typ, "__name__", str(typ))
+        return resolve
 
     def get_options(self, argv):
         if isinstance(argv, argparse.Namespace):
@@ -201,7 +197,6 @@ class Configurator:
             return lambda **_: value
 
         opts = self.get_options(argv)
-        opts = {name: self.resolve(value) for name, value in opts.items()}
         with overlay(
             {
                 to_pattern(f"{name}:##X", env={"##X": self.category}): {
@@ -239,7 +234,6 @@ def auto_cli(
                 entry_point=fn,
                 argparser=p,
                 category=category,
-                cli=True,
                 description=description,
                 eval_env=eval_env,
                 config_option=config_option,
@@ -258,7 +252,6 @@ def auto_cli(
         cfg = Configurator(
             entry_point=entry,
             category=category,
-            cli=True,
             description=description,
             eval_env=eval_env,
             config_option=config_option,

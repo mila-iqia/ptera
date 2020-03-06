@@ -10,7 +10,7 @@ from .common import one_test_per_assert
 
 @ptera
 def lager(x, y):
-    z: cat.Argument & cat.Bargument
+    z: cat.Argument & cat.Bargument & int
     return x + y + z
 
 
@@ -18,9 +18,9 @@ def lager(x, y):
 def stout(v):
     # Double you,
     # Double me
-    w: cat.Argument = default(1)
+    w: cat.Argument & int = default(1)
     # This is your cue
-    q: cat.Argument = 2
+    q: cat.Argument & int = 2
     a = lager(v, w)
     b = lager(v, q)
     return a, b
@@ -30,9 +30,13 @@ def test_catalogue():
     assert catalogue(lager) == {
         lager: {
             "cat": {"annotation": ABSENT, "doc": None},
+            "int": {"annotation": ABSENT, "doc": None},
             "x": {"annotation": ABSENT, "doc": None},
             "y": {"annotation": ABSENT, "doc": None},
-            "z": {"annotation": cat.Argument & cat.Bargument, "doc": None},
+            "z": {
+                "annotation": cat.Argument & cat.Bargument & int,
+                "doc": None,
+            },
         },
     }
 
@@ -40,8 +44,12 @@ def test_catalogue():
         **catalogue(lager),
         stout: {
             "cat": {"annotation": ABSENT, "doc": None},
-            "w": {"annotation": cat.Argument, "doc": "Double you,\nDouble me"},
-            "q": {"annotation": cat.Argument, "doc": "This is your cue"},
+            "int": {"annotation": ABSENT, "doc": None},
+            "w": {
+                "annotation": cat.Argument & int,
+                "doc": "Double you,\nDouble me",
+            },
+            "q": {"annotation": cat.Argument & int, "doc": "This is your cue"},
             "a": {"annotation": ABSENT, "doc": None},
             "b": {"annotation": ABSENT, "doc": None},
             "default": {"annotation": ABSENT, "doc": None},
@@ -55,10 +63,6 @@ def test_catalogue():
 
 @one_test_per_assert
 def test_cli():
-    assert (
-        auto_cli(lager, ("a", "b"), category=cat.Argument, argv="--z=c".split())
-        == "abc"
-    )
     assert (
         auto_cli(
             lager,
@@ -76,10 +80,6 @@ def test_cli():
             category=cat.Argument,
             argv="--z=:math:cos(0)".split(),
         )
-        == 6
-    )
-    assert (
-        auto_cli(lager, (3, 2), category=cat.Argument, argv="--z=True".split(),)
         == 6
     )
     assert auto_cli(
@@ -196,7 +196,7 @@ def test_config_file(tmpdir):
         )
     assert exc.value.code == 0
 
-    assert json.loads(cfg2.read()) == {"z": "4", "w": "11"}
+    assert json.loads(cfg2.read()) == {"z": 4, "w": 11}
 
     cfg3 = tmpdir.join("config3.json")
     with pytest.raises(SystemExit) as exc:

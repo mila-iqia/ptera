@@ -59,7 +59,7 @@ def sequential(inp):
 @ptera
 def step(inp, target):
     # How much to regulate the magnitude of the weights
-    weight_reg: cat.CliArgument = default(0)
+    weight_reg: cat.CliArgument & float = default(0)
 
     model: cat.Model
     lossfn: cat.LossFunction
@@ -107,7 +107,7 @@ def make_network(layer_sizes):
 def train():
 
     # Sizes of the hidden layers
-    hidden: cat.CliArgument = default(1000)
+    hidden: cat.CliArgument & int = default(1000)
     if isinstance(hidden, int):
         hidden = (hidden,)
 

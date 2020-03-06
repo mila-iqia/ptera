@@ -19,14 +19,14 @@ from ptera import auto_cli, cat, default, ptera
 @ptera
 def guess():
     # Minimal possible number
-    minimum: cat.CliArgument = default(0)
+    minimum: cat.CliArgument & int = default(0)
     # Maximal possible number
-    maximum: cat.CliArgument = default(100)
+    maximum: cat.CliArgument & int = default(100)
     # Maximal number of tries
-    maxtries: cat.CliArgument = default(10)
+    maxtries: cat.CliArgument & int = default(10)
 
     # Force the number to guess (defaults to random)
-    target: cat.CliArgument = default(random.randint(minimum, maximum))
+    target: cat.CliArgument & int = default(random.randint(minimum, maximum))
 
     assert minimum <= target <= maximum
 
@@ -48,7 +48,7 @@ def guess():
 @ptera
 def main():
     # Number of rounds of guessing
-    rounds: cat.CliArgument = default(1)
+    rounds: cat.CliArgument & int = default(1)
 
     for i in range(rounds):
         guess()
