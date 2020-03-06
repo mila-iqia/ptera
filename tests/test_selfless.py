@@ -149,8 +149,10 @@ def test_override_arguments():
 
 
 def test_vardoc_and_ann():
-    assert type(iceberg.state).__annotations__["z"] is int
-    assert type(iceberg.state).__vardoc__["z"] == "The great\nzee"
+    assert type(iceberg.state).__info__["z"] == {
+        "annotation": int,
+        "doc": "The great\nzee",
+    }
 
 
 @selfless

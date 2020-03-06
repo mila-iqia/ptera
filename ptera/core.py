@@ -263,7 +263,7 @@ def fits_pattern(pfn, pattern):
     else:
         fname = pfn.fn.__name__
         fcat = pfn.fn.__annotations__.get("return", None)
-        fvars = pfn.state_obj.__annotations__
+        fvars = pfn.state_obj.__info__
 
     if not check_element(pattern.element, fname, fcat):
         return False
@@ -274,8 +274,8 @@ def fits_pattern(pfn, pattern):
         if cap.name is None:
             varnames = [
                 var
-                for var, ann in fvars.items()
-                if check_element(cap, var, ann)
+                for var, info in fvars.items()
+                if check_element(cap, var, info["annotation"])
             ]
             if not varnames:
                 return False

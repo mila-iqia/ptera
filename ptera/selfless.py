@@ -291,9 +291,29 @@ def transform(fn, interact):
     fname = fn.__name__
     actual_fn = glb[fname]
     all_vars = transformer.used | transformer.assigned
-    state_obj = state_class(fname, all_vars, transformer.vardoc, annotations)(
-        state
-    )
+
+    info = {
+        k: {
+            "doc": transformer.vardoc.get(k),
+            "annotation": (
+                eval(
+                    compile(
+                        ast.Expression(transformer.annotated[k]),
+                        filename,
+                        "eval",
+                    ),
+                    glb,
+                    glb,
+                )
+                if k in transformer.annotated
+                else ABSENT
+            ),
+        }
+        for k in all_vars
+    }
+
+    state_obj = state_class(fname, info)(state)
+
     # The necessary globals may not yet be set, so we create a "PreState" that
     # will be filled in whenever we first need to fetch the state.
     state_obj = PreState(state=state_obj, names=transformer.external, glbls=glb)
@@ -341,17 +361,11 @@ class BaseState:
             setattr(self, k, v)
 
 
-def state_class(fname, slots, vardoc, annotations):
-    for slot in slots:
-        annotations.setdefault(slot, ABSENT)
+def state_class(fname, info):
     return type(
         f"{fname}.state",
         (BaseState,),
-        {
-            "__slots__": tuple(slots),
-            "__vardoc__": vardoc,
-            "__annotations__": annotations,
-        },
+        {"__slots__": tuple(info.keys()), "__info__": info,},
     )
 
 

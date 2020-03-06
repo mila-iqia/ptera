@@ -23,14 +23,10 @@ def _catalogue(seen, results, fn):
 
     if isinstance(fn, PteraFunction):
         state = fn.state.state if isinstance(fn.state, PreState) else fn.state
-        res = {}
-        results[fn] = res
         tst = type(state)
-        for name, ann in tst.__annotations__.items():
-            res[name] = {
-                "annotation": ann,
-                "doc": tst.__vardoc__.get(name, None),
-            }
+        res = tst.__info__
+        results[fn] = res
+        for name, ann in res.items():
             val = getattr(state, name, ABSENT)
             _catalogue(seen, results, val)
 
