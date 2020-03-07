@@ -283,11 +283,6 @@ def transform(fn, interact):
         for k, v in transformer.defaults.items()
     }
 
-    annotations = {
-        k: eval(compile(ast.Expression(v), filename, "eval"), glb, glb)
-        for k, v in transformer.annotated.items()
-    }
-
     fname = fn.__name__
     actual_fn = glb[fname]
     all_vars = transformer.used | transformer.assigned
@@ -365,7 +360,7 @@ def state_class(fname, info):
     return type(
         f"{fname}.state",
         (BaseState,),
-        {"__slots__": tuple(info.keys()), "__info__": info,},
+        {"__slots__": tuple(info.keys()), "__info__": info},
     )
 
 
