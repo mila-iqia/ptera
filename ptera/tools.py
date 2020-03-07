@@ -1,4 +1,5 @@
 import argparse
+import configparser
 import json
 import os
 import re
@@ -51,15 +52,49 @@ def _find_configurable(catalogue, tag):
     return rval
 
 
+def _read_cfg(file):
+    parser = configparser.ConfigParser()
+    s = file.read()
+    parser.read_string(s)
+    if parser.sections() != ["default"]:
+        raise OSError(
+            "A cfg/ini file containing options must only contain"
+            " the [default] section"
+        )
+    return dict(parser["default"])
+
+
 class ArgsExpander:
-    def __init__(
-        self, prefix, loader=json.loads, default_file=None,
-    ):
+    def __init__(self, prefix, default_file=None):
         self.prefix = prefix
-        self.loader = loader
         self.default_file = default_file
         if default_file:
             assert self.prefix
+
+    def _get_loader(self, filename):
+        ext = filename.split(".")[-1]
+        if ext == "json":
+            return json.load
+        elif ext == "yaml":
+            try:
+                import yaml
+            except ModuleNotFoundError:  # pragma: no cover
+                raise OSError(
+                    f"Please install the 'pyyaml' module to read '.yaml' files"
+                )
+            return yaml.load
+        elif ext == "toml":
+            try:
+                import toml
+            except ModuleNotFoundError:  # pragma: no cover
+                raise OSError(
+                    f"Please install the 'toml' module to read '.toml' files"
+                )
+            return toml.load
+        elif ext in ["cfg", "ini"]:
+            return _read_cfg
+        else:
+            raise OSError(f"Cannot read file format: '{ext}'")
 
     def _generate_args_from_dict(self, contents):
         results = []
@@ -88,7 +123,7 @@ class ArgsExpander:
 
     def _generate_args_from_file(self, filename):
         with open(filename) as args_file:
-            contents = self.loader(args_file.read())
+            contents = self._get_loader(filename)(args_file)
             return self._generate_args_from_dict(contents)
 
     def expand(self, argv):
@@ -180,13 +215,15 @@ class Configurator:
                 optdoc.append("\n".join(new_entry))
 
             if typ is bool:
-                self.argparser.add_argument(
-                    f"--{optname}", *aliases,
+                group = self.argparser.add_mutually_exclusive_group()
+                group.add_argument(
+                    f"--{optname}",
+                    *aliases,
                     dest=name,
                     action="store_true",
                     help="; ".join(optdoc),
                 )
-                self.argparser.add_argument(
+                group.add_argument(
                     f"--no-{optname}",
                     dest=name,
                     action="store_false",
@@ -201,7 +238,8 @@ class Configurator:
                 ttyp = typ if isinstance(typ, type) else type(typ)
                 mv = _metavars.get(ttyp, "VALUE")
                 self.argparser.add_argument(
-                    f"--{optname}", *aliases,
+                    f"--{optname}",
+                    *aliases,
                     dest=name,
                     type=self.resolver(typ or None),
                     action="store",
@@ -267,9 +305,7 @@ def auto_cli(
     expand=None,
 ):
     if expand is None or isinstance(expand, str):
-        expand = ArgsExpander(
-            prefix=expand or "", loader=json.loads, default_file=None,
-        )
+        expand = ArgsExpander(prefix=expand or "", default_file=None,)
 
     if isinstance(entry, dict):
         parser = argparse.ArgumentParser(

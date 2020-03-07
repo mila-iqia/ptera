@@ -203,6 +203,53 @@ def test_config_file(tmpdir):
     assert auto_cli(stout, (3,), argv=[{"#include": cfg1.strpath}],) == (16, 8)
 
 
+def test_config_toml(tmpdir):
+    cfg1 = tmpdir.join("config1.toml")
+    cfg1.write("z = 3\nw = 10\n")
+
+    assert auto_cli(
+        stout, (3,), argv=[], expand=ArgsExpander("@", default_file=cfg1),
+    ) == (16, 8)
+
+
+def test_config_cfg(tmpdir):
+    cfg1 = tmpdir.join("config1.cfg")
+    cfg1.write("[default]\nz = 3\nw = 10\n")
+
+    assert auto_cli(
+        stout, (3,), argv=[], expand=ArgsExpander("@", default_file=cfg1),
+    ) == (16, 8)
+
+    cfg2 = tmpdir.join("config2.cfg")
+    cfg2.write("[ohno]\nz = 3\nw = 10\n")
+
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            stout, (3,), argv=f"@{cfg2.strpath}".split(), expand="@",
+        )
+    assert exc.value.code == 2
+
+
+def test_config_yaml(tmpdir):
+    cfg1 = tmpdir.join("config1.yaml")
+    cfg1.write("z: 3\nw: 10\n")
+
+    assert auto_cli(
+        stout, (3,), argv=[], expand=ArgsExpander("@", default_file=cfg1),
+    ) == (16, 8)
+
+
+def test_config_unknown(tmpdir):
+    cfg1 = tmpdir.join("config1.whatisthis")
+    cfg1.write("z: 3\nw: 10\n")
+
+    with pytest.raises(SystemExit) as exc:
+        auto_cli(
+            stout, (3,), argv=f"@{cfg1.strpath}".split(), expand="@",
+        )
+    assert exc.value.code == 2
+
+
 def test_config_dict():
     assert auto_cli(stout, (3,), argv=[{"z": 3, "w": 10}],) == (16, 8)
 

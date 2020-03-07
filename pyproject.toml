@@ -18,6 +18,8 @@ isort = {extras = ["pyproject"], version = "^4.3.21"}
 flake8 = "^3.7.9"
 unimport = "^0.2.0"
 coverage = {extras = ["toml"], version = "^5.0.3"}
+toml = "^0.10.0"
+pyyaml = "^5.3"
 
 [tool.black]
 line-length = 80
