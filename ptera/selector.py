@@ -4,6 +4,7 @@
 import ast
 import builtins
 import sys
+from dataclasses import dataclass
 
 from . import opparse
 from .tags import Tag
@@ -233,7 +234,7 @@ class Call(metaclass=InternedMC):
 parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r"\s*(?:\bas\b|>>|!+|[(){}\[\]>:,$=])?\s*": "OPERATOR",
+            r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=])?\s*": "OPERATOR",
             r"[a-zA-Z_0-9#*.]+": "WORD",
         }
     ),
@@ -246,17 +247,18 @@ parser = opparse.Parser(
             ":": opparse.lassoc(300),
             "as": opparse.rassoc(350),
             "$": opparse.lassoc(400),
-            ("(", "[", "{"): opparse.obrack(200),
-            (")", "]", "}"): opparse.cbrack(500),
+            ("(", "[", "{", "[["): opparse.obrack(200),
+            (")", "]", "}", "]]"): opparse.cbrack(500),
             ": WORD": opparse.lassoc(1000),
         }
     ),
 )
 
 
-def _guarantee_call(parent, context):
+def _guarantee_call(parent, context, resolve=True):
     if isinstance(parent, Element):
-        parent = parent.clone(capture=None).without_focus()
+        name = Resolve(parent.name) if parent.name and resolve else parent.name
+        parent = parent.clone(capture=None, name=name).without_focus()
         immediate = context == "incall"
         parent = Call(element=parent, captures=(), immediate=immediate)
     assert isinstance(parent, Call)
@@ -359,13 +361,13 @@ def make_class(node, element, klass, context):
     klass = evaluate(klass, context=context)
     assert isinstance(klass, Element)
     assert not element.category
-    return element.clone(category=klass.name)
+    return element.clone(category=Resolve(klass.name))
 
 
 @evaluate.register_action("_ : X")
 def make_class_prefix(node, _, klass, context):
     klass = evaluate(klass, context=context)
-    return Element(name=None, category=klass.name, capture=None,)
+    return Element(name=None, category=Resolve(klass.name), capture=None,)
 
 
 @evaluate.register_action("_ ! X")
@@ -391,12 +393,12 @@ def make_dollar(node, _, name, context):
 
 
 @evaluate.register_action("X [ X ] _")
-def make_instance(node, element, key, _, context):
+def make_index(node, element, key, _, context, resolve_call=False):
     element = evaluate(element, context=context)
     key = evaluate(key, context=context)
     assert isinstance(element, Element)
     assert isinstance(key, Element)
-    element = _guarantee_call(element, context=context)
+    element = _guarantee_call(element, context=context, resolve=resolve_call)
     key = Element(
         name="#key",
         value=key.name if key.name is not None else ABSENT,
@@ -405,6 +407,11 @@ def make_instance(node, element, key, _, context):
         key_field="value" if key.name is None else None,
     )
     return element.clone(captures=element.captures + (key,))
+
+
+@evaluate.register_action("X [[ X ]] _")
+def make_function_index(node, element, key, _, context):
+    return make_index(node, element, key, _, context, resolve_call=True)
 
 
 @evaluate.register_action("X { _ } _")
@@ -531,10 +538,18 @@ def _find_eval_env(s, fr):
     return ev and ev[1]
 
 
+@dataclass(frozen=True)
+class Resolve:
+    name: str
+
+    def __str__(self):
+        return self.name
+
+
 def _eval(s, env):
-    if not isinstance(s, str):
+    if not isinstance(s, Resolve):
         return s
-    start, *parts = s.split(".")
+    start, *parts = s.name.split(".")
     if start in env:
         curr = env[start]
     elif hasattr(builtins, start):
@@ -556,10 +571,11 @@ def _resolve(pattern, env):
             children=tuple(_resolve(x, env) for x in pattern.children),
         )
     elif isinstance(pattern, Element):
+        name = _eval(pattern.name, env)
         category = _eval(pattern.category, env)
         if category is not None and not isinstance(category, Tag):
             raise TypeError(f"A pattern can only be a Tag.")
-        return pattern.clone(category=category)
+        return pattern.clone(name=name, category=category)
 
 
 def _to_pattern(pattern, context="root"):

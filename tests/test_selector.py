@@ -61,8 +61,8 @@ def test_parser_equivalencies():
     assert sel.parse("a > b{c}") == sel.parse("a{b{c}}")
     assert sel.parse("a >> b{c}") == sel.parse("a{>> b{c}}")
 
-    assert sel.parse("a[b]") == sel.parse("a{#key=b}")
-    assert sel.parse("a[b] as c") == sel.parse("a{#key=b, !#value as c}")
+    assert sel.parse("a[[b]]") == sel.parse("a{#key=b}")
+    assert sel.parse("a[[b]] as c") == sel.parse("a{#key=b, !#value as c}")
     assert sel.parse("a{} as b") == sel.parse("a{!#value as b}")
 
     assert sel.parse("a:b{c}") == sel.parse("(a:b){c}")
@@ -75,7 +75,7 @@ def test_parser():
     )
 
     assert sel.parse("apple > banana") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(
             sel.Element(name="banana", capture="banana", tags=frozenset({1})),
         ),
@@ -83,7 +83,7 @@ def test_parser():
     )
 
     assert sel.parse("> apple > banana") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(
             sel.Element(name="banana", capture="banana", tags=frozenset({1})),
         ),
@@ -99,7 +99,7 @@ def test_parser():
     )
 
     assert sel.parse("apple >> banana") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(),
         children=(
             sel.Call(
@@ -117,10 +117,10 @@ def test_parser():
     )
 
     assert sel.parse("apple > banana > cherry") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         children=(
             sel.Call(
-                element=sel.Element(name="banana"),
+                element=sel.Element(name=sel.Resolve("banana")),
                 captures=(
                     sel.Element(
                         name="cherry", capture="cherry", tags=frozenset({1})
@@ -133,31 +133,34 @@ def test_parser():
     )
 
     assert sel.parse("*:Fruit") == sel.Element(
-        name=None, category="Fruit", capture=None,
+        name=None, category=sel.Resolve("Fruit"), capture=None,
     )
 
     assert sel.parse("apple > :Fruit") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(
             sel.Element(
-                name=None, category="Fruit", capture=None, tags=frozenset({1})
+                name=None,
+                category=sel.Resolve("Fruit"),
+                capture=None,
+                tags=frozenset({1}),
             ),
         ),
         immediate=False,
     )
 
     assert sel.parse("apple{a}") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(sel.Element(name="a", capture="a"),),
     )
 
     assert sel.parse("apple{!a}") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(sel.Element(name="a", capture="a", tags=frozenset({1})),),
     )
 
     assert sel.parse("apple{a, b, c, d as e}") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(
             sel.Element(name="a", capture="a"),
             sel.Element(name="b", capture="b"),
@@ -168,6 +171,11 @@ def test_parser():
 
     assert sel.parse("apple[pie]") == sel.Call(
         element=sel.Element(name="apple"),
+        captures=(sel.Element(name="#key", value="pie"),),
+    )
+
+    assert sel.parse("apple[[pie]]") == sel.Call(
+        element=sel.Element(name=sel.Resolve("apple")),
         captures=(sel.Element(name="#key", value="pie"),),
     )
 
@@ -184,10 +192,12 @@ def test_parser():
     )
 
     assert sel.parse("axe > bow:Weapon > crowbar[* as length]") == sel.Call(
-        element=sel.Element(name="axe"),
+        element=sel.Element(name=sel.Resolve("axe")),
         children=(
             sel.Call(
-                element=sel.Element(name="bow", category="Weapon"),
+                element=sel.Element(
+                    name=sel.Resolve("bow"), category=sel.Resolve("Weapon")
+                ),
                 children=(
                     sel.Call(
                         element=sel.Element(name="crowbar"),
@@ -206,7 +216,7 @@ def test_parser():
     )
 
     assert sel.parse("$f:Fruit") == sel.Element(
-        name=None, category="Fruit", capture="f", key_field="name"
+        name=None, category=sel.Resolve("Fruit"), capture="f", key_field="name"
     )
 
     assert sel.parse("!!x") == sel.Element(
@@ -222,11 +232,15 @@ def test_bad_patterns():
         sel.parse("%")
 
 
+def apple():
+    pass
+
+
 @one_test_per_assert
 def test_to_pattern():
 
     assert sel.to_pattern("apple > banana:tag.Sublime") == sel.Call(
-        element=sel.Element(name="apple"),
+        element=sel.Element(name=apple),
         captures=(
             sel.Element(
                 name="banana",
@@ -333,11 +347,11 @@ def test_specialize():
     ) == sel.parse("co >> co[x as n] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name=None, category="Fruit")}
+        {"nut": sel.Element(name=None, category=sel.Resolve("Fruit"))}
     ) == sel.parse("co >> co >> $nut:Fruit")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name="coconut", category="Fruit")}
+        {"nut": sel.Element(name="coconut", category=sel.Resolve("Fruit"))}
     ) == sel.parse("co >> co >> (coconut as nut):Fruit")
 
 

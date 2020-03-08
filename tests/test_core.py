@@ -22,10 +22,10 @@ def extra(cheese):
 
 @ptera
 def double_brie(x1, y1):
-    a = brie[1](x1, x1 + 1)
-    b = brie[2](y1, y1 + 1)
-    aa = extra[1](a)
-    bb = extra[2](b)
+    a = brie[[1]](x1, x1 + 1)
+    b = brie[[2]](y1, y1 + 1)
+    aa = extra[[1]](a)
+    bb = extra[[2]](b)
     return aa + bb
 
 
@@ -94,12 +94,12 @@ def test_patterns():
     ]
 
     # Indexing
-    assert _dbrie("brie[$i]{!a}") == [
+    assert _dbrie("brie[[$i]]{!a}") == [
         {"a": [4], "i": [1]},
         {"a": [100], "i": [2]},
     ]
-    assert _dbrie("brie[1]{!a}") == [{"a": [4]}]
-    assert _dbrie("brie[2]{!a}") == [{"a": [100]}]
+    assert _dbrie("brie[[1]]{!a}") == [{"a": [4]}]
+    assert _dbrie("brie[[2]]{!a}") == [{"a": [100]}]
 
     # Parameter
     assert _dbrie("brie{$v:tag.Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]

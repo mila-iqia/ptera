@@ -14,7 +14,7 @@ def mul(x):
 def grind(xs, start=0):
     acc = start
     for i, x in enumerate(xs):
-        acc += mul[i](x)
+        acc += mul[[i]](x)
     return acc
 
 

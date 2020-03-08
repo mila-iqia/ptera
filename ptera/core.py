@@ -261,7 +261,7 @@ def fits_pattern(pfn, pattern):
         fcat = None
         fvars = {}
     else:
-        fname = pfn.fn.__name__
+        fname = pfn.origin
         fcat = pfn.fn.__annotations__.get("return", None)
         fvars = pfn.state_obj.__info__
 
@@ -547,13 +547,19 @@ def _collect_plugins(plugins, kwplugins):
 
 class PteraFunction(Selfless):
     def __init__(
-        self, fn, state, callkey=None, plugins=None, return_object=False
+        self,
+        fn,
+        state,
+        callkey=None,
+        plugins=None,
+        return_object=False,
+        origin=None,
     ):
         super().__init__(fn, state)
         self.callkey = callkey
         self.plugins = plugins or {}
         self.return_object = return_object
-        self._match_cache = {}
+        self.origin = origin or self
 
     def clone(self, **kwargs):
         self.ensure_state()
@@ -563,11 +569,14 @@ class PteraFunction(Selfless):
             "callkey": self.callkey,
             "plugins": self.plugins,
             "return_object": self.return_object,
+            "origin": self.origin,
             **kwargs,
         }
         return type(self)(**kwargs)
 
     def __getitem__(self, callkey):
+        assert isinstance(callkey, list)
+        (callkey,) = callkey
         assert self.callkey is None
         return self.clone(callkey=callkey)
 
