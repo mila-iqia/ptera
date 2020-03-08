@@ -82,7 +82,7 @@ class ArgsExpander:
                 raise OSError(
                     f"Please install the 'pyyaml' module to read '.yaml' files"
                 )
-            return yaml.load
+            return yaml.full_load
         elif ext == "toml":
             try:
                 import toml
