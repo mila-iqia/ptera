@@ -554,12 +554,14 @@ class PteraFunction(Selfless):
         plugins=None,
         return_object=False,
         origin=None,
+        partial_args=(),
     ):
         super().__init__(fn, state)
         self.callkey = callkey
         self.plugins = plugins or {}
         self.return_object = return_object
         self.origin = origin or self
+        self.partial_args = partial_args
 
     def clone(self, **kwargs):
         self.ensure_state()
@@ -570,6 +572,7 @@ class PteraFunction(Selfless):
             "plugins": self.plugins,
             "return_object": self.return_object,
             "origin": self.origin,
+            "partial_args": self.partial_args,
             **kwargs,
         }
         return type(self)(**kwargs)
@@ -636,6 +639,12 @@ class PteraFunction(Selfless):
 
         return deco
 
+    def __get__(self, obj, typ):
+        if obj is None:
+            return self
+        else:
+            return self.clone(partial_args=self.partial_args + (obj,))
+
     def __call__(self, *args, **kwargs):
         self.ensure_state()
         rulesets = []
@@ -646,7 +655,7 @@ class PteraFunction(Selfless):
             with proceed(self):
                 if self.callkey is not None:
                     interact("#key", None, None, self, self.callkey)
-                rval = super().__call__(*args, **kwargs)
+                rval = super().__call__(*self.partial_args, *args, **kwargs)
 
         callres = CallResults(rval)
         for name, plugin in plugins.items():

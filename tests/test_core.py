@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import Recurrence, overlay, ptera, tag, to_pattern
+from ptera import Recurrence, overlay, override, ptera, tag, to_pattern
 from ptera.core import Capture
 from ptera.selector import Element, parse
 
@@ -405,3 +405,43 @@ def test_listener_within_ptera():
 
 def test_doc():
     assert brie.__doc__ == """Brie is a sort of cheese."""
+
+
+class Matou:
+    def __init__(self, species):
+        self.species = species
+
+    @ptera
+    def meow(self, repeat=1):
+        ms = "m"
+        es = "e"
+        os = "o" * repeat
+        ws = "w" * len(self.species)
+        cry = ms + es + os + ws
+        meows = [cry] * repeat
+        return " ".join(meows)
+
+
+def test_method():
+    siamese = Matou("siamese")
+    assert siamese.meow() == "meowwwwwww"
+
+    assert siamese.meow.tweak({"Matou.meow > es": "eee"})() == "meeeowwwwwww"
+
+    with overlay({"Matou.meow > es": {"value": lambda es: override("eee", 3)}}):
+        assert siamese.meow() == "meeeowwwwwww"
+
+    with overlay(
+        {"Matou.meow > repeat": {"value": lambda repeat: override(2, 3)}}
+    ):
+        assert siamese.meow() == "meoowwwwwww meoowwwwwww"
+
+    store = GrabAll("Matou.meow{repeat} > os")
+    with overlay(store.rules):
+        for i in range(3):
+            siamese.meow(i)
+    assert store.results == [
+        {"os": [""], "repeat": [0]},
+        {"os": ["o"], "repeat": [1]},
+        {"os": ["oo"], "repeat": [2]},
+    ]
