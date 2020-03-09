@@ -4,8 +4,9 @@ from .core import Capture, Collector, to_pattern
 
 
 class GradCollector(Collector):
-    def __init__(self, pattern, finalizer=None):
-        super().__init__(pattern, finalizer)
+    def __init__(self, pattern, mapper=None):
+        super().__init__(pattern, None)
+        self._mapper = mapper
         (self.target,) = self.pattern.find_tag(2)
 
     def finalize(self):
@@ -54,8 +55,8 @@ class GradCollector(Collector):
         final_collector = Collector(self.pattern)
         final_collector.data = new_entries
 
-        if self.finalizer:
-            return self.finalizer(final_collector)
+        if self._mapper:
+            return final_collector.map_full(self._mapper)
         else:
             return final_collector
 
@@ -63,13 +64,13 @@ class GradCollector(Collector):
 class Grad:
     hasoutput = True
 
-    def __init__(self, selector, finalizer=None):
+    def __init__(self, selector, mapper=None):
         self.selector = to_pattern(selector)
-        self.finalizer = finalizer
+        self.mapper = mapper
 
-    def hook(self, finalizer):
-        self.finalizer = finalizer
+    def hook(self, mapper):
+        self.mapper = mapper
         return self
 
     def instantiate(self):
-        return GradCollector(self.selector, self.finalizer)
+        return GradCollector(self.selector, self.mapper)

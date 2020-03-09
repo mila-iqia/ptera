@@ -428,14 +428,46 @@ def interact(sym, key, category, __self__, value):
             return value
 
 
+class PluginWrapper:
+    def __init__(self, plugin, fn):
+        self.hasoutput = plugin.hasoutput
+        self.plugin = plugin
+        self.fn = fn
+
+    def instantiate(self):
+        return ActivePluginWrapper(self.plugin.instantiate(), self.fn)
+
+
+class ActivePluginWrapper:
+    def __init__(self, active_plugin, fn):
+        self.active_plugin = active_plugin
+        self.fn = fn
+
+    def rules(self):
+        return self.active_plugin.rules()
+
+    def finalize(self):
+        rval = self.active_plugin.finalize()
+        return self.fn(rval)
+
+
 class Collector:
-    def __init__(self, pattern, finalize=None):
+    def __init__(self, pattern, mapper=None):
         self.data = []
         self.pattern = pattern
-        self.finalizer = finalize
+        self.mapper = mapper
 
-        def listener(**kwargs):
-            self.data.append(kwargs)
+        if self.mapper:
+
+            def listener(**kwargs):
+                result = self.mapper(**kwargs)
+                if result is not None:
+                    self.data.append(result)
+
+        else:
+
+            def listener(**kwargs):
+                self.data.append(kwargs)
 
         listener._ptera_argspec = set(self.pattern.all_captures())
         self._listener = listener
@@ -490,8 +522,8 @@ class Collector:
         return {self.pattern: {"listeners": [self._listener]}}
 
     def finalize(self):
-        if self.finalizer:
-            return self.finalizer(self)
+        if self.mapper:
+            return self.data
         else:
             return self
 
@@ -499,16 +531,16 @@ class Collector:
 class Tap:
     hasoutput = True
 
-    def __init__(self, selector, finalize=None):
+    def __init__(self, selector, mapper=None):
         self.selector = to_pattern(selector)
-        self.finalize = finalize
+        self.mapper = mapper
 
-    def hook(self, finalize):
-        self.finalize = finalize
+    def hook(self, mapper):
+        self.mapper = mapper
         return self
 
     def instantiate(self):
-        return Collector(self.selector, self.finalize)
+        return Collector(self.selector, mapper=self.mapper)
 
 
 class CallResults:
@@ -606,7 +638,7 @@ class Overlay:
         plugin = _to_plugin(query)
 
         def deco(fn):
-            self.plugins[fn.__name__] = plugin.hook(fn)
+            self.plugins[fn.__name__] = PluginWrapper(plugin, fn)
 
         return deco
 
@@ -614,15 +646,14 @@ class Overlay:
         plugin = _to_plugin(query)
 
         def deco(fn):
-            def finalize(coll):
-                if full:
-                    return coll.map_full(fn)
-                elif all:
-                    return coll.map_all(fn)
-                else:
-                    return coll.map(fn)
+            def mapper(**kwargs):
+                if all:
+                    kwargs = {key: cap.values for key, cap in kwargs.items()}
+                elif not full:
+                    kwargs = {key: cap.value for key, cap in kwargs.items()}
+                return fn(**kwargs)
 
-            self.plugins[fn.__name__] = plugin.hook(finalize)
+            self.plugins[fn.__name__] = plugin.hook(mapper)
 
         return deco
 
