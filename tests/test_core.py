@@ -177,6 +177,9 @@ def test_indexing():
     res, fs = fib.using("f[0] as x")(5)
     assert fs.map("x") == [1]
 
+    res, fs = fib.using("'f'(#key=0) as x")(5)
+    assert fs.map("x") == [1]
+
     res, fs = fib.using("f[$i] as x")(5)
     intermediates = [1, 1, 2, 3, 5, 8]
     indices = list(range(6))

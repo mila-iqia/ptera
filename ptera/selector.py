@@ -237,6 +237,7 @@ parser = opparse.Parser(
         {
             r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
             r"[a-zA-Z_0-9#*.]+": "WORD",
+            r"'[^']*'": "STRING",
         }
     ),
     order=opparse.OperatorPrecedenceTower(
@@ -251,6 +252,7 @@ parser = opparse.Parser(
             ("(", "[", "{", "[["): opparse.obrack(200),
             (")", "]", "}", "]]"): opparse.cbrack(500),
             ": WORD": opparse.lassoc(1000),
+            ": STRING": opparse.lassoc(1000),
         }
     ),
 )
@@ -566,6 +568,8 @@ def _eval(s, env):
         return float(s.name)
     elif re.match(r"[0-9]+", s.name):
         return int(s.name)
+    elif re.match(r"'[^']*'", s.name):
+        return s.name[1:-1]
     start, *parts = s.name.split(".")
     if start in env:
         curr = env[start]
