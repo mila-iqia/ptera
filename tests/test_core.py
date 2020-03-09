@@ -63,14 +63,14 @@ def _dbrie(pattern):
 @one_test_per_assert
 def test_patterns():
     # Simple, test focus
-    assert _dbrie("*{x}") == [{"x": [2]}, {"x": [10]}]
-    assert _dbrie("*{!x}") == [{"x": [2]}, {"x": [10]}]
-    assert _dbrie("*{!x, y}") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
-    assert _dbrie("*{x, y}") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
+    assert _dbrie("*(x)") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("*(!x)") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("*(!x, y)") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
+    assert _dbrie("*(x, y)") == [{"x": [2], "y": [3]}, {"x": [10], "y": [11]}]
 
     # Simple
-    assert _dbrie("*{!a}") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
-    assert _dbrie("brie{!a}") == [{"a": [4]}, {"a": [100]}]
+    assert _dbrie("*(!a)") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
+    assert _dbrie("brie(!a)") == [{"a": [4]}, {"a": [100]}]
 
     # Indirect
     assert _dbrie("a") == [{"a": [4]}, {"a": [100]}, {"a": [13]}]
@@ -78,38 +78,38 @@ def test_patterns():
     assert _dbrie("double_brie >> x") == [{"x": [2]}, {"x": [10]}]
 
     # Multi-level
-    assert _dbrie("double_brie{a} > brie{x}") == [{"a": [13], "x": [2, 10]}]
-    assert _dbrie("double_brie{a} > brie{!x}") == [
+    assert _dbrie("double_brie(a) > brie(x)") == [{"a": [13], "x": [2, 10]}]
+    assert _dbrie("double_brie(a) > brie(!x)") == [
         {"a": [13], "x": [2]},
         {"a": [13], "x": [10]},
     ]
 
     # Accumulate values across calls
-    assert _dbrie("double_brie{extra{cheese}, brie{x}}") == [
+    assert _dbrie("double_brie(extra(cheese), brie(x))") == [
         {"cheese": [13, 221], "x": [2, 10]}
     ]
-    assert _dbrie("double_brie{extra{!cheese}, brie{x}}") == [
+    assert _dbrie("double_brie(extra(!cheese), brie(x))") == [
         {"cheese": [13], "x": [2, 10]},
         {"cheese": [221], "x": [2, 10]},
     ]
 
     # Indexing
-    assert _dbrie("brie[[$i]]{!a}") == [
+    assert _dbrie("brie[[$i]](!a)") == [
         {"a": [4], "i": [1]},
         {"a": [100], "i": [2]},
     ]
-    assert _dbrie("brie[[1]]{!a}") == [{"a": [4]}]
-    assert _dbrie("brie[[2]]{!a}") == [{"a": [100]}]
+    assert _dbrie("brie[[1]](!a)") == [{"a": [4]}]
+    assert _dbrie("brie[[2]](!a)") == [{"a": [100]}]
 
     # Parameter
-    assert _dbrie("brie{$v:tag.Bouffe}") == [{"v": [4, 9]}, {"v": [100, 121]}]
-    assert _dbrie("brie{!$v:tag.Bouffe}") == [
+    assert _dbrie("brie($v:tag.Bouffe)") == [{"v": [4, 9]}, {"v": [100, 121]}]
+    assert _dbrie("brie(!$v:tag.Bouffe)") == [
         {"v": [4]},
         {"v": [9]},
         {"v": [100]},
         {"v": [121]},
     ]
-    assert _dbrie("*{a} >> brie{!$v:tag.Bouffe}") == [
+    assert _dbrie("*(a) >> brie(!$v:tag.Bouffe)") == [
         {"a": [13], "v": [4]},
         {"a": [13], "v": [9]},
         {"a": [13], "v": [100]},
@@ -117,15 +117,15 @@ def test_patterns():
     ]
 
     # Function category
-    assert _dbrie("*:tag.Fromage{a}") == [{"a": [4]}, {"a": [100]}]
+    assert _dbrie("*:tag.Fromage(a)") == [{"a": [4]}, {"a": [100]}]
 
     # Inexistent category
     assert _dbrie("brie > $x:tag.Xylophone") == []
 
     # Filter on value
-    assert _dbrie("brie{!x, y, a=4}") == [{"x": [2], "y": [3]}]
-    assert _dbrie("double_brie{x1=2} > brie > x") == [{"x": [2]}, {"x": [10]}]
-    assert _dbrie("double_brie{#value=1234} > brie > x") == []
+    assert _dbrie("brie(!x, y, a=4)") == [{"x": [2], "y": [3]}]
+    assert _dbrie("double_brie(x1=2) > brie > x") == [{"x": [2]}, {"x": [10]}]
+    assert _dbrie("double_brie(#value=1234) > brie > x") == []
 
 
 @ptera
@@ -146,7 +146,7 @@ def peacherry(z):
 
 
 def test_deep():
-    assert _test(snapple, [5], "snapple > cabanana{y} > peacherry > z") == [
+    assert _test(snapple, [5], "snapple > cabanana(y) > peacherry > z") == [
         {"y": [6], "z": [7]},
         {"y": [7], "z": [8]},
     ]
@@ -177,7 +177,7 @@ def test_indexing():
 
 
 def test_indexing_2():
-    res, fs = fib.using("fib{!n, f[3] as x}")(5)
+    res, fs = fib.using("fib(!n, f[3] as x)")(5)
     assert res == 8
     assert fs.map("n") == [5]
     assert fs.map("x") == [3]
@@ -210,11 +210,11 @@ def mystery(hat):
 
 
 def test_provide_var():
-    with overlay({"mystery{!surprise}": {"value": lambda surprise: 4}}):
+    with overlay({"mystery(!surprise)": {"value": lambda surprise: 4}}):
         assert mystery(10) == 40
 
     with overlay(
-        {"mystery{hat, !surprise}": {"value": lambda hat, surprise: hat.value}}
+        {"mystery(hat, !surprise)": {"value": lambda hat, surprise: hat.value}}
     ):
         assert mystery(8) == 64
 
@@ -224,11 +224,11 @@ def test_missing_var():
         mystery(3)
 
     with pytest.raises(NameError):
-        mystery.tweak({"mystery{hat=10} > surprise": 0})(3)
+        mystery.tweak({"mystery(hat=10) > surprise": 0})(3)
 
 
 def test_tap_map():
-    rval, acoll = double_brie.using("brie{!a, b}")(2, 10)
+    rval, acoll = double_brie.using("brie(!a, b)")(2, 10)
     assert acoll.map("a") == [4, 100]
     assert acoll.map("b") == [9, 121]
     assert acoll.map(lambda a, b: a + b) == [13, 221]
@@ -237,7 +237,7 @@ def test_tap_map():
 
 
 def test_tap_map_all():
-    rval, acoll = double_brie.using("double_brie{!x1} >> brie{x}")(2, 10)
+    rval, acoll = double_brie.using("double_brie(!x1) >> brie(x)")(2, 10)
     with pytest.raises(ValueError):
         acoll.map("x1", "x")
     assert acoll.map_all("x1", "x") == [([2], [2, 10])]
@@ -245,7 +245,7 @@ def test_tap_map_all():
 
 
 def test_tap_map_named():
-    rval = double_brie.using(data="brie{!a, b}")(2, 10)
+    rval = double_brie.using(data="brie(!a, b)")(2, 10)
     assert rval.value == 236
     assert rval.data.map("a") == [4, 100]
 
@@ -280,7 +280,7 @@ def test_on():
 
 def test_use():
     dbrie = double_brie.clone(return_object=True)
-    dbrie.use(data="brie{!a, b}")
+    dbrie.use(data="brie(!a, b)")
     rval = dbrie(2, 10)
     assert rval.value == 236
     assert rval.data.map("a") == [4, 100]
@@ -318,11 +318,11 @@ def test_readme():
     results = sumsquares.using(q="square > x")(3, 4)
     assert results.q.map("x") == [3, 4]
 
-    results = sumsquares.using(q="square{rval} > x")(3, 4)
+    results = sumsquares.using(q="square(rval) > x")(3, 4)
     assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
 
     results = sumsquares.using(
-        q="sumsquares{x as ssx, y as ssy} > square{rval} > x"
+        q="sumsquares(x as ssx, y as ssy) > square(rval) > x"
     )(3, 4)
     assert results.q.map("ssx", "ssy", "x", "rval") == [
         (3, 4, 3, 9),
@@ -330,7 +330,7 @@ def test_readme():
     ]
 
     results = sumsquares.using(
-        q="sumsquares{!x as ssx, y as ssy} > square{rval, x}"
+        q="sumsquares(!x as ssx, y as ssy) > square(rval, x)"
     )(3, 4)
     assert results.q.map_all("ssx", "ssy", "x", "rval") == [
         ([3], [4], [3, 4], [9, 16])
@@ -339,7 +339,7 @@ def test_readme():
     result = sumsquares.tweak({"square > rval": 0})(3, 4)
     assert result == 0
 
-    result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
+    result = sumsquares.rewrite({"square(x) > rval": lambda x: x + 1})(3, 4)
     assert result == 9
 
 
@@ -436,7 +436,7 @@ def test_method():
     ):
         assert siamese.meow() == "meoowwwwwww meoowwwwwww"
 
-    store = GrabAll("Matou.meow{repeat} > os")
+    store = GrabAll("Matou.meow(repeat) > os")
     with overlay(store.rules):
         for i in range(3):
             siamese.meow(i)

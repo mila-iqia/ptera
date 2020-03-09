@@ -77,7 +77,7 @@ def train(dataset):
 
     model = make_network(784, 1000, 10).clone(return_object=True)
 
-    @model.on(Grad("step{!!loss} >> $param:Parameter"))
+    @model.on(Grad("step(!!loss) >> $param:Parameter"))
     def update(param):
         param_value, param_grad = param
         param_value.data.sub_(0.01 * param_grad)
@@ -89,7 +89,7 @@ def train(dataset):
 
 The one new thing in this example that hasn't been covered yet is the `Grad` plugin, which we use to implement the `update` function. `Grad` takes a query describing the gradients we want to calculate. In that query, we want to take the derivative of the secondary focus (tagged with `!!`) with respect to the primary focus (tagged with `!`, or implicitly defined on the right hand side of `>`).
 
-Essentially, if `y = f(x)` and we wish to compute `dy/dx`, we can express this as `Grad("f{!x, !!y}")`. The primary and secondary focus do not need to be in the same scope (in the MLP example provided above, they are not in the same scope).
+Essentially, if `y = f(x)` and we wish to compute `dy/dx`, we can express this as `Grad("f(!x, !!y)")`. The primary and secondary focus do not need to be in the same scope (in the MLP example provided above, they are not in the same scope).
 
 
 ## Looking at intermediate gradients
@@ -99,7 +99,7 @@ Let's say you want to know what the gradient is with respect to the first layer.
 
 ```python
 ...
-@model.on(Grad("step{!!loss} >> h[1] as h"))
+@model.on(Grad("step(!!loss) >> h[1] as h"))
 def check_h(h):
     h_value, h_grad = h
     # You can print it
@@ -160,7 +160,7 @@ model.tweak({"layer > T": 1.0})(inp)
 model.tweak({"layer > T": 2.0})(inp)
 
 # Tweak the temperature to 10 but ONLY for layer 1
-model.tweak({"layer[1] > T": 10.0})(inp)
+model.tweak({"layer[[1]] > T": 10.0})(inp)
 ```
 
 You can also easily make it a parameter of the model and update it with gradient descent.

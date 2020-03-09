@@ -21,7 +21,7 @@ def grind(xs, start=0):
 def test_storage_valuer_1():
     class UpdateStrategy(Storage):
 
-        pattern = "mul{x, factor1, factor2}"
+        pattern = "mul(x, factor1, factor2)"
         default_target = "f"
 
         @valuer(target="factor1")
@@ -78,7 +78,7 @@ def test_storage_valuer_3():
 def test_storage_valuer_4():
     class UpdateStrategy(Storage):
 
-        pattern = "grind{start} >> $f:tag.Bouffe"
+        pattern = "grind(start) >> $f:tag.Bouffe"
         default_target = "f"
 
         @valuer

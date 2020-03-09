@@ -222,7 +222,7 @@ class Call(metaclass=InternedMC):
             enc = child.encode()
             enc = f"> {enc}" if child.immediate else f">> {enc}"
             caps.append(enc)
-        caps = "" if not caps else "{" + ", ".join(caps) + "}"
+        caps = "" if not caps else "(" + ", ".join(caps) + ")"
         return f"{name}{caps}"
 
     def __str__(self):
@@ -414,17 +414,11 @@ def make_function_index(node, element, key, _, context):
     return make_index(node, element, key, _, context, resolve_call=True)
 
 
-@evaluate.register_action("X { _ } _")
-def make_call_empty_capture(node, fn, _1, _2, context):
+@evaluate.register_action("X ( _ ) _")
+@evaluate.register_action("X ( X ) _")
+def make_call_capture(node, fn, names, _, context):
     fn = evaluate(fn, context=context)
-    fn = _guarantee_call(fn, context=context)
-    return fn
-
-
-@evaluate.register_action("X { X } _")
-def make_call_capture(node, fn, names, _2, context):
-    fn = evaluate(fn, context=context)
-    names = evaluate(names, context="incall")
+    names = evaluate(names, context="incall") if names else []
     names = names if isinstance(names, list) else [names]
     fn = _guarantee_call(fn, context=context)
     caps = tuple(name for name in names if isinstance(name, Element))

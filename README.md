@@ -126,10 +126,10 @@ assert results.q.map("x") == [3, 4]
 
 **Q**: Can I also see the output of `square`?
 
-**A**: Yes. Variables inside `{}` will also be captured.
+**A**: Yes. Variables inside `()` will also be captured.
 
 ```python
-results = sumsquares.using(q="square{rval} > x")(3, 4)
+results = sumsquares.using(q="square(rval) > x")(3, 4)
 assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
 ```
 
@@ -140,7 +140,7 @@ assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
 
 ```python
 results = sumsquares.using(
-    q="sumsquares{x as ssx, y as ssy} > square{rval} > x"
+    q="sumsquares(x as ssx, y as ssy) > square(rval) > x"
 )(3, 4)
 assert results.q.map("ssx", "ssy", "x", "rval") == [(3, 4, 3, 9), (3, 4, 4, 16)]
 ```
@@ -152,17 +152,17 @@ assert results.q.map("ssx", "ssy", "x", "rval") == [(3, 4, 3, 9), (3, 4, 4, 16)]
 
 ```python
 results = sumsquares.using(
-    q="sumsquares{!x as ssx, y as ssy} > square{rval, x}"
+    q="sumsquares(!x as ssx, y as ssy) > square(rval, x)"
 )(3, 4)
 assert (results.q.map_all("ssx", "ssy", "x", "rval")
         == [([3], [4], [3, 4], [9, 16])])
 ```
 
-Notice that you need to call `map_all` here, because some variables have multiple values with respect to the focus: we focus on the `x` argument to `sumsquares`, which calls `square` twice, so for each `sumsquares{x}` we get two `square{x, rval}`. The `map` method assumes there is only one value for each variable, so it will raise an exception.
+Notice that you need to call `map_all` here, because some variables have multiple values with respect to the focus: we focus on the `x` argument to `sumsquares`, which calls `square` twice, so for each `sumsquares(x)` we get two `square(x, rval)`. The `map` method assumes there is only one value for each variable, so it will raise an exception.
 
-Note that this view on the data does not necessarily preserve the correspondance between `square{x}` and `square{rval}`: you can't assume that the first `x` is in the same scope as the first `rval`, and so on.
+Note that this view on the data does not necessarily preserve the correspondance between `square(x)` and `square(rval)`: you can't assume that the first `x` is in the same scope as the first `rval`, and so on.
 
-Also notice that the expression does not end with `> x`. That's because `square > x` is the same as `square{!x}`: it sets the focus on `x`. However, we can only have one focus, therefore if we ended the query with `> x` it would be invalid.
+Also notice that the expression does not end with `> x`. That's because `square > x` is the same as `square(!x)`: it sets the focus on `x`. However, we can only have one focus, therefore if we ended the query with `> x` it would be invalid.
 
 
 **Q**: I want to do something crazy. I want `square` to always return 0.
@@ -182,7 +182,7 @@ This will apply to all calls to `square` within the execution of `sumsquares`. A
 **A**: Use the `rewrite` method.
 
 ```python
-result = sumsquares.rewrite({"square{x} > rval": lambda x: x + 1})(3, 4)
+result = sumsquares.rewrite({"square(x) > rval": lambda x: x + 1})(3, 4)
 assert result == 9
 ```
 
@@ -248,39 +248,39 @@ Animal = tag.Animal
 Thing = tag.Thing
 
 @ptera
-def art(a, b):               # art > a ; art > b ; art{!a, b} ; art{a, !b}
+def art(a, b):               # art > a ; art > b ; art(!a, b) ; art(a, !b)
 
-    a1: Animal = bee(a)      # a1 ; art > a1 ; art{!a1} ; art > $x
+    a1: Animal = bee(a)      # a1 ; art > a1 ; art(!a1) ; art > $x
                              # a1:Animal ; $x:Animal
-                             # art{!a1} > bee > d  # Focus on a1, also includes d
+                             # art(!a1) > bee > d  # Focus on a1, also includes d
                              # art > bee  # This refers to the bee function
-                             # * > a1 ; *{!a1}
+                             # * > a1 ; *(!a1)
 
-    a2: Thing = cap(b)       # a2 ; art > a2 ; art{!a2} ; art > $x
+    a2: Thing = cap(b)       # a2 ; art > a2 ; art(!a2) ; art > $x
                              # a2:Thing ; $x:Thing
 
-    return a1 + a2           # art > #value ; art{#value as art_result}
-                             # art{} as art_result
+    return a1 + a2           # art > #value ; art(#value as art_result)
+                             # art() as art_result
                              # art > $x
 
 
 @ptera
 def bee(c):
-    c1 = c + 1               # bee > c1 ; art >> c1 ; art{a2} > bee > c1
+    c1 = c + 1               # bee > c1 ; art >> c1 ; art(a2) > bee > c1
                              # bee > c1 as xyz
 
-    return c1                # bee > #value ; bee{c} as bee_value
+    return c1                # bee > #value ; bee(c) as bee_value
 
 
 @ptera
 def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
-                             # art{bee{c}} > cap > d
+                             # art(bee(c)) > cap > d
     return d * d
 ```
 
 * The `!` operator marks the **focus** of the query. There will be one result for each time the focus is triggered, and when using `tweak` or `rewrite` the focus is what is being tweaked or rewritten.
   * Other variables are supplemental information, available along with the focus in query results. They can also be used to compute a value for the focus *if* they are available by the time the focus is reached.
-  * The nesting operators `>` and `>>` automatically set the focus to the right hand side if the rhs is a single variable and the operator is not inside `{...}`.
+  * The nesting operators `>` and `>>` automatically set the focus to the right hand side if the rhs is a single variable and the operator is not inside `(...)`.
 * The wildcard `*` stands in for any function.
 * The `>>` operator represents **deep nesting**. For example, `art >> c1` encompasses the pattern `art > bee > c1`.
   * In general, `a >> z` encompasses `a > z`, `a > b > z`, `a > b > c > z`, `a > * > z`, and so on.
@@ -290,7 +290,7 @@ def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
   * Getting the names: `results.map_full(lambda x: x.name) == ["a1", "a2", "#value"]`
   * Other fields accessible from `map_full` are `value`, `names` and `values`, the latter two being needed if multiple results are captured together.
 * Variable annotations are preserved and can be filtered on, using the `:` operator. They may be types or "tags" (created using `ptera.Tag("XYZ")` or `ptera.tag.XYZ`).
-* `art{bee{c}} > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
+* `art(bee(c)) > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
   * If there are multiple calls to `bee`, all values of `c` will be pooled together, and it will be necessary to use `map_all` to retrieve the values (or `map_full`).
 
 
@@ -301,27 +301,27 @@ Ptera's query language syntax includes a lot of expressions, but it reduces to a
 
 ```
 # A lone symbol becomes a match for a variable in a wildcard function
-a               <=>  *{!a}
+a               <=>  *(!a)
 
-# Nesting operator > is sugar for {...}
-a > b           <=>  a{!b}
-a > b > c       <=>  a{b{!c}}
+# Nesting operator > is sugar for (...)
+a > b           <=>  a(!b)
+a > b > c       <=>  a(b(!c))
 
 # Infix >> is sugar for prefix >>
-a >> b > c      <=>  a{>> b{!c}}
-a >> b          <=>  a{>> !b}   <~>  a{>> *{!b}}  (see note)
+a >> b > c      <=>  a(>> b(!c))
+a >> b          <=>  a(>> !b)   <~>  a(>> *(!b))  (see note)
 
 # $x is shorthand for as
-f{$x}           <=>  f{* as x}
+f($x)           <=>  f(* as x)
 
 # Indexing is sugar for #key
-a[0]            <=>  a{#key=0}
-a[0] as a0      <=>  a{#key=0, #value as a0}
-a[$i] as a      <=>  a{#key as i, #value as a}
+a[0]            <=>  a(#key=0)
+a[0] as a0      <=>  a(#key=0, #value as a0)
+a[$i] as a      <=>  a(#key as i, #value as a)
 
 # Shorthand for #value
-a{x, y} as b    <=>  a{x, y, #value as b}
-a{} as b        <=>  a{#value as b}
+a(x, y) as b    <=>  a(x, y, #value as b)
+a() as b        <=>  a(#value as b)
 ```
 
-Note: `a{>> b}` and `a{>> *{!b}}` are not 100% equivalent, because the former encompasses `a{> b}` and the latter does not, but internally the former is basically encoded as the latter plus a special "collapse" flag that there is no syntax for.
+Note: `a(>> b)` and `a(>> *(!b))` are not 100% equivalent, because the former encompasses `a(> b)` and the latter does not, but internally the former is basically encoded as the latter plus a special "collapse" flag that there is no syntax for.

@@ -140,11 +140,11 @@ def train():
 
     my_step = make_network(layer_sizes).clone(return_object=True)
 
-    @my_step.on("step{target} > output")
+    @my_step.on("step(target) > output")
     def hits(output, target):
         return (output.max(dim=1).indices == target).sum()
 
-    @my_step.on(Grad("step{!!loss} >> $param:tag.Learnable"))
+    @my_step.on(Grad("step(!!loss) >> $param:tag.Learnable"))
     def update(param):
         param_value, param_grad = param
         param_value.data.add_(param_grad, alpha=-lr)

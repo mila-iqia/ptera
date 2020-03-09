@@ -53,19 +53,19 @@ def test_parser_equivalencies():
     assert sel.parse("a > b > c") == sel.parse("a\n> b\n> c")
     assert sel.parse("a > b > c") == sel.parse("\n  a > b > c\n")
 
-    assert sel.parse("a > b") == sel.parse("a{!b}")
-    assert sel.parse("a > b > c") == sel.parse("a > b{!c}")
-    assert sel.parse("a > b > c") == sel.parse("a{} > b{!c}")
-    assert sel.parse("a >> b") == sel.parse("a{>> !b}")
+    assert sel.parse("a > b") == sel.parse("a(!b)")
+    assert sel.parse("a > b > c") == sel.parse("a > b(!c)")
+    assert sel.parse("a > b > c") == sel.parse("a() > b(!c)")
+    assert sel.parse("a >> b") == sel.parse("a(>> !b)")
 
-    assert sel.parse("a > b{c}") == sel.parse("a{b{c}}")
-    assert sel.parse("a >> b{c}") == sel.parse("a{>> b{c}}")
+    assert sel.parse("a > b(c)") == sel.parse("a(b(c))")
+    assert sel.parse("a >> b(c)") == sel.parse("a(>> b(c))")
 
-    assert sel.parse("a[[b]]") == sel.parse("a{#key=b}")
-    assert sel.parse("a[[b]] as c") == sel.parse("a{#key=b, !#value as c}")
-    assert sel.parse("a{} as b") == sel.parse("a{!#value as b}")
+    assert sel.parse("a[[b]]") == sel.parse("a(#key=b)")
+    assert sel.parse("a[[b]] as c") == sel.parse("a(#key=b, !#value as c)")
+    assert sel.parse("a() as b") == sel.parse("a(!#value as b)")
 
-    assert sel.parse("a:b{c}") == sel.parse("(a:b){c}")
+    assert sel.parse("a:b(c)") == sel.parse("(a:b)(c)")
 
 
 @one_test_per_assert
@@ -149,17 +149,17 @@ def test_parser():
         immediate=False,
     )
 
-    assert sel.parse("apple{a}") == sel.Call(
+    assert sel.parse("apple(a)") == sel.Call(
         element=sel.Element(name=sel.Resolve("apple")),
         captures=(sel.Element(name="a", capture="a"),),
     )
 
-    assert sel.parse("apple{!a}") == sel.Call(
+    assert sel.parse("apple(!a)") == sel.Call(
         element=sel.Element(name=sel.Resolve("apple")),
         captures=(sel.Element(name="a", capture="a", tags=frozenset({1})),),
     )
 
-    assert sel.parse("apple{a, b, c, d as e}") == sel.Call(
+    assert sel.parse("apple(a, b, c, d as e)") == sel.Call(
         element=sel.Element(name=sel.Resolve("apple")),
         captures=(
             sel.Element(name="a", capture="a"),
@@ -251,9 +251,9 @@ def test_to_pattern():
         ),
     )
 
-    assert sel.to_pattern("apple") == sel.to_pattern(">> *{!apple}")
+    assert sel.to_pattern("apple") == sel.to_pattern(">> *(!apple)")
     assert sel.to_pattern("pie:tag.Fruit") == sel.to_pattern(
-        ">> *{!pie:tag.Fruit}"
+        ">> *(!pie:tag.Fruit)"
     )
 
 
@@ -271,13 +271,13 @@ def test_to_pattern_errors():
 
 @one_test_per_assert
 def test_validity():
-    assert not sel.parse("a{$b}").valid()
+    assert not sel.parse("a($b)").valid()
     assert sel.parse("a >> $b").valid()
-    assert sel.parse("a{!$b}").valid()
-    assert not sel.parse("a{!$b, !$c}").valid()
-    assert sel.parse("a{b, c}").valid()
-    assert sel.parse("a{!b, c}").valid()
-    assert not sel.parse("a{!b, !c}").valid()
+    assert sel.parse("a(!$b)").valid()
+    assert not sel.parse("a(!$b, !$c)").valid()
+    assert sel.parse("a(b, c)").valid()
+    assert sel.parse("a(!b, c)").valid()
+    assert not sel.parse("a(!b, !c)").valid()
 
 
 def _rewrite(before, after, required, focus=None):
@@ -291,41 +291,41 @@ def _rewrite(before, after, required, focus=None):
 def test_rewrite():
 
     assert _rewrite(
-        before="bug{world} >> spider{w, e, b}",
-        after="bug{world}",
+        before="bug(world) >> spider(w, e, b)",
+        after="bug(world)",
         required=("world",),
     )
 
     assert _rewrite(
-        before="bug{world} > spider{!w, e, b}",
-        after="bug > spider{w, !b}",
+        before="bug(world) > spider(!w, e, b)",
+        after="bug > spider(w, !b)",
         required=("w",),
         focus="b",
     )
 
     assert _rewrite(
-        before="bug{world} > spider{!w, e, b}",
-        after="bug > spider{!w, b}",
+        before="bug(world) > spider(!w, e, b)",
+        after="bug > spider(!w, b)",
         required=("w", "b",),
     )
 
     assert _rewrite(
-        before="a{b{c}, d{e, f{g}}, h{!i}, j}",
-        after="a{d{f{g}}, h{!i}, j}",
+        before="a(b(c), d(e, f(g)), h(!i), j)",
+        after="a(d(f(g)), h(!i), j)",
         required=("g", "j",),
     )
 
     assert _rewrite(
-        before="a{!b, !c, !d}", after="a{b, !d}", required=("b",), focus="d"
+        before="a(!b, !c, !d)", after="a(b, !d)", required=("b",), focus="d"
     )
 
     assert _rewrite(
-        before="a[0]{x}", after="a[0]{x}", required=("x",), focus=None,
+        before="a[0](x)", after="a[0](x)", required=("x",), focus=None,
     )
 
-    assert _rewrite(before="a{!b}", after="a{!b}", required=(), focus="b")
+    assert _rewrite(before="a(!b)", after="a(!b)", required=(), focus="b")
 
-    assert _rewrite(before="a{!b}", after="a{!b}", required=())
+    assert _rewrite(before="a(!b)", after="a(!b)", required=())
 
 
 @one_test_per_assert
@@ -356,7 +356,7 @@ def test_specialize():
 
 
 def test_find_tag():
-    expr = sel.parse("f{!!x} > g > y")
+    expr = sel.parse("f(!!x) > g > y")
     t1 = expr.find_tag(1)
     assert len(t1) == 1
     (t1,) = t1
@@ -367,7 +367,7 @@ def test_find_tag():
     (t2,) = t2
     assert t2.name == "x" and t2 in expr.captures
 
-    assert sel.parse("f{x} > y").find_tag(2) == set()
+    assert sel.parse("f(x) > y").find_tag(2) == set()
 
 
 def _encode(x):
@@ -376,12 +376,12 @@ def _encode(x):
 
 @one_test_per_assert
 def test_encode():
-    assert _encode("a > b") == "a{!b}"
-    assert _encode("a{b}") == "a{b}"
-    assert _encode("a{b} >> c") == "a{b, >> *{!c}}"
-    assert _encode("a{b, c{d}}") == "a{b, > c{d}}"
+    assert _encode("a > b") == "a(!b)"
+    assert _encode("a(b)") == "a(b)"
+    assert _encode("a(b) >> c") == "a(b, >> *(!c))"
+    assert _encode("a(b, c(d))") == "a(b, > c(d))"
     assert _encode("$x") == "$x"
     assert _encode("$x:Zoom") == "$x:Zoom"
 
     assert str(sel.parse("a")) == 'sel("!a")'
-    assert str(sel.parse("a > b")) == 'sel("a{!b}")'
+    assert str(sel.parse("a > b")) == 'sel("a(!b)")'
