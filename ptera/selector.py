@@ -3,6 +3,7 @@
 
 import ast
 import builtins
+import re
 import sys
 from dataclasses import dataclass
 
@@ -401,7 +402,7 @@ def make_index(node, element, key, _, context, resolve_call=False):
     element = _guarantee_call(element, context=context, resolve=resolve_call)
     key = Element(
         name="#key",
-        value=key.name if key.name is not None else ABSENT,
+        value=Resolve(key.name) if key.name is not None else ABSENT,
         category=key.category,
         capture=key.capture if key.name != key.capture else None,
         key_field="value" if key.name is None else None,
@@ -461,7 +462,7 @@ def make_equals(node, element, value, context):
     element = evaluate(element, context=context)
     value = evaluate(value, context=context)
     assert isinstance(value, Element)
-    return element.clone(value=value.name, capture=None)
+    return element.clone(value=Resolve(value.name), capture=None)
 
 
 @evaluate.register_action("SYMBOL")
@@ -471,11 +472,6 @@ def make_symbol(node, context):
     else:
         value = node.value
         cap = node.value
-        try:
-            value = int(value)
-            cap = None
-        except ValueError:
-            pass
         focus = context == "root"
         element = Element(
             name=value,
@@ -543,6 +539,10 @@ class Resolve:
 def _eval(s, env):
     if not isinstance(s, Resolve):
         return s
+    if re.match(r"[0-9]+\.[0-9]*", s.name):
+        return float(s.name)
+    elif re.match(r"[0-9]+", s.name):
+        return int(s.name)
     start, *parts = s.name.split(".")
     if start in env:
         curr = env[start]
@@ -567,9 +567,10 @@ def _resolve(pattern, env):
     elif isinstance(pattern, Element):
         name = _eval(pattern.name, env)
         category = _eval(pattern.category, env)
+        value = _eval(pattern.value, env)
         if category is not None and not isinstance(category, Tag):
             raise TypeError(f"A pattern can only be a Tag.")
-        return pattern.clone(name=name, category=category)
+        return pattern.clone(name=name, category=category, value=value)
 
 
 def _to_pattern(pattern, context="root"):

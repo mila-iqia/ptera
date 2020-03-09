@@ -171,17 +171,17 @@ def test_parser():
 
     assert sel.parse("apple[pie]") == sel.Call(
         element=sel.Element(name="apple"),
-        captures=(sel.Element(name="#key", value="pie"),),
+        captures=(sel.Element(name="#key", value=sel.Resolve("pie")),),
     )
 
     assert sel.parse("apple[[pie]]") == sel.Call(
         element=sel.Element(name=sel.Resolve("apple")),
-        captures=(sel.Element(name="#key", value="pie"),),
+        captures=(sel.Element(name="#key", value=sel.Resolve("pie")),),
     )
 
     assert sel.parse("apple[0]") == sel.Call(
         element=sel.Element(name="apple"),
-        captures=(sel.Element(name="#key", value=0),),
+        captures=(sel.Element(name="#key", value=sel.Resolve("0")),),
     )
 
     assert sel.parse("apple[* as filling]") == sel.Call(
@@ -343,7 +343,7 @@ def test_key_captures():
 @one_test_per_assert
 def test_specialize():
     assert sel.parse("co >> co[$n] >> nut").specialize(
-        {"n": sel.Element(name=None, value="x")}
+        {"n": sel.Element(name=None, value=sel.Resolve("x"))}
     ) == sel.parse("co >> co[x as n] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
