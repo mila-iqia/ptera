@@ -162,6 +162,15 @@ def fib(n):
     return f[n]
 
 
+def even(x):
+    return x % 2 == 0
+
+
+def test_match():
+    res, fs = fib.using("f[~even] as x")(5)
+    assert fs.map("x") == [1, 2, 5]
+
+
 def test_indexing():
     assert fib(5) == 8
 

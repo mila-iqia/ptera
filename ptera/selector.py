@@ -235,7 +235,7 @@ class Call(metaclass=InternedMC):
 parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=])?\s*": "OPERATOR",
+            r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
             r"[a-zA-Z_0-9#*.]+": "WORD",
         }
     ),
@@ -243,7 +243,7 @@ parser = opparse.Parser(
         {
             ",": opparse.rassoc(10),
             ("", ">", ">>"): opparse.rassoc(100),
-            "=": opparse.lassoc(120),
+            ("=", "~"): opparse.lassoc(120),
             ("!", "!!"): opparse.lassoc(150),
             ":": opparse.lassoc(300),
             "as": opparse.rassoc(350),
@@ -400,9 +400,14 @@ def make_index(node, element, key, _, context, resolve_call=False):
     assert isinstance(element, Element)
     assert isinstance(key, Element)
     element = _guarantee_call(element, context=context, resolve=resolve_call)
+    if key.value is not ABSENT:
+        assert key.name is None
+        val = key.value
+    else:
+        val = Resolve(key.name) if key.name is not None else ABSENT
     key = Element(
         name="#key",
-        value=Resolve(key.name) if key.name is not None else ABSENT,
+        value=val,
         category=key.category,
         capture=key.capture if key.name != key.capture else None,
         key_field="value" if key.name is None else None,
@@ -457,12 +462,24 @@ def make_as(node, element, name, context):
         return element.clone(captures=element.captures + (new_capture,))
 
 
+@evaluate.register_action("_ = X")
 @evaluate.register_action("X = X")
-def make_equals(node, element, value, context):
-    element = evaluate(element, context=context)
+def make_equals(node, element, value, context, matchfn=False):
+    if element is None:
+        element = Element(name=None)
+    else:
+        element = evaluate(element, context=context)
     value = evaluate(value, context=context)
     assert isinstance(value, Element)
-    return element.clone(value=Resolve(value.name), capture=None)
+    return element.clone(
+        value=Resolve(value.name, matchfn=matchfn), capture=None
+    )
+
+
+@evaluate.register_action("_ ~ X")
+@evaluate.register_action("X ~ X")
+def make_matchfn(node, element, value, context):
+    return make_equals(node, element, value, context, matchfn=True)
 
 
 @evaluate.register_action("SYMBOL")
@@ -529,8 +546,14 @@ def _find_eval_env(s, fr):
 
 
 @dataclass(frozen=True)
+class MatchFunction:
+    fn: object
+
+
+@dataclass(frozen=True)
 class Resolve:
     name: str
+    matchfn: bool = False
 
     def __str__(self):
         return self.name
@@ -553,6 +576,10 @@ def _eval(s, env):
 
     for part in parts:
         curr = getattr(curr, part)
+
+    if s.matchfn:
+        curr = MatchFunction(curr)
+
     return curr
 
 

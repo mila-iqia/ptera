@@ -4,7 +4,7 @@ from collections import deque
 from contextvars import ContextVar
 from copy import copy
 
-from .selector import Element, to_pattern
+from .selector import Element, MatchFunction, to_pattern
 from .selfless import Override, Selfless, choose, override
 from .tags import match_tag
 from .utils import (
@@ -143,7 +143,14 @@ class Accumulator:
             leaf.status = FAILED
 
     def varset(self, element, varname, category, value):
-        if element.value is ABSENT or element.value == value:
+        if (
+            element.value is ABSENT
+            or element.value == value
+            or (
+                isinstance(element.value, MatchFunction)
+                and element.value.fn(value)
+            )
+        ):
             acc = self.fork(pattern=element) if element.focus else self
             cap = acc.getcap(element)
             if cap:
