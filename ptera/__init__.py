@@ -1,8 +1,9 @@
 from .core import (
+    BaseOverlay,
+    Overlay,
     PatternCollection,
     PteraFunction,
     interact,
-    overlay,
     to_pattern,
 )
 from .recur import Recurrence

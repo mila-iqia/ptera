@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import Recurrence, overlay, override, ptera, tag, to_pattern
+from ptera import BaseOverlay, Overlay, Recurrence, ptera, tag, to_pattern
 from ptera.core import Capture
 from ptera.selector import Element, parse
 
@@ -51,7 +51,7 @@ class GrabAll:
 
 def _test(f, args, pattern):
     store = GrabAll(pattern)
-    with overlay(store.rules):
+    with BaseOverlay(store.rules):
         f(*args)
     return store.results
 
@@ -189,15 +189,15 @@ def test_nested_overlay():
 
     storex = GrabAll("brie > x")
     storey = GrabAll("brie > y")
-    with overlay({**storex.rules, **storey.rules}):
+    with BaseOverlay({**storex.rules, **storey.rules}):
         assert double_brie(2, 10) == 236
     assert storex.results == expectedx
     assert storey.results == expectedy
 
     storex = GrabAll("brie > x")
     storey = GrabAll("brie > y")
-    with overlay(storex.rules):
-        with overlay(storey.rules):
+    with BaseOverlay(storex.rules):
+        with BaseOverlay(storey.rules):
             assert double_brie(2, 10) == 236
     assert storex.results == expectedx
     assert storey.results == expectedy
@@ -210,10 +210,10 @@ def mystery(hat):
 
 
 def test_provide_var():
-    with overlay({"mystery(!surprise)": {"value": lambda surprise: 4}}):
+    with BaseOverlay({"mystery(!surprise)": {"value": lambda surprise: 4}}):
         assert mystery(10) == 40
 
-    with overlay(
+    with BaseOverlay(
         {"mystery(hat, !surprise)": {"value": lambda hat, surprise: hat.value}}
     ):
         assert mystery(8) == 64
@@ -224,7 +224,7 @@ def test_missing_var():
         mystery(3)
 
     with pytest.raises(NameError):
-        mystery.tweak({"mystery(hat=10) > surprise": 0})(3)
+        mystery.tweaking({"mystery(hat=10) > surprise": 0})(3)
 
 
 def test_tap_map():
@@ -286,6 +286,18 @@ def test_use():
     assert rval.data.map("a") == [4, 100]
 
 
+def test_tweak():
+    dbrie = double_brie.clone()
+    dbrie.tweak({"brie > x": 10})
+    assert dbrie(2, 10) == 332
+
+
+def test_rewrite():
+    dbrie = double_brie.clone()
+    dbrie.rewrite({"brie(x, !y)": lambda x: x})
+    assert dbrie(2, 10) == 210
+
+
 def test_collect():
     dbrie = double_brie.clone(return_object=True)
 
@@ -336,10 +348,10 @@ def test_readme():
         ([3], [4], [3, 4], [9, 16])
     ]
 
-    result = sumsquares.tweak({"square > rval": 0})(3, 4)
+    result = sumsquares.tweaking({"square > rval": 0})(3, 4)
     assert result == 0
 
-    result = sumsquares.rewrite({"square(x) > rval": lambda x: x + 1})(3, 4)
+    result = sumsquares.rewriting({"square(x) > rval": lambda x: x + 1})(3, 4)
     assert result == 9
 
 
@@ -426,18 +438,16 @@ def test_method():
     siamese = Matou("siamese")
     assert siamese.meow() == "meowwwwwww"
 
-    assert siamese.meow.tweak({"Matou.meow > es": "eee"})() == "meeeowwwwwww"
+    assert siamese.meow.tweaking({"Matou.meow > es": "eee"})() == "meeeowwwwwww"
 
-    with overlay({"Matou.meow > es": {"value": lambda es: override("eee", 3)}}):
+    with Overlay.tweaking({"Matou.meow > es": "eee"}):
         assert siamese.meow() == "meeeowwwwwww"
 
-    with overlay(
-        {"Matou.meow > repeat": {"value": lambda repeat: override(2, 3)}}
-    ):
+    with Overlay.tweaking({"Matou.meow > repeat": 2}):
         assert siamese.meow() == "meoowwwwwww meoowwwwwww"
 
     store = GrabAll("Matou.meow(repeat) > os")
-    with overlay(store.rules):
+    with BaseOverlay(store.rules):
         for i in range(3):
             siamese.meow(i)
     assert store.results == [
@@ -445,3 +455,25 @@ def test_method():
         {"os": ["o"], "repeat": [1]},
         {"os": ["oo"], "repeat": [2]},
     ]
+
+
+def test_overlay():
+    def twice_mystery(x):
+        return mystery(x), mystery(x + 1)
+
+    ov = Overlay()
+    ov.tweak({"surprise": 2})
+
+    @ov.on("mystery > hat")
+    def hats(hat):
+        return hat * hat
+
+    @ov.on("mystery(hat) > surprise")
+    def shats(surprise, hat):
+        return (surprise, hat)
+
+    with ov as results:
+        assert twice_mystery(10) == (20, 22)
+
+    assert results.hats == [100, 121]
+    assert results.shats == [(2, 10), (2, 11)]

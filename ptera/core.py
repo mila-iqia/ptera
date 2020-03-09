@@ -7,7 +7,14 @@ from copy import copy
 from .selector import Element, to_pattern
 from .selfless import Override, Selfless, choose, override
 from .tags import match_tag
-from .utils import ABSENT, ACTIVE, COMPLETE, FAILED, call_with_captures
+from .utils import (
+    ABSENT,
+    ACTIVE,
+    COMPLETE,
+    FAILED,
+    autocreate,
+    call_with_captures,
+)
 
 _pattern_fit_cache = {}
 
@@ -348,7 +355,7 @@ class proceed:
         self.frame.exit()
 
 
-class overlay:
+class BaseOverlay:
     def __init__(self, *rulesets):
         self.rulesets = [rules for rules in rulesets if rules]
 
@@ -505,10 +512,6 @@ class Tap:
 
 
 class CallResults:
-    def __init__(self, value):
-        self.value = value
-        setattr(self, "0", self.value)
-
     def __getitem__(self, item):
         if isinstance(item, int):
             item = str(item)
@@ -516,6 +519,9 @@ class CallResults:
             return getattr(self, item)
         except AttributeError:
             raise IndexError(item)
+
+    def __setitem__(self, item, value):
+        setattr(self, str(item), value)
 
 
 class StateOverlay:
@@ -545,50 +551,26 @@ def _collect_plugins(plugins, kwplugins):
     return plugins, any(p.hasoutput for name, p in plugins.items())
 
 
-class PteraFunction(Selfless):
-    def __init__(
-        self,
-        fn,
-        state,
-        callkey=None,
-        plugins=None,
-        return_object=False,
-        origin=None,
-        partial_args=(),
-    ):
-        super().__init__(fn, state)
-        self.callkey = callkey
-        self.plugins = plugins or {}
-        self.return_object = return_object
-        self.origin = origin or self
-        self.partial_args = partial_args
+class Overlay:
+    def __init__(self, plugins={}):
+        self.plugins = dict(plugins)
 
-    def clone(self, **kwargs):
-        self.ensure_state()
-        kwargs = {
-            "fn": self.fn,
-            "state": copy(self.state_obj),
-            "callkey": self.callkey,
-            "plugins": self.plugins,
-            "return_object": self.return_object,
-            "origin": self.origin,
-            "partial_args": self.partial_args,
-            **kwargs,
-        }
-        return type(self)(**kwargs)
+    @property
+    def hasoutput(self):
+        return any(p.hasoutput for name, p in self.plugins.items())
 
-    def __getitem__(self, callkey):
-        assert isinstance(callkey, list)
-        (callkey,) = callkey
-        assert self.callkey is None
-        return self.clone(callkey=callkey)
+    def use(self, *plugins, **kwplugins):
+        plugins, _ = _collect_plugins(plugins, kwplugins)
+        self.plugins.update(plugins)
+        return self
 
     def tweak(self, values, priority=2):
         values = {
             to_pattern(k): lambda __v=v, **_: override(__v, priority)
             for k, v in values.items()
         }
-        return self.using(StateOverlay(values))
+        self.plugins[f"#{len(self.plugins)}"] = StateOverlay(values)
+        return self
 
     def rewrite(self, values, full=False, priority=2):
         def _wrapfn(fn, full=True):
@@ -602,18 +584,23 @@ class PteraFunction(Selfless):
             return newfn
 
         values = {k: _wrapfn(v, full=full) for k, v in values.items()}
-        return self.using(StateOverlay(values))
-
-    def using(self, *plugins, **kwplugins):
-        plugins, return_object = _collect_plugins(plugins, kwplugins)
-        return self.clone(
-            plugins={**self.plugins, **plugins}, return_object=return_object,
-        )
-
-    def use(self, *plugins, **kwplugins):
-        plugins, _ = _collect_plugins(plugins, kwplugins)
-        self.plugins.update(plugins)
+        self.plugins[f"#{len(self.plugins)}"] = StateOverlay(values)
         return self
+
+    @autocreate
+    def using(self, *plugins, **kwplugins):
+        plugins, _ = _collect_plugins(plugins, kwplugins)
+        return Overlay(plugins={**self.plugins, **plugins})
+
+    @autocreate
+    def tweaking(self, values, priority=2):
+        ol = Overlay(self.plugins)
+        return ol.tweak(values, priority=priority)
+
+    @autocreate
+    def rewriting(self, values, full=False, priority=2):
+        ol = Overlay(self.plugins)
+        return ol.rewrite(values, full=full, priority=priority)
 
     def collect(self, query):
         plugin = _to_plugin(query)
@@ -639,6 +626,93 @@ class PteraFunction(Selfless):
 
         return deco
 
+    def __enter__(self):
+        rulesets = []
+        plugins = {name: p.instantiate() for name, p in self.plugins.items()}
+        for plugin in plugins.values():
+            rulesets.append(plugin.rules())
+        self._ol = BaseOverlay(*rulesets)
+        self._ol.__enter__()
+        self._results = CallResults()
+        self._inst_plugins = plugins
+        return self._results
+
+    def __exit__(self, typ, exc, tb):
+        self._ol.__exit__(None, None, None)
+        for name, plugin in self._inst_plugins.items():
+            setattr(self._results, name, plugin.finalize())
+
+
+class PteraFunction(Selfless):
+    def __init__(
+        self,
+        fn,
+        state,
+        callkey=None,
+        overlay=None,
+        return_object=False,
+        origin=None,
+        partial_args=(),
+    ):
+        super().__init__(fn, state)
+        self.callkey = callkey
+        self.overlay = overlay or Overlay()
+        self.return_object = return_object
+        self.origin = origin or self
+        self.partial_args = partial_args
+
+    def clone(self, **kwargs):
+        self.ensure_state()
+        kwargs = {
+            "fn": self.fn,
+            "state": copy(self.state_obj),
+            "callkey": self.callkey,
+            "overlay": Overlay(self.overlay.plugins),
+            "return_object": self.return_object,
+            "origin": self.origin,
+            "partial_args": self.partial_args,
+            **kwargs,
+        }
+        return type(self)(**kwargs)
+
+    def __getitem__(self, callkey):
+        assert isinstance(callkey, list)
+        (callkey,) = callkey
+        assert self.callkey is None
+        return self.clone(callkey=callkey)
+
+    def use(self, *plugins, **kwplugins):
+        self.overlay.use(*plugins, **kwplugins)
+        return self
+
+    def tweak(self, values, priority=2):
+        self.overlay.tweak(values, priority=priority)
+        return self
+
+    def rewrite(self, values, full=False, priority=2):
+        self.overlay.rewrite(values, full=full, priority=priority)
+        return self
+
+    def tweaking(self, values, priority=2):
+        return self.clone(
+            overlay=self.overlay.tweaking(values, priority=priority)
+        )
+
+    def rewriting(self, values, full=False, priority=2):
+        return self.clone(
+            overlay=self.overlay.rewriting(values, full=full, priority=priority)
+        )
+
+    def using(self, *plugins, **kwplugins):
+        ol = self.overlay.using(*plugins, **kwplugins)
+        return self.clone(overlay=ol, return_object=ol.hasoutput)
+
+    def collect(self, query):
+        return self.overlay.collect(query)
+
+    def on(self, query, full=False, all=False):
+        return self.overlay.on(query, full=full, all=all)
+
     def __get__(self, obj, typ):
         if obj is None:
             return self
@@ -647,21 +721,14 @@ class PteraFunction(Selfless):
 
     def __call__(self, *args, **kwargs):
         self.ensure_state()
-        rulesets = []
-        plugins = {name: p.instantiate() for name, p in self.plugins.items()}
-        for plugin in plugins.values():
-            rulesets.append(plugin.rules())
-        with overlay(*rulesets):
+        with self.overlay as callres:
             with proceed(self):
                 if self.callkey is not None:
                     interact("#key", None, None, self, self.callkey)
                 rval = super().__call__(*self.partial_args, *args, **kwargs)
-
-        callres = CallResults(rval)
-        for name, plugin in plugins.items():
-            setattr(callres, name, plugin.finalize())
+                callres["0"] = callres["value"] = rval
 
         if self.return_object:
             return callres
         else:
-            return rval
+            return callres.value

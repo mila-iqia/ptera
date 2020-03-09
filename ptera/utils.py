@@ -67,3 +67,13 @@ def call_with_captures(fn, captures, full=True):
     if not full:
         kwargs = {k: v.value for k, v in kwargs.items()}
     return fn(**kwargs)
+
+
+class autocreate:
+    def __init__(self, fn):
+        self.fn = fn
+
+    def __get__(self, obj, objtype):
+        if obj is None:
+            obj = objtype()
+        return self.fn.__get__(obj, objtype)

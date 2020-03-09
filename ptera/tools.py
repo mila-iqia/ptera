@@ -7,7 +7,7 @@ import sys
 from collections import defaultdict
 from contextlib import contextmanager
 
-from .core import PteraFunction, overlay
+from .core import BaseOverlay, PteraFunction
 from .selector import to_pattern
 from .selfless import PreState
 from .tags import Tag, TagSet, match_tag, tag
@@ -282,7 +282,7 @@ class Configurator:
             return lambda **_: value
 
         opts = self.get_options(argv)
-        with overlay(
+        with BaseOverlay(
             {
                 to_pattern(f"{name}:##X", env={"##X": self.tag}): {
                     "value": _resolver(value)
