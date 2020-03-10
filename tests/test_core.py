@@ -223,6 +223,28 @@ def test_indexing_2():
     assert fs.map("x") == [3]
 
 
+@ptera
+def superbrie(n):
+    result = 0
+    k = 0
+    for i in range(n):
+        for j in range(n):
+            result += brie[[i, j]](k, 2)
+            k += 1
+    return result
+
+
+def test_function_indexing():
+    assert superbrie(10) == 328750
+
+    _, x = superbrie.using("brie[[1, $j]] > x")(10)
+    assert x.map("j") == list(range(10))
+    assert x.map("x") == list(range(10, 20))
+
+    _, x = superbrie.using("brie[[1, $j ~ every(3)]] > x")(10)
+    assert x.map("x") == list(range(10, 20, 3))
+
+
 def test_nested_overlay():
     expectedx = [{"x": [2]}, {"x": [10]}]
     expectedy = [{"y": [3]}, {"y": [11]}]

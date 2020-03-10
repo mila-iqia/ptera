@@ -715,7 +715,8 @@ class PteraFunction(Selfless):
 
     def __getitem__(self, callkey):
         assert isinstance(callkey, list)
-        (callkey,) = callkey
+        if len(callkey) == 1:
+            (callkey,) = callkey
         assert self.callkey is None
         return self.clone(callkey=callkey)
 
@@ -763,6 +764,9 @@ class PteraFunction(Selfless):
             with proceed(self):
                 if self.callkey is not None:
                     interact("#key", None, None, self, self.callkey)
+                    if isinstance(self.callkey, list):
+                        for i, subkey in enumerate(self.callkey):
+                            interact(f"#key{i}", None, None, self, subkey)
                 rval = super().__call__(*self.partial_args, *args, **kwargs)
                 callres["0"] = callres["value"] = rval
 
