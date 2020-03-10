@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import pytest
 
 from ptera import BaseOverlay, Overlay, Recurrence, ptera, tag, to_pattern
@@ -99,6 +101,7 @@ def test_patterns():
         {"a": [100], "i": [2]},
     ]
     assert _dbrie("brie[[1]](!a)") == [{"a": [4]}]
+    assert _dbrie("brie[[1.0]](!a)") == [{"a": [4]}]
     assert _dbrie("brie[[2]](!a)") == [{"a": [100]}]
 
     # Parameter
@@ -162,13 +165,38 @@ def fib(n):
     return f[n]
 
 
-def even(x):
-    return x % 2 == 0
+@dataclass(frozen=True)
+class every:
+    modulo: int = 2
+    start: int = 0
+    end: int = None
+
+    def __call__(self, i):
+        return (
+            i >= self.start
+            and (not self.end or i < self.end)
+            and (i - self.start) % self.modulo == 0
+        )
+
+
+even = every(2)
 
 
 def test_match():
     res, fs = fib.using("f[~even] as x")(5)
     assert fs.map("x") == [1, 2, 5]
+
+    res, fs = fib.using("f[$i ~ every()] as x")(5)
+    assert fs.map("x") == [1, 2, 5]
+
+    res, fs = fib.using("f[$i ~ every(2)] as x")(5)
+    assert fs.map("x") == [1, 2, 5]
+
+    res, fs = fib.using("f[$i ~ every(2, start=1)] as x")(5)
+    assert fs.map("x") == [1, 3, 8]
+
+    res, fs = fib.using("f[$i ~ even] as x")(5)
+    assert fs.map("i", "x") == [(0, 1), (2, 2), (4, 5)]
 
 
 def test_indexing():

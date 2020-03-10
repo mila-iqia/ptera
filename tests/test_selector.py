@@ -75,7 +75,7 @@ def test_parser():
     )
 
     assert sel.parse("apple > banana") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(
             sel.Element(name="banana", capture="banana", tags=frozenset({1})),
         ),
@@ -83,7 +83,7 @@ def test_parser():
     )
 
     assert sel.parse("> apple > banana") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(
             sel.Element(name="banana", capture="banana", tags=frozenset({1})),
         ),
@@ -99,7 +99,7 @@ def test_parser():
     )
 
     assert sel.parse("apple >> banana") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(),
         children=(
             sel.Call(
@@ -117,10 +117,10 @@ def test_parser():
     )
 
     assert sel.parse("apple > banana > cherry") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         children=(
             sel.Call(
-                element=sel.Element(name=sel.Resolve("banana")),
+                element=sel.Element(name=sel.VSymbol("banana")),
                 captures=(
                     sel.Element(
                         name="cherry", capture="cherry", tags=frozenset({1})
@@ -133,15 +133,15 @@ def test_parser():
     )
 
     assert sel.parse("*:Fruit") == sel.Element(
-        name=None, category=sel.Resolve("Fruit"), capture=None,
+        name=None, category=sel.VSymbol("Fruit"), capture=None,
     )
 
     assert sel.parse("apple > :Fruit") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(
             sel.Element(
                 name=None,
-                category=sel.Resolve("Fruit"),
+                category=sel.VSymbol("Fruit"),
                 capture=None,
                 tags=frozenset({1}),
             ),
@@ -150,17 +150,17 @@ def test_parser():
     )
 
     assert sel.parse("apple(a)") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(sel.Element(name="a", capture="a"),),
     )
 
     assert sel.parse("apple(!a)") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(sel.Element(name="a", capture="a", tags=frozenset({1})),),
     )
 
     assert sel.parse("apple(a, b, c, d as e)") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
+        element=sel.Element(name=sel.VSymbol("apple")),
         captures=(
             sel.Element(name="a", capture="a"),
             sel.Element(name="b", capture="b"),
@@ -171,17 +171,17 @@ def test_parser():
 
     assert sel.parse("apple[pie]") == sel.Call(
         element=sel.Element(name="apple"),
-        captures=(sel.Element(name="#key", value=sel.Resolve("pie")),),
+        captures=(sel.Element(name="#key", value=sel.VSymbol("pie")),),
     )
 
     assert sel.parse("apple[[pie]]") == sel.Call(
-        element=sel.Element(name=sel.Resolve("apple")),
-        captures=(sel.Element(name="#key", value=sel.Resolve("pie")),),
+        element=sel.Element(name=sel.VSymbol("apple")),
+        captures=(sel.Element(name="#key", value=sel.VSymbol("pie")),),
     )
 
     assert sel.parse("apple[0]") == sel.Call(
         element=sel.Element(name="apple"),
-        captures=(sel.Element(name="#key", value=sel.Resolve("0")),),
+        captures=(sel.Element(name="#key", value=sel.VSymbol("0")),),
     )
 
     assert sel.parse("apple[* as filling]") == sel.Call(
@@ -192,11 +192,11 @@ def test_parser():
     )
 
     assert sel.parse("axe > bow:Weapon > crowbar[* as length]") == sel.Call(
-        element=sel.Element(name=sel.Resolve("axe")),
+        element=sel.Element(name=sel.VSymbol("axe")),
         children=(
             sel.Call(
                 element=sel.Element(
-                    name=sel.Resolve("bow"), category=sel.Resolve("Weapon")
+                    name=sel.VSymbol("bow"), category=sel.VSymbol("Weapon")
                 ),
                 children=(
                     sel.Call(
@@ -216,7 +216,7 @@ def test_parser():
     )
 
     assert sel.parse("$f:Fruit") == sel.Element(
-        name=None, category=sel.Resolve("Fruit"), capture="f", key_field="name"
+        name=None, category=sel.VSymbol("Fruit"), capture="f", key_field="name"
     )
 
     assert sel.parse("!!x") == sel.Element(
@@ -343,15 +343,15 @@ def test_key_captures():
 @one_test_per_assert
 def test_specialize():
     assert sel.parse("co >> co[$n] >> nut").specialize(
-        {"n": sel.Element(name=None, value=sel.Resolve("x"))}
+        {"n": sel.Element(name=None, value=sel.VSymbol("x"))}
     ) == sel.parse("co >> co[x as n] >> nut")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name=None, category=sel.Resolve("Fruit"))}
+        {"nut": sel.Element(name=None, category=sel.VSymbol("Fruit"))}
     ) == sel.parse("co >> co >> $nut:Fruit")
 
     assert sel.parse("co >> co >> $nut").specialize(
-        {"nut": sel.Element(name="coconut", category=sel.Resolve("Fruit"))}
+        {"nut": sel.Element(name="coconut", category=sel.VSymbol("Fruit"))}
     ) == sel.parse("co >> co >> (coconut as nut):Fruit")
 
 

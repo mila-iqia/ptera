@@ -260,7 +260,7 @@ parser = opparse.Parser(
 
 def _guarantee_call(parent, context, resolve=True):
     if isinstance(parent, Element):
-        name = Resolve(parent.name) if parent.name and resolve else parent.name
+        name = VSymbol(parent.name) if parent.name and resolve else parent.name
         parent = parent.clone(capture=None, name=name).without_focus()
         immediate = context == "incall"
         parent = Call(element=parent, captures=(), immediate=immediate)
@@ -358,19 +358,14 @@ def make_nested_pfx(node, _, child, context):
         return child.clone(immediate=False)
 
 
-@evaluate.register_action("X : X")
-def make_class(node, element, klass, context):
-    element = evaluate(element, context=context)
-    klass = evaluate(klass, context=context)
-    assert isinstance(klass, Element)
-    assert not element.category
-    return element.clone(category=Resolve(klass.name))
-
-
 @evaluate.register_action("_ : X")
-def make_class_prefix(node, _, klass, context):
-    klass = evaluate(klass, context=context)
-    return Element(name=None, category=Resolve(klass.name), capture=None,)
+@evaluate.register_action("X : X")
+def make_class(node, element, tag, context):
+    element = (
+        evaluate(element, context=context) if element else Element(name=None)
+    )
+    tag = value_evaluate(tag)
+    return element.clone(category=tag)
 
 
 @evaluate.register_action("_ ! X")
@@ -406,7 +401,7 @@ def make_index(node, element, key, _, context, resolve_call=False):
         assert key.name is None
         val = key.value
     else:
-        val = Resolve(key.name) if key.name is not None else ABSENT
+        val = VSymbol(key.name) if key.name is not None else ABSENT
     key = Element(
         name="#key",
         value=val,
@@ -471,11 +466,13 @@ def make_equals(node, element, value, context, matchfn=False):
         element = Element(name=None)
     else:
         element = evaluate(element, context=context)
-    value = evaluate(value, context=context)
-    assert isinstance(value, Element)
-    return element.clone(
-        value=Resolve(value.name, matchfn=matchfn), capture=None
-    )
+    value = value_evaluate(value)
+    if matchfn:
+        capture = element.capture
+        value = VCall(MatchFunction, (value,))
+    else:
+        capture = None
+    return element.clone(value=value, capture=capture)
 
 
 @evaluate.register_action("_ ~ X")
@@ -498,6 +495,106 @@ def make_symbol(node, context):
             tags=frozenset({1}) if focus else frozenset(),
         )
     return element
+
+
+class VNode:
+    pass
+
+
+@dataclass(frozen=True)
+class VSymbol(VNode):
+    value: str
+
+    def eval(self, env):
+        x = self.value
+
+        if re.match(r"[0-9]+\.[0-9]*", x):
+            return float(x)
+        elif re.match(r"[0-9]+", x):
+            return int(x)
+        elif re.match(r"'[^']*'", x):
+            return x[1:-1]
+
+        start, *parts = x.split(".")
+        if start in env:
+            curr = env[start]
+        elif hasattr(builtins, start):
+            return getattr(builtins, start)
+        else:
+            raise Exception(f"Could not resolve '{start}'.")
+
+        for part in parts:
+            curr = getattr(curr, part)
+
+        return curr
+
+    def __str__(self):
+        return str(self.value)
+
+
+@dataclass(frozen=True)
+class VCall(VNode):
+    fn: object
+    args: tuple
+
+    def eval(self, env):
+        fn = _eval(self.fn, env)
+        args = []
+        kwargs = {}
+        for arg in self.args:
+            if isinstance(arg, VKeyword):
+                kwargs[arg.key.value] = _eval(arg.value, env)
+            else:
+                args.append(_eval(arg, env))
+        return fn(*args, **kwargs)
+
+
+@dataclass(frozen=True)
+class VKeyword(VNode):
+    key: object
+    value: object
+
+
+def _eval(x, env):
+    if isinstance(x, VNode):
+        return x.eval(env)
+    else:
+        return x
+
+
+value_evaluate = Evaluator()
+
+
+@value_evaluate.register_action("X , X")
+def vmake_sequence(node, a, b, context):
+    a = value_evaluate(a)
+    b = value_evaluate(b)
+    if not isinstance(b, list):
+        b = [b]
+    return [a, *b]
+
+
+@value_evaluate.register_action("X ( _ ) _")
+@value_evaluate.register_action("X ( X ) _")
+def vmake_call(node, fn, args, _, context):
+    fn = value_evaluate(fn)
+    args = value_evaluate(args) if args else []
+    if not isinstance(args, list):
+        args = [args]
+    return VCall(fn, tuple(args))
+
+
+@value_evaluate.register_action("X = X")
+def vmake_keyword(node, key, value, context):
+    key = value_evaluate(key)
+    assert isinstance(key, VSymbol)
+    value = value_evaluate(value)
+    return VKeyword(key, value)
+
+
+@value_evaluate.register_action("SYMBOL")
+def vmake_symbol(node, context):
+    return VSymbol(node.value)
 
 
 def parse(x):
@@ -550,41 +647,6 @@ def _find_eval_env(s, fr):
 @dataclass(frozen=True)
 class MatchFunction:
     fn: object
-
-
-@dataclass(frozen=True)
-class Resolve:
-    name: str
-    matchfn: bool = False
-
-    def __str__(self):
-        return self.name
-
-
-def _eval(s, env):
-    if not isinstance(s, Resolve):
-        return s
-    if re.match(r"[0-9]+\.[0-9]*", s.name):
-        return float(s.name)
-    elif re.match(r"[0-9]+", s.name):
-        return int(s.name)
-    elif re.match(r"'[^']*'", s.name):
-        return s.name[1:-1]
-    start, *parts = s.name.split(".")
-    if start in env:
-        curr = env[start]
-    elif hasattr(builtins, start):
-        return getattr(builtins, start)
-    else:
-        raise Exception(f"Could not resolve '{start}'.")
-
-    for part in parts:
-        curr = getattr(curr, part)
-
-    if s.matchfn:
-        curr = MatchFunction(curr)
-
-    return curr
 
 
 def _resolve(pattern, env):
