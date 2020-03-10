@@ -3,7 +3,7 @@ import builtins
 import inspect
 import tokenize
 from ast import NodeTransformer, NodeVisitor
-from copy import copy
+from copy import copy, deepcopy
 from textwrap import dedent
 
 from .utils import ABSENT, keyword_decorator
@@ -76,7 +76,7 @@ class PteraTransformer(NodeTransformer):
     def _absent(self):
         return ast.Name("__ptera_ABSENT", ctx=ast.Load())
 
-    def make_interaction(self, target, ann, value):
+    def make_interaction(self, target, ann, value, orig=None):
         if ann and isinstance(target, ast.Name):
             self.annotated[target.id] = ann
         ann_arg = ann if ann else ast.Constant(value=None)
@@ -85,7 +85,6 @@ class PteraTransformer(NodeTransformer):
             value_args = [
                 ast.Constant(value=target.id),
                 ast.Constant(value=None),
-                # self._absent(),
                 ann_arg,
                 self.fself(),
                 value_arg,
@@ -93,7 +92,7 @@ class PteraTransformer(NodeTransformer):
         elif isinstance(target, ast.Subscript):
             value_args = [
                 ast.Constant(value=target.value.id),
-                target.slice.value,
+                deepcopy(target.slice.value),
                 ann_arg,
                 self.fself(),
                 value_arg,
@@ -105,16 +104,19 @@ class PteraTransformer(NodeTransformer):
             args=value_args,
             keywords=[],
         )
-        if ann is None:
-            return [ast.Assign(targets=[target], value=new_value)]
-        else:
-            return [
-                ast.AnnAssign(
-                    target=target, value=new_value, annotation=ann, simple=True
-                )
-            ]
+        return [
+            ast.Assign(
+                targets=[target],
+                value=new_value,
+                lineno=orig.lineno,
+                col_offset=orig.col_offset,
+            )
+        ]
 
     def visit_FunctionDef(self, node, root=False):
+        if not root:
+            return node
+
         # assert not node.args.posonlyargs
         assert not node.args.vararg
         assert not node.args.kwonlyargs
@@ -129,6 +131,7 @@ class PteraTransformer(NodeTransformer):
                     target=ast.Name(id=arg.arg, ctx=ast.Store()),
                     ann=arg.annotation,
                     value=ast.Name(id=arg.arg, ctx=ast.Load()),
+                    orig=arg,
                 )
             )
 
@@ -139,6 +142,7 @@ class PteraTransformer(NodeTransformer):
                         target=ast.Name(id=external, ctx=ast.Store()),
                         ann=None,
                         value=ast.Name(id="__ptera_ABSENT", ctx=ast.Load()),
+                        orig=node,
                     )
                 )
             new_args = ast.arguments(
@@ -149,8 +153,10 @@ class PteraTransformer(NodeTransformer):
                 kw_defaults=[],
                 kwarg=None,
                 defaults=[
-                    ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
-                    for _ in node.args.args
+                    ast.copy_location(
+                        ast.Name(id="__ptera_ABSENT", ctx=ast.Load()), arg
+                    )
+                    for arg in node.args.args
                 ],
             )
             for dflt, arg in zip(
@@ -176,12 +182,15 @@ class PteraTransformer(NodeTransformer):
                 new_body.extend(stmt)
             else:
                 new_body.append(stmt)
-        return ast.FunctionDef(
-            name=node.name,
-            args=new_args,
-            body=new_body,
-            decorator_list=node.decorator_list,
-            returns=node.returns,
+        return ast.copy_location(
+            ast.FunctionDef(
+                name=node.name,
+                args=new_args,
+                body=new_body,
+                decorator_list=node.decorator_list,
+                returns=node.returns,
+            ),
+            node,
         )
 
     def visit_Return(self, node):
@@ -196,7 +205,7 @@ class PteraTransformer(NodeTransformer):
             ],
             keywords=[],
         )
-        return ast.Return(value=new_value)
+        return ast.copy_location(ast.Return(value=new_value), node)
 
     def visit_AnnAssign(self, node):
         """Rewrite an annotated assignment expression.
@@ -207,7 +216,9 @@ class PteraTransformer(NodeTransformer):
         After::
             x: int = ptera.interact('x', int)
         """
-        return self.make_interaction(node.target, node.annotation, node.value)
+        return self.make_interaction(
+            node.target, node.annotation, node.value, orig=node
+        )
 
     def visit_Assign(self, node):
         """Rewrite an assignment expression.
@@ -221,25 +232,31 @@ class PteraTransformer(NodeTransformer):
         (target,) = node.targets
         if isinstance(target, ast.Tuple):
             var_all = gensym()
-            ass_all = ast.Assign(
-                targets=[ast.Name(id=var_all, ctx=ast.Store())],
-                value=node.value,
+            ass_all = ast.copy_location(
+                ast.Assign(
+                    targets=[ast.Name(id=var_all, ctx=ast.Store())],
+                    value=node.value,
+                ),
+                node,
             )
             accum = [ass_all]
             for i, tgt in enumerate(target.elts):
                 accum += self.visit_Assign(
-                    ast.Assign(
-                        targets=[tgt],
-                        value=ast.Subscript(
-                            value=ast.Name(id=var_all, ctx=ast.Load()),
-                            slice=ast.Index(value=ast.Constant(i)),
-                            ctx=ast.Load(),
+                    ast.copy_location(
+                        ast.Assign(
+                            targets=[tgt],
+                            value=ast.Subscript(
+                                value=ast.Name(id=var_all, ctx=ast.Load()),
+                                slice=ast.Index(value=ast.Constant(i)),
+                                ctx=ast.Load(),
+                            ),
                         ),
+                        node,
                     )
                 )
             return accum
         else:
-            return self.make_interaction(target, None, node.value)
+            return self.make_interaction(target, None, node.value, orig=node)
 
 
 def transform(fn, interact):
