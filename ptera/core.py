@@ -155,6 +155,8 @@ class Accumulator:
             cap = acc.getcap(element)
             if cap:
                 cap.acquire(varname, value)
+            if element.focus and self.rulename == "immediate":
+                acc.run_listeners()
         else:
             self.fail()
 
@@ -459,10 +461,11 @@ class ActivePluginWrapper:
 
 
 class Collector:
-    def __init__(self, pattern, mapper=None):
+    def __init__(self, pattern, mapper=None, immediate=False):
         self.data = []
         self.pattern = pattern
         self.mapper = mapper
+        self.rulename = "immediate" if immediate else "listeners"
 
         if self.mapper:
 
@@ -526,7 +529,7 @@ class Collector:
         )
 
     def rules(self):
-        return {self.pattern: {"listeners": [self._listener]}}
+        return {self.pattern: {self.rulename: [self._listener]}}
 
     def finalize(self):
         if self.mapper:
@@ -538,16 +541,19 @@ class Collector:
 class Tap:
     hasoutput = True
 
-    def __init__(self, selector, mapper=None):
+    def __init__(self, selector, mapper=None, immediate=False):
         self.selector = to_pattern(selector)
         self.mapper = mapper
+        self.immediate = immediate
 
     def hook(self, mapper):
         self.mapper = mapper
         return self
 
     def instantiate(self):
-        return Collector(self.selector, mapper=self.mapper)
+        return Collector(
+            self.selector, mapper=self.mapper, immediate=self.immediate
+        )
 
 
 class CallResults:
