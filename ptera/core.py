@@ -33,11 +33,11 @@ class Frame:
         for cap, varnames in captures.items():
             for v in varnames:
                 self.accumulators.add(v)
-                if acc.rulename == "value" and cap.focus:
+                if acc.varget and cap.focus:
                     self.getters.setdefault(v, []).append((cap, acc))
                 else:
                     self.setters.setdefault(v, []).append((cap, acc))
-        if close_at_exit and acc.rulename == "listeners":
+        if close_at_exit and acc.close:
             self.to_close.append(acc)
 
     def set(self, varname, key, category, value):
@@ -104,11 +104,10 @@ class Capture:
     __repr__ = __str__
 
 
-class Accumulator:
+class BaseAccumulator:
     def __init__(
         self,
         *,
-        rulename,
         parent=None,
         rules=None,
         template=True,
@@ -123,9 +122,18 @@ class Accumulator:
         self.status = ACTIVE
         self.template = template
         self.focus = focus
-        self.rulename = rulename
         if self.parent is not None:
             self.parent.children.append(self)
+
+    def fork(self, focus=True, pattern=None):
+        parent = None if self.template else self
+        return type(self)(
+            parent=parent,
+            rules=self.rules,
+            template=False,
+            pattern=pattern,
+            focus=focus,
+        )
 
     def getcap(self, element):
         if element.capture is None:
@@ -155,18 +163,10 @@ class Accumulator:
             cap = acc.getcap(element)
             if cap:
                 cap.acquire(varname, value)
-            if element.focus and self.rulename == "immediate":
-                acc.run_listeners()
+            return acc
         else:
             self.fail()
-
-    def varget(self, element, varname, category):
-        cap = Capture(element)
-        self.captures[element.capture] = cap
-        cap.names.append(varname)
-        rval = self.run_value()
-        del self.captures[element.capture]
-        return rval
+            return None
 
     def build(self):
         if self.parent is None:
@@ -176,13 +176,6 @@ class Accumulator:
         while curr:
             rval.update(curr.captures)
             curr = curr.parent
-        return rval
-
-    def run_value(self):
-        rval = ABSENT
-        args = self.build()
-        for fn in self.rules:
-            rval = fn(**args)
         return rval
 
     def run_listeners(self):
@@ -210,8 +203,12 @@ class Accumulator:
                 rval += child._to_merge()
         return rval
 
+    varget = None
+    close = None
+
+
+class ListenersAccumulator(BaseAccumulator):
     def close(self):
-        assert self.rulename == "listeners"
         if self.status is ACTIVE:
             if self.parent is None:
                 for acc in self._to_merge():
@@ -221,16 +218,37 @@ class Accumulator:
                     leaf.run_listeners()
             self.status = COMPLETE
 
-    def fork(self, focus=True, pattern=None):
-        parent = None if self.template else self
-        return Accumulator(
-            parent=parent,
-            rules=self.rules,
-            template=False,
-            pattern=pattern,
-            focus=focus,
-            rulename=self.rulename,
-        )
+
+class ImmediateAccumulator(BaseAccumulator):
+    def varset(self, element, varname, category, value):
+        acc = super().varset(element, varname, category, value)
+        if acc and element.focus:
+            acc.run_listeners()
+        return acc
+
+
+class ValueAccumulator(BaseAccumulator):
+    def varget(self, element, varname, category):
+        cap = Capture(element)
+        self.captures[element.capture] = cap
+        cap.names.append(varname)
+        rval = self.run_value()
+        del self.captures[element.capture]
+        return rval
+
+    def run_value(self):
+        rval = ABSENT
+        args = self.build()
+        for fn in self.rules:
+            rval = fn(**args)
+        return rval
+
+
+accumulator_classes = {
+    "listeners": ListenersAccumulator,
+    "immediate": ImmediateAccumulator,
+    "value": ValueAccumulator,
+}
 
 
 def get_names(fn):
@@ -254,7 +272,9 @@ def dict_to_collection(*rulesets):
                     entries = [entries]
                 for entry in entries:
                     if key not in tmp:
-                        tmp[key] = Accumulator(rulename=name, pattern=pattern)
+                        tmp[key] = accumulator_classes[name](
+                            pattern=pattern
+                        )
                     acc = tmp[key]
                     acc.rules.append(entry)
     return PatternCollection(
