@@ -16,7 +16,7 @@ class Role:
     def make_capture(self):
         cap = Capture(self.target)
         if self.target.name is not None:
-            cap.acquire(self.target.name, self.target.value)
+            cap.accum(self.target.name, self.target.value)
         return {self.target.capture: cap}
 
 

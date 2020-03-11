@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from ptera import BaseOverlay, Overlay, Recurrence, ptera, tag, to_pattern
-from ptera.core import Capture
+from ptera.core import Capture, Tap
 from ptera.selector import Element, parse
 
 from .common import one_test_per_assert
@@ -223,6 +223,12 @@ def test_indexing_2():
     assert fs.map("x") == [3]
 
 
+def test_attach():
+    _brie = brie.attach(hello=12).using("brie > #hello")
+    res, hello = _brie(5, 6)
+    assert hello.map("hello") == [12]
+
+
 @ptera
 def superbrie(n):
     result = 0
@@ -230,14 +236,8 @@ def superbrie(n):
     for i in range(n):
         for j in range(n):
             result += brie[[i, j]](k, 2)
-            k += 1
+            k = k + 1
     return result
-
-
-def test_attach():
-    _brie = brie.attach(hello=12).using("brie > #hello")
-    res, hello = _brie(5, 6)
-    assert hello.map("hello") == [12]
 
 
 def test_function_indexing():
@@ -248,6 +248,28 @@ def test_function_indexing():
     assert x.map("x") == list(range(10, 20))
 
     _, x = superbrie.using("brie[[1, $j ~ every(3)]] > x")(10)
+    assert x.map("x") == list(range(10, 20, 3))
+
+
+def test_immediate_evaluation():
+    # This uses a GetterAccumulator
+    ss = superbrie.rewriting({"superbrie(k=7) > brie > x": (lambda: 0)})
+    assert ss(10) == 328701
+
+    # This uses a GetterAccumulator
+    ss = superbrie.rewriting({"superbrie(i=9) > brie > x": (lambda: 0)})
+    assert ss(10) == 239365
+
+    # By default this uses a TotalAccumulator, which requires every
+    # value of i to be 1 and every j to be a multiple of 3
+    _, x = superbrie.using("superbrie(i=1, j~every(3)) > brie > x")(10)
+    assert x.map("x") == []
+
+    # Creates a SetterAccumulator which only takes into account the values
+    # of i and j at the moment the focus variable x is triggered
+    _, x = superbrie.using(
+        Tap("superbrie(i=1, j~every(3)) > brie > x", immediate=True)
+    )(10)
     assert x.map("x") == list(range(10, 20, 3))
 
 
@@ -438,10 +460,10 @@ def test_capture():
     assert cap.name == "x"
     with pytest.raises(ValueError):
         cap.value
-    cap.acquire("x", 1)
+    cap.accum("x", 1)
     assert cap.name == "x"
     assert cap.value == 1
-    cap.acquire("x", 2)
+    cap.accum("x", 2)
     with pytest.raises(ValueError):
         cap.value
 
@@ -450,10 +472,10 @@ def test_capture():
     cap = Capture(Element(name=None))
     with pytest.raises(ValueError):
         cap.name
-    cap.acquire("y", 7)
+    cap.accum("y", 7)
     assert cap.name == "y"
     assert cap.value == 7
-    cap.acquire("z", 31)
+    cap.accum("z", 31)
     with pytest.raises(ValueError):
         cap.name
     with pytest.raises(ValueError):

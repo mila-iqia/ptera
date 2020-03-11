@@ -93,10 +93,15 @@ class Capture:
                 f"Multiple values stored for capture `{self.capture}`"
             )
 
-    def acquire(self, varname, value):
+    def accum(self, varname, value):
         assert varname is not None
         self.names.append(varname)
         self.values.append(value)
+
+    def set(self, varname, value):
+        assert varname is not None
+        self.names = [varname]
+        self.values = [value]
 
     def __str__(self):
         return f"Capture({self.element}, {self.names}, {self.values})"
@@ -136,8 +141,6 @@ class BaseAccumulator:
         )
 
     def getcap(self, element):
-        if element.capture is None:
-            return None
         if element.capture not in self.captures:
             cap = Capture(element)
             self.captures[element.capture] = cap
@@ -145,47 +148,26 @@ class BaseAccumulator:
         else:
             return self.captures[element.capture]
 
-    def fail(self):
-        self.status = FAILED
-        for leaf in self.leaves():
-            leaf.status = FAILED
-
-    def varset(self, element, varname, category, value):
-        if (
-            element.value is ABSENT
-            or element.value == value
-            or (
-                isinstance(element.value, MatchFunction)
-                and element.value.fn(value)
-            )
-        ):
-            acc = self.fork(pattern=element) if element.focus else self
-            cap = acc.getcap(element)
-            if cap:
-                cap.acquire(varname, value)
-            return acc
-        else:
-            self.fail()
-            return None
+    def build_all(self):
+        if self.parent is None:
+            return self.captures
+        rval = {}
+        curr = self
+        while curr:
+            rval.update(curr.captures)
+            curr = curr.parent
+        return rval
 
     def build(self):
-        if self.parent is None:
-            rval = self.captures
-        else:
-            rval = {}
-            curr = self
-            while curr:
-                rval.update(curr.captures)
-                curr = curr.parent
-        return {k: v for k, v in rval.items() if not k.startswith("/")}
+        rval = self.build_all()
+        return rval and {k: v for k, v in rval.items() if not k.startswith("/")}
 
-    def run_listeners(self):
-        args = self.build()
-        for fn in self.rules:
-            if set(args) != set(get_names(fn)):
-                return ABSENT
-            else:
-                fn(**args)
+    def check_value(self, evalue, value):
+        return (
+            evalue is ABSENT
+            or evalue == value
+            or (isinstance(evalue, MatchFunction) and evalue.fn(value))
+        )
 
     def leaves(self):
         if isinstance(self.pattern, Element) and self.focus:
@@ -204,11 +186,35 @@ class BaseAccumulator:
                 rval += child._to_merge()
         return rval
 
+    varset = None
     varget = None
     close = None
 
 
-class ListenersAccumulator(BaseAccumulator):
+class TotalAccumulator(BaseAccumulator):
+    def fail(self):
+        self.status = FAILED
+        for leaf in self.leaves():
+            leaf.status = FAILED
+
+    def varset(self, element, varname, category, value):
+        if self.check_value(element.value, value):
+            acc = self.fork(pattern=element) if element.focus else self
+            cap = acc.getcap(element)
+            cap.accum(varname, value)
+            return acc
+        else:
+            self.fail()
+            return None
+
+    def run(self):
+        args = self.build()
+        for fn in self.rules:
+            if set(args) != set(get_names(fn)):
+                return ABSENT
+            else:
+                fn(**args)
+
     def close(self):
         if self.status is ACTIVE:
             if self.parent is None:
@@ -216,39 +222,61 @@ class ListenersAccumulator(BaseAccumulator):
                     self.captures.update(acc.captures)
                 leaves = self.leaves()
                 for leaf in leaves or [self]:
-                    leaf.run_listeners()
+                    leaf.run()
             self.status = COMPLETE
 
 
 class ImmediateAccumulator(BaseAccumulator):
-    def varset(self, element, varname, category, value):
-        acc = super().varset(element, varname, category, value)
-        if acc and element.focus:
-            acc.run_listeners()
-        return acc
+    def build_all(self):
+        rval = super().build_all()
 
+        for cap in rval.values():
+            element = cap.element
+            if element.focus:
+                continue
+            if not self.check_value(element.value, cap.value):
+                return None
 
-class ValueAccumulator(BaseAccumulator):
-    def varget(self, element, varname, category):
-        cap = Capture(element)
-        self.captures[element.capture] = cap
-        cap.names.append(varname)
-        rval = self.run_value()
-        del self.captures[element.capture]
         return rval
 
-    def run_value(self):
+    def varset(self, element, varname, category, value):
+        acc = self.fork(pattern=element) if element.focus else self
+        cap = acc.getcap(element)
+        cap.set(varname, value)
+        return acc
+
+    def run(self):
         rval = ABSENT
         args = self.build()
+        if args is None:
+            return ABSENT
         for fn in self.rules:
             rval = fn(**args)
         return rval
 
 
+class SetterAccumulator(ImmediateAccumulator):
+    def varset(self, element, varname, category, value):
+        acc = super().varset(element, varname, category, value)
+        if acc and element.focus:
+            acc.run()
+        return acc
+
+
+class GetterAccumulator(ImmediateAccumulator):
+    def varget(self, element, varname, category):
+        cap = Capture(element)
+        self.captures[element.capture] = cap
+        cap.names.append(varname)
+        rval = self.run()
+        del self.captures[element.capture]
+        return rval
+
+
 accumulator_classes = {
-    "listeners": ListenersAccumulator,
-    "immediate": ImmediateAccumulator,
-    "value": ValueAccumulator,
+    "listeners": TotalAccumulator,
+    "immediate": SetterAccumulator,
+    "value": GetterAccumulator,
 }
 
 

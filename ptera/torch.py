@@ -12,7 +12,7 @@ class GradCollector(Collector):
     def finalize(self):
         def _log(cap, name, value):
             def hook(g):
-                cap.acquire(name, (value, g))
+                cap.accum(name, (value, g))
 
             return hook
 
@@ -39,7 +39,7 @@ class GradCollector(Collector):
                     new_entry[name] = new_cap
                     for realname, value in zip(cap.names, cap.values):
                         if isinstance(value, int):
-                            new_cap.acquire(name, value)
+                            new_cap.accum(name, value)
                         else:
                             value.grad = None
                             hooks.append(
