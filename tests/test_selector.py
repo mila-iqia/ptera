@@ -240,7 +240,7 @@ def apple():
 def test_to_pattern():
 
     assert sel.to_pattern("apple > banana:tag.Sublime") == sel.Call(
-        element=sel.Element(name=apple),
+        element=sel.Element(name=apple, capture="/0"),
         captures=(
             sel.Element(
                 name="banana",

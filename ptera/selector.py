@@ -6,6 +6,7 @@ import builtins
 import re
 import sys
 from dataclasses import dataclass
+from itertools import count
 
 from . import opparse
 from .tags import Tag
@@ -64,7 +65,7 @@ class Element(metaclass=InternedMC):
         return Element(**args)
 
     def all_captures(self):
-        if self.capture:
+        if self.capture and not self.capture.startswith("/"):
             return {self.capture}
         else:
             return set()
@@ -657,21 +658,26 @@ class MatchFunction:
     fn: object
 
 
-def _resolve(pattern, env):
+def _resolve(pattern, env, cnt):
     if isinstance(pattern, Call):
-        el = _resolve(pattern.element, env)
+        el = _resolve(pattern.element, env, cnt)
         return pattern.clone(
             element=el,
-            captures=tuple(_resolve(x, env) for x in pattern.captures),
-            children=tuple(_resolve(x, env) for x in pattern.children),
+            captures=tuple(_resolve(x, env, cnt) for x in pattern.captures),
+            children=tuple(_resolve(x, env, cnt) for x in pattern.children),
         )
     elif isinstance(pattern, Element):
         name = _eval(pattern.name, env)
         category = _eval(pattern.category, env)
         value = _eval(pattern.value, env)
+        capture = (
+            f"/{next(cnt)}" if pattern.capture is None else pattern.capture
+        )
         if category is not None and not isinstance(category, Tag):
             raise TypeError(f"A pattern can only be a Tag.")
-        return pattern.clone(name=name, category=category, value=value)
+        return pattern.clone(
+            name=name, category=category, value=value, capture=capture
+        )
 
 
 def _to_pattern(pattern, context="root"):
@@ -696,4 +702,4 @@ def to_pattern(s, env=None):
     if env is None:
         raise Exception(f"Could not find env for selector '{s}'")
     pattern = _to_pattern(s)
-    return _resolve(pattern, env)
+    return _resolve(pattern, env, count())

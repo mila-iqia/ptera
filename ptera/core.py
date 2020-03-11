@@ -170,13 +170,14 @@ class BaseAccumulator:
 
     def build(self):
         if self.parent is None:
-            return self.captures
-        rval = {}
-        curr = self
-        while curr:
-            rval.update(curr.captures)
-            curr = curr.parent
-        return rval
+            rval = self.captures
+        else:
+            rval = {}
+            curr = self
+            while curr:
+                rval.update(curr.captures)
+                curr = curr.parent
+        return {k: v for k, v in rval.items() if not k.startswith("/")}
 
     def run_listeners(self):
         args = self.build()
@@ -272,9 +273,7 @@ def dict_to_collection(*rulesets):
                     entries = [entries]
                 for entry in entries:
                     if key not in tmp:
-                        tmp[key] = accumulator_classes[name](
-                            pattern=pattern
-                        )
+                        tmp[key] = accumulator_classes[name](pattern=pattern)
                     acc = tmp[key]
                     acc.rules.append(entry)
     return PatternCollection(
