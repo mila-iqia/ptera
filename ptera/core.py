@@ -585,8 +585,8 @@ class StateOverlay:
         return self
 
 
-def _to_plugin(spec):
-    return Tap(spec) if isinstance(spec, str) else spec
+def _to_plugin(spec, **kwargs):
+    return Tap(spec, **kwargs) if isinstance(spec, str) else spec
 
 
 def _collect_plugins(plugins, kwplugins):
@@ -655,8 +655,8 @@ class Overlay:
 
         return deco
 
-    def on(self, query, full=False, all=False):
-        plugin = _to_plugin(query)
+    def on(self, query, full=False, all=False, immediate=True):
+        plugin = _to_plugin(query, immediate=immediate)
 
         def deco(fn):
             def mapper(**kwargs):
