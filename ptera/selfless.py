@@ -113,27 +113,55 @@ class PteraTransformer(NodeTransformer):
             )
         ]
 
+    def visit_body(self, stmts):
+        new_body = []
+        for stmt in map(self.visit, stmts):
+            if isinstance(stmt, list):
+                new_body.extend(stmt)
+            else:
+                new_body.append(stmt)
+        return new_body
+
+    def generate_interactions(self, target):
+        if isinstance(target, ast.arguments):
+            assert not target.vararg
+            assert not target.kwonlyargs
+            assert not target.kwarg
+            stmts = []
+            for arg in target.args:
+                stmts.extend(self.generate_interactions(arg))
+            return stmts
+
+        elif isinstance(target, ast.arg):
+            return self.make_interaction(
+                target=ast.Name(id=target.arg, ctx=ast.Store()),
+                ann=target.annotation,
+                value=ast.Name(id=target.arg, ctx=ast.Load()),
+                orig=target,
+            )
+
+        elif isinstance(target, ast.Name):
+            return self.make_interaction(
+                target=ast.Name(id=target.id, ctx=ast.Store()),
+                ann=None,
+                value=ast.Name(id=target.id, ctx=ast.Load()),
+                orig=target,
+            )
+
+        elif isinstance(target, ast.Tuple):
+            stmts = []
+            for entry in target.elts:
+                stmts.extend(self.generate_interactions(entry))
+            return stmts
+
+        else:  # pragma: no cover
+            raise NotImplementedError(target)
+
     def visit_FunctionDef(self, node, root=False):
         if not root:
             return node
 
-        # assert not node.args.posonlyargs
-        assert not node.args.vararg
-        assert not node.args.kwonlyargs
-        assert not node.args.kwarg
-        # (arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs,
-        #  expr* kw_defaults, arg? kwarg, expr* defaults)
-
-        new_body = []
-        for arg in node.args.args:
-            new_body.extend(
-                self.make_interaction(
-                    target=ast.Name(id=arg.arg, ctx=ast.Store()),
-                    ann=arg.annotation,
-                    value=ast.Name(id=arg.arg, ctx=ast.Load()),
-                    orig=arg,
-                )
-            )
+        new_body = self.generate_interactions(node.args)
 
         for external in self.external:
             new_body.extend(
@@ -174,11 +202,8 @@ class PteraTransformer(NodeTransformer):
             ):
                 new_body.insert(0, first)
 
-        for stmt in map(self.visit, node.body):
-            if isinstance(stmt, list):
-                new_body.extend(stmt)
-            else:
-                new_body.append(stmt)
+        new_body += self.visit_body(node.body)
+
         return ast.copy_location(
             ast.FunctionDef(
                 name=node.name,
@@ -186,6 +211,21 @@ class PteraTransformer(NodeTransformer):
                 body=new_body,
                 decorator_list=node.decorator_list,
                 returns=node.returns,
+            ),
+            node,
+        )
+
+    def visit_For(self, node):
+
+        new_body = self.generate_interactions(node.target)
+        new_body.extend(self.visit_body(node.body))
+
+        return ast.copy_location(
+            ast.For(
+                target=node.target,
+                iter=self.visit(node.iter),
+                body=new_body,
+                orelse=self.visit_body(node.orelse),
             ),
             node,
         )
