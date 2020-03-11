@@ -316,6 +316,8 @@ class PatternCollection:
         to_process = deque(self.patterns)
         while to_process:
             pattern, acc = to_process.pop()
+            if acc.status is FAILED:
+                continue
             if not pattern.immediate:
                 next_patterns.append((pattern, acc))
             cachekey = (fn, pattern)
