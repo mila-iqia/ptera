@@ -135,37 +135,34 @@ class PteraTransformer(NodeTransformer):
                 )
             )
 
-        if root:
-            for external in self.external:
-                new_body.extend(
-                    self.make_interaction(
-                        target=ast.Name(id=external, ctx=ast.Store()),
-                        ann=None,
-                        value=ast.Name(id="__ptera_ABSENT", ctx=ast.Load()),
-                        orig=node,
-                    )
+        for external in self.external:
+            new_body.extend(
+                self.make_interaction(
+                    target=ast.Name(id=external, ctx=ast.Store()),
+                    ann=None,
+                    value=ast.Name(id="__ptera_ABSENT", ctx=ast.Load()),
+                    orig=node,
                 )
-            new_args = ast.arguments(
-                posonlyargs=[],
-                args=list(node.args.args),
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[
-                    ast.copy_location(
-                        ast.Name(id="__ptera_ABSENT", ctx=ast.Load()), arg
-                    )
-                    for arg in node.args.args
-                ],
             )
-            for dflt, arg in zip(
-                node.args.defaults, node.args.args[-len(node.args.defaults) :]
-            ):
-                self.defaults[arg.arg] = dflt
-            new_args.args.insert(0, ast.arg("__self__"))
-        else:
-            new_args = node.args
+        new_args = ast.arguments(
+            posonlyargs=[],
+            args=list(node.args.args),
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[
+                ast.copy_location(
+                    ast.Name(id="__ptera_ABSENT", ctx=ast.Load()), arg
+                )
+                for arg in node.args.args
+            ],
+        )
+        for dflt, arg in zip(
+            node.args.defaults, node.args.args[-len(node.args.defaults) :]
+        ):
+            self.defaults[arg.arg] = dflt
+        new_args.args.insert(0, ast.arg("__self__"))
 
         first = node.body[0]
         if isinstance(first, ast.Expr):
