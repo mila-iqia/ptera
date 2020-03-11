@@ -692,39 +692,45 @@ class PteraFunction(Selfless):
         self,
         fn,
         state,
-        callkey=None,
         overlay=None,
         return_object=False,
         origin=None,
+        attachments=None,
         partial_args=(),
     ):
         super().__init__(fn, state)
-        self.callkey = callkey
         self.overlay = overlay or Overlay()
         self.return_object = return_object
         self.origin = origin or self
         self.partial_args = partial_args
+        self.attachments = attachments or {}
 
     def clone(self, **kwargs):
         self.ensure_state()
         kwargs = {
             "fn": self.fn,
             "state": copy(self.state_obj),
-            "callkey": self.callkey,
             "overlay": Overlay(self.overlay.plugins),
             "return_object": self.return_object,
             "origin": self.origin,
             "partial_args": self.partial_args,
+            "attachments": self.attachments,
             **kwargs,
         }
         return type(self)(**kwargs)
+
+    def attach(self, **values):
+        return self.clone(attachments={**self.attachments, **values})
 
     def __getitem__(self, callkey):
         assert isinstance(callkey, list)
         if len(callkey) == 1:
             (callkey,) = callkey
-        assert self.callkey is None
-        return self.clone(callkey=callkey)
+        attach = {"key": callkey}
+        if isinstance(callkey, list):
+            for i, v in enumerate(callkey):
+                attach[f"key{i}"] = v
+        return self.attach(**attach)
 
     def use(self, *plugins, **kwplugins):
         self.overlay.use(*plugins, **kwplugins)
@@ -768,11 +774,9 @@ class PteraFunction(Selfless):
         self.ensure_state()
         with self.overlay as callres:
             with proceed(self):
-                if self.callkey is not None:
-                    interact("#key", None, None, self, self.callkey)
-                    if isinstance(self.callkey, list):
-                        for i, subkey in enumerate(self.callkey):
-                            interact(f"#key{i}", None, None, self, subkey)
+                if self.attachments:
+                    for k, v in self.attachments.items():
+                        interact(f"#{k}", None, None, self, v)
                 rval = super().__call__(*self.partial_args, *args, **kwargs)
                 callres["0"] = callres["value"] = rval
 

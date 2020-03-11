@@ -495,7 +495,7 @@ def make_symbol(node, context):
         element = Element(name=None)
     else:
         value = node.value
-        cap = node.value
+        cap = node.value[1:] if node.value.startswith("#") else node.value
         focus = context == "root"
         element = Element(
             name=value,

@@ -234,6 +234,12 @@ def superbrie(n):
     return result
 
 
+def test_attach():
+    _brie = brie.attach(hello=12).using("brie > #hello")
+    res, hello = _brie(5, 6)
+    assert hello.map("hello") == [12]
+
+
 def test_function_indexing():
     assert superbrie(10) == 328750
 
