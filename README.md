@@ -6,232 +6,234 @@
 
 ## What is Ptera?
 
-Ptera is a bit like a tracer, a bit like aspect-oriented programming, a bit like a new way to program. It chiefly aims to facilitate algorithm research, especially machine learning.
+Ptera is a set of powerful tools to query or tweak the values of variables from a program.
 
-**Features!**
-
-* **"Selfless objects"** are objects that are defined as functions. The fields of these objects are simply the variables used in the function.
-* **Execution trace queries** lets you address any variable anywhere in functions decorated with `@ptera`, at arbitrary depths in the call tree, and either collect the values of these variables, or set these values.
-* **Automatic CLI** will create a command-line interface from any properly annotated variable anywhere in the code.
-
-Although they can be used independently, selfless objects and trace queries interact together in Ptera in order to form a new programming paradigm.
-
-* Define parameterized functions with basically no boilerplate.
-* Interfere with carefully selected parts of your program to test edge cases or variants.
-* Plot the values of some variable deep in the execution of a program.
-
-Ptera can also be combined with other libraries to make certain tasks very easy:
-
-* [Using Ptera with PyTorch](https://github.com/mila-iqia/ptera/blob/master/ML-README.md), it is easy to get the gradient of any quantity with respect to any other quantity. These quantities can be *anywhere* in the program! They don't need to be in the same scope!
+* **Keep your program clean**: Queries can be defined outside of your main function, so there is no need to pollute your code with logging or debug code.
+* **Debug and analyze across scopes**: Easily write queries that collect variables at various points in the call stack, or even across different calls. Then, you can analyze them all together.
+* **Tag variables and functions**: Categorize parts of your program to make more general queries.
 
 
-## Selfless objects
+## Example 1
 
-A selfless object is defined as a simple function. Any function can be a selfless object, but of particular interest are those that contain uninitialized variables. For example:
+Take the following function, which estimates whether a point `c` in the complex pane belongs to the Mandelbrot set or not (repeat this for a range of real/imag values to draw a pretty monochrome fractal).
 
 ```python
-@ptera.defaults(debug=False)
-def bagel(x, y):
-    z: int
-    if debug:
-        print(x, y, z)
-    return x + y + z
-```
-
-Note that in this function, `z` is declared, but not initialized. We can instantiate a function with `new`:
-
-```python
-bagel3 = bagel.new(z=3)
-assert bagel3(1, 2) == 6
-```
-
-But this is not all we can do. We can also set the `debug` variable to True:
-
-```python
-bagel3_debug = bagel.new(z=3, debug=True)
-assert bagel3(1, 2) == 6   # This prints "1 2 3"
-```
-
-And that's not all! We can set *any* variable, if we so wish. We can set `print`:
-
-```python
-bagel3_newprint = bagel.new(
-    z=3, debug=True, print=lambda *args: print(sum(args))
-)
-assert bagel3(1, 2) == 6   # This prints "6"
-```
-
-We can set default arguments:
-
-```python
-bagel3_defaults = bagel.new(z=3, y=2)
-assert bagel3(1) == 6
-```
-
-We can *force* an argument to have a certain value:
-
-```python
-bagel3_forcex = bagel.new(z=3, x=ptera.Override(5))
-assert bagel3(1, 2) == 10
-```
-
-
-## Trace queries
-
-Trace queries provide the same power, but over a whole call tree. They also allow you to extract any variables you want.
-
-Suppose you have this program:
-
-```python
-@ptera
-def square(x):
-    rval = x * x
-    return rval
+MAX_ITER = 100
 
 @ptera
-def sumsquares(x, y):
-    xx = square(x)
-    yy = square(y)
-    rval = xx + yy
-    return rval
+def mandelbrot(real, imag):
+    c = real + imag * 1j
+    z = 0
+    for i in range(MAX_ITER):
+        z = z * z + c
+        if abs(z) > 2:
+            return False
+    return True
 ```
 
-What can you do?
-
-
-**Q**: What values can `x` take?
-
-**A**: The `using` method lets you extract these values. We give our query the name `q` in what follows so that we can access it, but you can give any name you want to the query:
+Ptera allows you, among other things, to look at the values taken by the variable `z` through the course of the function. This can be very interesting!
 
 ```python
-results = sumsquares.using(q="x")(3, 4)
-assert results.q.map("x") == [3, 4, 3]
+mandelbrot_zs = mandelbrot.using(zs="mandelbrot > z")
+
+print(mandelbrot_zs(0.25, 0).zs.map("z"))
+# -> Converges to 0.5
+
+print(mandelbrot_zs(-1, 0).zs.map("z"))
+# -> Oscillates between 0 and -1
+
+print(mandelbrot_zs(-0.125, 0.75).zs.map("z"))
+# -> 3-way oscillation between 0.01-0.006j, -0.125+0.75j and -0.67+0.56j
 ```
 
+(Depending on which bulb of the fractal you are looking at, the iteration will converge on a cycle with a finite period, which can be arbitrarily large, which you can sort of visualize [like this](https://en.wikipedia.org/wiki/Mandelbrot_set#/media/File:Logistic_Map_Bifurcations_Underneath_Mandelbrot_Set.gif). But enough about that.)
 
-**Q**: Hold on, why is `3` listed twice?
-
-**A**: Because `x == 3` in the call to `sumsquares`, and `x == 3` in the first  call to `square`. These are two distinct `x`.
-
-
-**Q**: What if I just want the value of `x` in `square`?
-
-**A**: The expression `square > x` represents the value of the variable `x` inside a call to `square`.
+All the values are collected together and can be mapped in any way you'd like. You can also capture multiple variables together, for instance:
 
 ```python
-results = sumsquares.using(q="square > x")(3, 4)
-assert results.q.map("x") == [3, 4]
+mandelbrot_zis = mandelbrot.using(zis="mandelbrot(i) > z")
+
+print(mandelbrot_zis(0.25, 0).zis.map(lambda z, i=None: (i, z)))
+# [(None, 0), (0, 0.25), (1, 0.3125), ..., (999, 0.499)]
 ```
 
+**Tweaking variables**
 
-**Q**: Can I also see the output of `square`?
-
-**A**: Yes. Variables inside `()` will also be captured.
+You can also "tweak" variables. For example, you can change the value of `MAX_ITER` within the call:
 
 ```python
-results = sumsquares.using(q="square(rval) > x")(3, 4)
-assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
+mandelbrot_short = mandelbrot.tweaking({"MAX_ITER": 10})
+mandelbrot_long = mandelbrot.tweaking({"MAX_ITER": 1000})
+
+print(mandelbrot_short(0.2501, 0))  # True
+print(mandelbrot_long(0.2501, 0))   # False
 ```
 
+As you can see, both versions of the function use their own version of `MAX_ITER`, without interference.
 
-**Q**: Can I also see the inputs of `sumsquare` along with these?
-
-**A**: Yes, but there is a name conflict, so you need to rename them, which you can do in the query, like this:
-
-```python
-results = sumsquares.using(
-    q="sumsquares(x as ssx, y as ssy) > square(rval) > x"
-)(3, 4)
-assert results.q.map("ssx", "ssy", "x", "rval") == [(3, 4, 3, 9), (3, 4, 4, 16)]
-```
+Note however that Ptera will add significant overhead to a function like `mandelbrot` because all of its operations are cheap compared to the cost of tracking everything with Ptera. Only the body of functions decorated with `@ptera` will be slower, however, and if the bulk of the time of the program is spent in non-decorated functions, the overhead should be acceptable.
 
 
-**Q**: I would like to have one entry for each call to `sumsquares`, not one entry for each call to `square`.
+## Example 2
 
-**A**: Each query has one variable which is the *focus*. There will be one result for each value the focus takes. You can set the focus with the `!` operator. So here's something you can do:
+Suppose you have a simple PyTorch model with a few layers and a `tanh` activation function:
 
 ```python
-results = sumsquares.using(
-    q="sumsquares(!x as ssx, y as ssy) > square(rval, x)"
-)(3, 4)
-assert (results.q.map_all("ssx", "ssy", "x", "rval")
-        == [([3], [4], [3, 4], [9, 16])])
-```
+class MLP(torch.nn.Module):
+    def __init__(self):
+        super(MLP, self).__init__()
+        self.linear1 = torch.nn.Linear(784, 250)
+        self.linear2 = torch.nn.Linear(250, 100)
+        self.linear3 = torch.nn.Linear(100, 10)
 
-Notice that you need to call `map_all` here, because some variables have multiple values with respect to the focus: we focus on the `x` argument to `sumsquares`, which calls `square` twice, so for each `sumsquares(x)` we get two `square(x, rval)`. The `map` method assumes there is only one value for each variable, so it will raise an exception.
+    def forward(self, inputs):
+        h1 = torch.tanh(self.linear1(inputs))
+        h2 = torch.tanh(self.linear2(h1))
+        h3 = self.linear3(h2)
+        return torch.log_softmax(h3, dim=1)
 
-Note that this view on the data does not necessarily preserve the correspondance between `square(x)` and `square(rval)`: you can't assume that the first `x` is in the same scope as the first `rval`, and so on.
+def step(model, optimizer, inputs, targets):
+    optimizer.zero_grad()
+    output = model(Variable(inputs).float())
+    loss = torch.nn.CrossEntropyLoss()(output, Variable(targets))
+    loss.backward()
+    optimizer.step()
 
-Also notice that the expression does not end with `> x`. That's because `square > x` is the same as `square(!x)`: it sets the focus on `x`. However, we can only have one focus, therefore if we ended the query with `> x` it would be invalid.
-
-
-**Q**: I want to do something crazy. I want `square` to always return 0.
-
-**A**: Uhh... okay? Are you sure? You can use the `tweak` method to do this:
-
-```python
-result = sumsquares.tweak({"square > rval": 0})(3, 4)
-assert result == 0
-```
-
-This will apply to all calls to `square` within the execution of `sumsquares`. And yes, `sumsquares.new(square=lambda x: 0)` would also work in this case, but there is a difference: using the `tweak` method will apply to all calls at all call depths, recursively. The `new` method will only change `square` directly in the body of `sumsquares`.
-
-
-**Q**: I want to do something else crazy. I want `square` to return x + 1.
-
-**A**: Use the `rewrite` method.
-
-```python
-result = sumsquares.rewrite({"square(x) > rval": lambda x: x + 1})(3, 4)
-assert result == 9
-```
-
-## Automatic CLI
-
-Ptera can automatically create a command-line interface from variables annotated with a certain tag. The main advantage of `ptera.auto_cli` relative to other solutions is that the arguments are declared wherever you actually use them. Consider the following program, for example:
-
-```python
-def main():
-    for i in range(1000):
-        do_something()
+def fit(model, data, epochs):
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    for epoch in range(epochs):
+        for batch_idx, (inputs, targets) in enumerate(data):
+            step(model, optimizer, inputs, targets)
 
 if __name__ == "__main__":
-    main()
+    ...
+    fit(model, data, epochs)
 ```
 
-It would be nice to be able to configure the number of iterations instead of using the hard-coded number 1000. Enter `ptera.auto_cli`:
+You want to know whether the activations on the layer `h2` tend to saturate, meaning that they are very close to -1 or 1. Therefore, you would like to log the percentage of the values in the `h2` matrix that have an absolute value greater than 0.99. You would only like to check every 100 iterations or so, though.
+
+Here is how to do this with ptera. Comments indicate all the changes you need to make:
 
 ```python
-from ptera import auto_cli, tag, default, ptera
+from ptera import ptera, Overlay
+from ptera.tools import every
 
+class MLP(torch.nn.Module):
+    def __init__(self):
+        super(MLP, self).__init__()
+        self.linear1 = torch.nn.Linear(784, 250)
+        self.linear2 = torch.nn.Linear(250, 100)
+        self.linear3 = torch.nn.Linear(100, 10)
+
+    # Decorate this function
+    @ptera
+    def forward(self, inputs):
+        h1 = torch.tanh(self.linear1(inputs))
+        h2 = torch.tanh(self.linear2(h1))
+        h3 = self.linear3(h2)
+        return torch.log_softmax(h3, dim=1)
+
+# Decorate this function too
 @ptera
-def main():
-    # Number of iterations
-    n: tag.CliArgument = default(1000)
-    for i in range(n):
-        do_something()
+def step(model, optimizer, inputs, targets):
+    optimizer.zero_grad()
+    output = model(Variable(inputs).float())
+    loss = torch.nn.CrossEntropyLoss()(output, Variable(targets))
+    loss.backward()
+    optimizer.step()
+
+def fit(model, data, epochs):
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    for epoch in range(epochs):
+        for batch_idx, (inputs, targets) in enumerate(data):
+            step(model, optimizer, inputs, targets)
 
 if __name__ == "__main__":
-    auto_cli(main, tag=tag.CliArgument)
+    ...
+
+    # Create an overlay
+    overlay = Overlay()
+
+    # Set up a listener for the variable of MLP.forward named h2, but only
+    # within a call to step where the batch_idx variable is a multiple of 100.
+    # * The notation `x ~ f` means that we only trigger when f(x) == True.
+    # * The >> operator means arbitrary nesting.
+    # * The > operator means direct nesting
+    @overlay.on("step(batch_idx ~ every(100)) >> MLP.forward > h2")
+    def check_saturation(batch, h2):
+        sat = float((h2.abs() > 0.99).float().mean())
+        print(sat)
+        return sat
+
+    # Call fit within a with block
+    with overlay as results:
+        fit(model, data, epochs)
+
+    # results.check_saturation contains a list of all the return values of the
+    # listener
+    print(results.check_saturation)
 ```
 
-Then you can run it like this, for example:
+The interface is a bit different from the Mandelbrot example, because in this example the function we are calling, `fit`, is not decorated with `@ptera`. This is fine, however, because the overlay (which also has methods like `use`, `tweak`, etc.) will apply to everything that's going on inside the `with` block, and the data accumulated by the various listeners and plugins will be put in the `results` data structure.
 
-```bash
-$ python script.py --n 15
+
+## Overlays
+
+An *overlay* is a collection of plugins that operate over the variables of ptera-decorated functions. It is used roughly like this:
+
+```python
+overlay = Overlay()
+
+# Use plugins. A plugin can be a simple query string, which by default
+# creates a Tap plugin.
+overlay.use(p1=plugin1, p2=plugin2, ...)
+
+# Call a function every time the query is triggered
+@overlay.on(query)
+def p3(var1, var2, ...):
+    do_something(var1, var2, ...)
+
+# Change the value of a variable
+overlay.tweak({query: value, ...})
+
+# Change the value of a variable, but using a function which can depend on
+# other collected variables.
+overlay.rewrite({query: rewriter, ...})
+
+# Call the function while the overlay is active
+with overlay as results:
+    func()
+
+# Do something with the results
+do_something(results.p1)  # Set by plugin1
+do_something(results.p2)  # Set by plugin2
+do_something(results.p3)  # List of the return values of on(...)
+...
+
+# The "Tap" plugin, which is the default when giving a query string to use,
+# puts a Collector instance in its field in results. The main method you will
+# use is map:
+results.p1.map()                    # List of dictionaries with all captures
+results.p1.map("x")                 # List for variable "x"
+results.p1.map("x", "y")            # List of tuples of values for x and y
+results.p1.map(lambda x, y: x + y)  # Call the function on captured variables
+
+# map_all:
+# Each capture is a list of values. For example, the query `f(!x) > g(y)` will
+# trigger for every value of "x" because of the "!", but if g is called
+# multiple times, Ptera may list all of the values for "y". If that is the case,
+# `map` will error out and you must use `map_all`.
+results.p1.map_all()
+
+# map_full:
+# Each capture is a Capture object. This can be useful with a query
+# such as `$v:SomeTag` which captures any variable annotated with SomeTag, but
+# regardless of the variable's actual name. The value will be provided under
+# the name "v", but the actual name will be in the capture.name field.
+# results.p1.map("x") <=> results.p1.map_full(lambda x: x.value)
+# results.p1.map_all("x") <=> results.p1.map_full(lambda x: x.values)
+results.p1.map_full()
 ```
-
-* Ptera will look for any variable annotated with the specified tag within `@ptera` functions that are accessible from `main`.
-  * There is no need to pass an options object around. If you need to add an argument to any function in any file, you can just plop it in there and ptera should find it and allow you to set it on the command line.
-  * You can declare multiple CLI arguments in multiple places with the same name. They will all be set to the same value.
-* The comment right above the declaration of the variable, if there is one, is used as documentation.
-* The `default` function provides a default value for the argument.
-  * You don't have to provide one.
-  * Ptera uses a priority system to determine which value to choose and `default` sets a low priority. If you set a value but don't wrap it with `default`, you will get a `ConflictError` when trying to set the variable on the command line. This is the intended behavior.
-
-In the future, `auto_cli` will also support environment variables, configuration files, and extra options to catalogue all the variables that can be queried. For example, a planned feature is to be able to display where in the code each variable with a given tag is declared and used.
-
-Another future feature: since it is within ptera's ability to set different values for the parameter `param` depending on the call context (e.g. with the `tweak` method), the ability to do this in a configuration file will be added at some point (just need to figure out the format).
 
 
 ## Query language
@@ -289,39 +291,6 @@ def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
   * Query: `art > $x`
   * Getting the names: `results.map_full(lambda x: x.name) == ["a1", "a2", "#value"]`
   * Other fields accessible from `map_full` are `value`, `names` and `values`, the latter two being needed if multiple results are captured together.
-* Variable annotations are preserved and can be filtered on, using the `:` operator. They may be types or "tags" (created using `ptera.Tag("XYZ")` or `ptera.tag.XYZ`).
+* Variable annotations are preserved and can be filtered on, using the `:` operator. However, *Ptera only recognizes tags* created using `ptera.Tag("XYZ")` or `ptera.tag.XYZ`. It will not filter over types.
 * `art(bee(c)) > cap > d` triggers on the variable `d` in calls to `cap`, but it will *also* include the value of `c` for all calls to `bee` inside `art`.
   * If there are multiple calls to `bee`, all values of `c` will be pooled together, and it will be necessary to use `map_all` to retrieve the values (or `map_full`).
-
-
-### Equivalencies
-
-Ptera's query language syntax includes a lot of expressions, but it reduces to a relatively simple core:
-
-
-```
-# A lone symbol becomes a match for a variable in a wildcard function
-a               <=>  *(!a)
-
-# Nesting operator > is sugar for (...)
-a > b           <=>  a(!b)
-a > b > c       <=>  a(b(!c))
-
-# Infix >> is sugar for prefix >>
-a >> b > c      <=>  a(>> b(!c))
-a >> b          <=>  a(>> !b)   <~>  a(>> *(!b))  (see note)
-
-# $x is shorthand for as
-f($x)           <=>  f(* as x)
-
-# Indexing is sugar for #key
-a[0]            <=>  a(#key=0)
-a[0] as a0      <=>  a(#key=0, #value as a0)
-a[$i] as a      <=>  a(#key as i, #value as a)
-
-# Shorthand for #value
-a(x, y) as b    <=>  a(x, y, #value as b)
-a() as b        <=>  a(#value as b)
-```
-
-Note: `a(>> b)` and `a(>> *(!b))` are not 100% equivalent, because the former encompasses `a(> b)` and the latter does not, but internally the former is basically encoded as the latter plus a special "collapse" flag that there is no syntax for.
