@@ -103,6 +103,12 @@ class Capture:
         self.names = [varname]
         self.values = [value]
 
+    def snapshot(self):
+        cap = Capture(self.element)
+        cap.names = list(self.names)
+        cap.values = list(self.values)
+        return cap
+
     def __str__(self):
         return f"Capture({self.element}, {self.names}, {self.values})"
 
@@ -237,6 +243,7 @@ class ImmediateAccumulator(BaseAccumulator):
             if not self.check_value(element.value, cap.value):
                 return None
 
+        rval = {k: cap.snapshot() for k, cap in rval.items()}
         return rval
 
     def varset(self, element, varname, category, value):
