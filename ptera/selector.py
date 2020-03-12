@@ -477,11 +477,15 @@ def make_equals(node, element, value, context, matchfn=False):
         element = evaluate(element, context=context)
     value = value_evaluate(value)
     if matchfn:
-        capture = element.capture
         value = VCall(MatchFunction, (value,))
+    if isinstance(element, Element):
+        capture = element.capture if matchfn else None
+        return element.clone(value=value, capture=capture)
     else:
-        capture = None
-    return element.clone(value=value, capture=capture)
+        new_element = Element(name="#value", value=value, capture=None)
+        return element.clone(
+            captures=element.captures + (new_element,)
+        )
 
 
 @evaluate.register_action("_ ~ X")

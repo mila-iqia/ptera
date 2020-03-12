@@ -67,6 +67,8 @@ def test_parser_equivalencies():
 
     assert sel.parse("a:b(c)") == sel.parse("(a:b)(c)")
 
+    assert sel.parse("a(b)=c") == sel.parse("a(b, #value=c)")
+
 
 @one_test_per_assert
 def test_parser():
