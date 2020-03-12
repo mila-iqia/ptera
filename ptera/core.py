@@ -645,13 +645,6 @@ def _to_plugin(spec, **kwargs):
     return Tap(spec, **kwargs) if isinstance(spec, str) else spec
 
 
-def _collect_plugins(plugins, kwplugins):
-    plugins = {str(i + 1): p for i, p in enumerate(plugins)}
-    plugins.update(kwplugins)
-    plugins = {name: _to_plugin(p) for name, p in plugins.items()}
-    return plugins, any(p.hasoutput for name, p in plugins.items())
-
-
 class Overlay:
     def __init__(self, plugins={}):
         self.plugins = dict(plugins)
@@ -660,10 +653,21 @@ class Overlay:
     def hasoutput(self):
         return any(p.hasoutput for name, p in self.plugins.items())
 
-    def use(self, *plugins, **kwplugins):
-        plugins, _ = _collect_plugins(plugins, kwplugins)
+    def __use(self, plugins, kwplugins, immediate):
+        plugins = {str(i + 1): p for i, p in enumerate(plugins)}
+        plugins.update(kwplugins)
+        plugins = {
+            name: _to_plugin(p, immediate=immediate)
+            for name, p in plugins.items()
+        }
         self.plugins.update(plugins)
         return self
+
+    def use(self, *plugins, **kwplugins):
+        return self.__use(plugins, kwplugins, True)
+
+    def full_tap(self, *plugins, **kwplugins):
+        return self.__use(plugins, kwplugins, False)
 
     def tweak(self, values, priority=2):
         values = {
@@ -690,8 +694,13 @@ class Overlay:
 
     @autocreate
     def using(self, *plugins, **kwplugins):
-        plugins, _ = _collect_plugins(plugins, kwplugins)
-        return Overlay(plugins={**self.plugins, **plugins})
+        ol = Overlay(self.plugins)
+        return ol.use(*plugins, **kwplugins)
+
+    @autocreate
+    def full_tapping(self, *plugins, **kwplugins):
+        ol = Overlay(self.plugins)
+        return ol.full_tap(*plugins, **kwplugins)
 
     @autocreate
     def tweaking(self, values, priority=2):
@@ -792,6 +801,10 @@ class PteraFunction(Selfless):
         self.overlay.use(*plugins, **kwplugins)
         return self
 
+    def full_tap(self, *plugins, **kwplugins):
+        self.overlay.full_tap(*plugins, **kwplugins)
+        return self
+
     def tweak(self, values, priority=2):
         self.overlay.tweak(values, priority=priority)
         return self
@@ -812,6 +825,10 @@ class PteraFunction(Selfless):
 
     def using(self, *plugins, **kwplugins):
         ol = self.overlay.using(*plugins, **kwplugins)
+        return self.clone(overlay=ol, return_object=ol.hasoutput)
+
+    def full_tapping(self, *plugins, **kwplugins):
+        ol = self.overlay.full_tapping(*plugins, **kwplugins)
         return self.clone(overlay=ol, return_object=ol.hasoutput)
 
     def collect(self, query):

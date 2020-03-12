@@ -217,7 +217,7 @@ def test_indexing():
 
 
 def test_indexing_2():
-    res, fs = fib.using("fib(!n, f[3] as x)")(5)
+    res, fs = fib.full_tapping("fib(!n, f[3] as x)")(5)
     assert res == 8
     assert fs.map("n") == [5]
     assert fs.map("x") == [3]
@@ -262,7 +262,7 @@ def test_immediate_evaluation():
 
     # By default this uses a TotalAccumulator, which requires every
     # value of i to be 1 and every j to be a multiple of 3
-    _, x = superbrie.using("superbrie(i=1, j~every(3)) > brie > x")(10)
+    _, x = superbrie.full_tapping("superbrie(i=1, j~every(3)) > brie > x")(10)
     assert x.map("x") == []
 
     # Creates a SetterAccumulator which only takes into account the values
@@ -318,7 +318,7 @@ def test_missing_var():
 
 
 def test_tap_map():
-    rval, acoll = double_brie.using("brie(!a, b)")(2, 10)
+    rval, acoll = double_brie.full_tapping("brie(!a, b)")(2, 10)
     assert acoll.map("a") == [4, 100]
     assert acoll.map("b") == [9, 121]
     assert acoll.map(lambda a, b: a + b) == [13, 221]
@@ -327,7 +327,7 @@ def test_tap_map():
 
 
 def test_tap_map_all():
-    rval, acoll = double_brie.using("double_brie(!x1) >> brie(x)")(2, 10)
+    rval, acoll = double_brie.full_tapping("double_brie(!x1) >> brie(x)")(2, 10)
     with pytest.raises(ValueError):
         acoll.map("x1", "x")
     assert acoll.map_all("x1", "x") == [([2], [2, 10])]
@@ -415,15 +415,15 @@ def sumsquares(x, y):
 
 def test_readme():
     results = sumsquares.using(q="x")(3, 4)
-    assert results.q.map("x") == [3, 4, 3]
+    assert results.q.map("x") == [3, 3, 4]
 
     results = sumsquares.using(q="square > x")(3, 4)
     assert results.q.map("x") == [3, 4]
 
-    results = sumsquares.using(q="square(rval) > x")(3, 4)
+    results = sumsquares.full_tapping(q="square(rval) > x")(3, 4)
     assert results.q.map("x", "rval") == [(3, 9), (4, 16)]
 
-    results = sumsquares.using(
+    results = sumsquares.full_tapping(
         q="sumsquares(x as ssx, y as ssy) > square(rval) > x"
     )(3, 4)
     assert results.q.map("ssx", "ssy", "x", "rval") == [
@@ -431,7 +431,7 @@ def test_readme():
         (3, 4, 4, 16),
     ]
 
-    results = sumsquares.using(
+    results = sumsquares.full_tapping(
         q="sumsquares(!x as ssx, y as ssy) > square(rval, x)"
     )(3, 4)
     assert results.q.map_all("ssx", "ssy", "x", "rval") == [
