@@ -1,10 +1,9 @@
-from dataclasses import dataclass
-
 import pytest
 
 from ptera import BaseOverlay, Overlay, Recurrence, ptera, tag, to_pattern
 from ptera.core import Capture, Tap
 from ptera.selector import Element, parse
+from ptera.tools import every
 
 from .common import one_test_per_assert
 
@@ -165,28 +164,11 @@ def fib(n):
     return f[n]
 
 
-@dataclass(frozen=True)
-class every:
-    modulo: int = 2
-    start: int = 0
-    end: int = None
-
-    def __call__(self, i):
-        return (
-            i >= self.start
-            and (not self.end or i < self.end)
-            and (i - self.start) % self.modulo == 0
-        )
-
-
 even = every(2)
 
 
 def test_match():
     res, fs = fib.using("f[~even] as x")(5)
-    assert fs.map("x") == [1, 2, 5]
-
-    res, fs = fib.using("f[$i ~ every()] as x")(5)
     assert fs.map("x") == [1, 2, 5]
 
     res, fs = fib.using("f[$i ~ every(2)] as x")(5)

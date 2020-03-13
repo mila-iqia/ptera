@@ -32,7 +32,7 @@ include_trailing_comma = true
 combine_as_imports = true
 
 [tool.unimport]
-exclude = ["__init__.py"]
+exclude = ["__init__.py", "test_tools.py"]
 
 [tool.coverage.run]
 omit = ["ptera/torch.py"]
