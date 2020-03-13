@@ -237,7 +237,7 @@ parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
             r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
-            r"[a-zA-Z_0-9#*.]+": "WORD",
+            r"[a-zA-Z_0-9#*.-]+": "WORD",
             r"'[^']*'": "STRING",
         }
     ),
@@ -519,9 +519,9 @@ class VSymbol(VNode):
     def eval(self, env):
         x = self.value
 
-        if re.match(r"[0-9]+\.[0-9]*", x):
+        if re.match(r"-?[0-9]+\.[0-9]*", x):
             return float(x)
-        elif re.match(r"[0-9]+", x):
+        elif re.match(r"-?[0-9]+", x):
             return int(x)
         elif re.match(r"'[^']*'", x):
             return x[1:-1]
