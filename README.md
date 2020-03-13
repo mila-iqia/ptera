@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # * The >> operator means arbitrary nesting.
     # * The > operator means direct nesting
     @overlay.on("step(batch_idx ~ every(100)) >> MLP.forward > h2")
-    def check_saturation(batch, h2):
+    def check_saturation(batch_idx, h2):
         sat = float((h2.abs() > 0.99).float().mean())
         print(sat)
         return sat

@@ -373,7 +373,16 @@ def test_use():
     dbrie.use(data="brie(!a, b)")
     rval = dbrie(2, 10)
     assert rval.value == 236
+    assert rval.data.map() == [{"a": 4}, {"a": 100}]
+
+
+def test_full_tap():
+    dbrie = double_brie.clone(return_object=True)
+    dbrie.full_tap(data="brie(!a, b)")
+    rval = dbrie(2, 10)
+    assert rval.value == 236
     assert rval.data.map("a") == [4, 100]
+    assert rval.data.map("b") == [9, 121]
 
 
 def test_tweak():

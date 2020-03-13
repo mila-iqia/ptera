@@ -238,10 +238,9 @@ class ImmediateAccumulator(BaseAccumulator):
 
         for cap in rval.values():
             element = cap.element
-            if element.focus:
-                continue
-            if not self.check_value(element.value, cap.value):
-                return None
+            if element.value is not ABSENT:
+                if not self.check_value(element.value, cap.value):
+                    return None
 
         rval = {k: cap.snapshot() for k, cap in rval.items()}
         return rval
