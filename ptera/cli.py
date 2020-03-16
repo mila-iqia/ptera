@@ -110,6 +110,10 @@ class ArgsExpander:
             elif key == "#command":
                 results.insert(0, value)
 
+            elif key.startswith("-"):
+                results.append(key)
+                results.append(str(value))
+
             elif isinstance(value, bool):
                 if value:
                     results.append(f"--{key}")
@@ -199,7 +203,8 @@ class Configurator:
             else:
                 (typ,) = typ
 
-            aliases = []
+            default_opt = f"--{optname}"
+            aliases = [default_opt]
             optdoc = []
             for entry in docs:
                 new_entry = []
@@ -210,6 +215,8 @@ class Configurator:
                         command = command.lower()
                         if command in ["alias", "aliases"]:
                             aliases.extend(re.split(r"[ ,;]+", arg))
+                        elif command in ["option", "options"]:
+                            aliases = re.split(r"[ ,;]+", arg)
                     else:
                         new_entry.append(line)
                 optdoc.append("\n".join(new_entry))
@@ -217,18 +224,18 @@ class Configurator:
             if typ is bool:
                 group = self.argparser.add_mutually_exclusive_group()
                 group.add_argument(
-                    f"--{optname}",
                     *aliases,
                     dest=name,
                     action="store_true",
                     help="; ".join(optdoc),
                 )
-                group.add_argument(
-                    f"--no-{optname}",
-                    dest=name,
-                    action="store_false",
-                    help=f"Set --{optname} to False",
-                )
+                if aliases[0] == default_opt:
+                    group.add_argument(
+                        f"--no-{optname}",
+                        dest=name,
+                        action="store_false",
+                        help=f"Set --{optname} to False",
+                    )
             else:
                 _metavars = {
                     int: "NUM",
@@ -238,7 +245,6 @@ class Configurator:
                 ttyp = typ if isinstance(typ, type) else type(typ)
                 mv = _metavars.get(ttyp, "VALUE")
                 self.argparser.add_argument(
-                    f"--{optname}",
                     *aliases,
                     dest=name,
                     type=self.resolver(typ or None),
