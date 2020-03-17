@@ -336,3 +336,53 @@ def test_config_subcommands(tmpdir):
         )
         == "wave"
     )
+
+
+@ptera
+def groot():
+    # Name to groot
+    # [special: positional]
+    name: tag.Argument
+    return f"Grootings, {name}!"
+
+
+@ptera
+def translate():
+    # Translation vector
+    # [special: positional=2]
+    vector: tag.Argument & int
+    return vector
+
+
+@ptera
+def reverso():
+    # Things to reverse
+    # [special: positional=*]
+    things: tag.Argument
+    things.reverse()
+    return things
+
+
+def test_positional():
+    assert auto_cli(groot, (), argv=["Marcel"]) == "Grootings, Marcel!"
+    assert auto_cli(translate, (), argv=["4", "7"]) == [4, 7]
+
+    with pytest.raises(SystemExit):
+        auto_cli(translate, (), argv=["4"])
+
+    with pytest.raises(SystemExit):
+        auto_cli(translate, (), argv=["4", "7", "8"])
+
+    assert auto_cli(reverso, (), argv=list("goomba")) == list("abmoog")
+
+
+@ptera
+def badbadbad():
+    # [special: bad]
+    ohno: tag.Argument
+    return ohno
+
+
+def test_bad_special():
+    with pytest.raises(Exception):
+        auto_cli(badbadbad, (), argv=["hello"])

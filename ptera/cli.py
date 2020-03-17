@@ -205,6 +205,7 @@ class Configurator:
 
             default_opt = f"--{optname}"
             aliases = [default_opt]
+            nargs = False
             optdoc = []
             for entry in docs:
                 new_entry = []
@@ -217,6 +218,20 @@ class Configurator:
                             aliases.extend(re.split(r"[ ,;]+", arg))
                         elif command in ["option", "options"]:
                             aliases = re.split(r"[ ,;]+", arg)
+                        elif command in ["special"]:
+                            for flag in re.split(r"[ ,;]+", arg):
+                                if flag == "positional":
+                                    nargs = None
+                                elif flag.startswith("positional="):
+                                    nargs = flag.split("=")[1]
+                                    try:
+                                        nargs = int(nargs)
+                                    except ValueError:
+                                        pass
+                                else:
+                                    raise Exception(
+                                        f"Unknown special flag: {flag}"
+                                    )
                     else:
                         new_entry.append(line)
                 optdoc.append("\n".join(new_entry))
@@ -237,21 +252,31 @@ class Configurator:
                         help=f"Set --{optname} to False",
                     )
             else:
-                _metavars = {
-                    int: "NUM",
-                    float: "NUM",
-                    argparse.FileType: "FILE",
-                }
-                ttyp = typ if isinstance(typ, type) else type(typ)
-                mv = _metavars.get(ttyp, "VALUE")
-                self.argparser.add_argument(
-                    *aliases,
-                    dest=name,
-                    type=self.resolver(typ or None),
-                    action="store",
-                    metavar=mv,
-                    help="; ".join(optdoc),
-                )
+                if nargs is not False:
+                    self.argparser.add_argument(
+                        name,
+                        type=self.resolver(typ or None),
+                        action="store",
+                        nargs=nargs,
+                        metavar=name.upper(),
+                        help="; ".join(optdoc),
+                    )
+                else:
+                    _metavars = {
+                        int: "NUM",
+                        float: "NUM",
+                        argparse.FileType: "FILE",
+                    }
+                    ttyp = typ if isinstance(typ, type) else type(typ)
+                    mv = _metavars.get(ttyp, "VALUE")
+                    self.argparser.add_argument(
+                        *aliases,
+                        dest=name,
+                        type=self.resolver(typ or None),
+                        action="store",
+                        metavar=mv,
+                        help="; ".join(optdoc),
+                    )
 
     def resolver(self, typ):
         def resolve(arg):
