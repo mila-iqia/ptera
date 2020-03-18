@@ -35,7 +35,7 @@ combine_as_imports = true
 exclude = ["__init__.py", "test_tools.py"]
 
 [tool.coverage.run]
-omit = ["ptera/torch.py"]
+omit = []
 
 [build-system]
 requires = ["poetry>=0.12"]
