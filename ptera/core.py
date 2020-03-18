@@ -1,4 +1,5 @@
 import functools
+import time
 from collections import deque
 from contextvars import ContextVar
 from copy import copy
@@ -836,6 +837,7 @@ class PteraFunction(Selfless):
         self.ensure_state()
         with self.overlay as callres:
             with proceed(self):
+                interact("#time", None, None, self, time.time())
                 if self.attachments:
                     for k, v in self.attachments.items():
                         interact(f"#{k}", None, None, self, v)
