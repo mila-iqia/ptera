@@ -383,7 +383,7 @@ def override(value, priority=1):
         return Override(value, priority=priority)
 
 
-def default(value, priority=-1):
+def default(value, priority=-10):
     return override(value, priority)
 
 
