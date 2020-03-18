@@ -1,5 +1,4 @@
 import functools
-import inspect
 from collections import deque
 from contextvars import ContextVar
 from copy import copy
@@ -133,7 +132,10 @@ class BaseAccumulator:
         self.status = ACTIVE
         self.template = template
         self.focus = focus
-        if self.parent is not None:
+        if self.parent is None:
+            self.names = set(pattern.all_captures())
+        else:
+            self.names = self.parent.names
             self.parent.children.append(self)
 
     def fork(self, focus=True, pattern=None):
@@ -216,7 +218,7 @@ class TotalAccumulator(BaseAccumulator):
     def run(self):
         args = self.build()
         for fn in self.rules:
-            if set(args) != set(get_names(fn)):
+            if set(args) != self.names:
                 return ABSENT
             else:
                 fn(**args)
@@ -284,16 +286,6 @@ accumulator_classes = {
     "immediate": SetterAccumulator,
     "value": GetterAccumulator,
 }
-
-
-def get_names(fn):
-    if not hasattr(fn, "_ptera_argspec"):
-        spec = inspect.getfullargspec(fn)
-        if spec.args and spec.args[0] == "self":
-            fn._ptera_argspec = spec.args[1:]
-        else:
-            fn._ptera_argspec = spec.args
-    return fn._ptera_argspec
 
 
 def dict_to_collection(*rulesets):
@@ -534,7 +526,6 @@ class Collector:
             def listener(**kwargs):
                 self.data.append(kwargs)
 
-        listener._ptera_argspec = set(self.pattern.all_captures())
         self._listener = listener
 
     def __iter__(self):
@@ -684,7 +675,6 @@ class Overlay:
                     call_with_captures(fn, kwargs, full=full), priority=priority
                 )
 
-            newfn._ptera_argspec = get_names(fn)
             return newfn
 
         values = {k: _wrapfn(v, full=full) for k, v in values.items()}
