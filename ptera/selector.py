@@ -611,10 +611,12 @@ def parse(x):
     return evaluate(parser(x))
 
 
-def _find_eval_env(s, fr):
+def _find_eval_env(s, fr, skip):
     while fr is not None:
         glb = fr.f_globals
-        if not glb["__name__"].startswith("ptera"):
+        name = glb["__name__"]
+        print(name, skip, all(not name.startswith(pfx) for pfx in skip))
+        if all(not name.startswith(pfx) for pfx in skip):
             return glb
         fr = fr.f_back
     raise AssertionError("Unreachable outside ptera.")  # pragma: no cover
@@ -660,11 +662,11 @@ def _select(pattern, context="root"):
     return pattern
 
 
-def select(s, env=None):
+def select(s, env=None, skip_modules=[]):
     if not isinstance(s, str):
         return s
     if env is None:
         fr = sys._getframe(1)
-        env = _find_eval_env(s, fr)
+        env = _find_eval_env(s, fr, skip=["ptera", *skip_modules])
     pattern = _select(s)
     return _resolve(pattern, env, count())

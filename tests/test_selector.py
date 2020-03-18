@@ -265,6 +265,9 @@ def test_select_errors():
     with pytest.raises(Exception):
         sel.select("x:blahblahblah")
 
+    with pytest.raises(Exception):
+        sel.select("pie:tag.Fruit", skip_modules=["tests"])
+
 
 @one_test_per_assert
 def test_validity():
