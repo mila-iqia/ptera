@@ -11,6 +11,7 @@ def test_category():
 
 @one_test_per_assert
 def test_category_set():
+    assert tag.Foo & tag.Baz == tag.Baz & tag.Foo
     assert (tag.Foo & tag.Baz & tag.Bar & tag.Baz).members == {
         tag.Foo,
         tag.Bar,

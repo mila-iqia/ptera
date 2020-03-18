@@ -557,3 +557,16 @@ def test_overlay():
 
     assert results.hats == [100, 121]
     assert results.shats == [(2, 10), (2, 11)]
+
+
+@tooled
+def brooms(xs):
+    rval = 0
+    for i, x in enumerate(xs):
+        rval = rval + (i + 1) * x
+    return rval
+
+
+def test_for_loop():
+    assert brooms([1, 2, 3]) == 14
+    assert brooms.tweaking({"i": 0})([1, 2, 3]) == 6
