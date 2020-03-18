@@ -612,47 +612,13 @@ def parse(x):
     return evaluate(parser(x))
 
 
-_string_cache = {}
-
-
-class _StringFinder(ast.NodeVisitor):
-    def __init__(self):
-        self.strings = {}
-
-    def visit_Str(self, node):  # pragma: no cover
-        # Python <3.8
-        self.strings[node.s] = node.lineno
-
-    def visit_Constant(self, node):  # pragma: no cover
-        # Python >=3.8
-        self.strings[node.value] = node.lineno
-
-
-def _find_string(s, filename):
-    if filename not in _string_cache:
-        with open(filename) as module:
-            tree = ast.parse(module.read(), filename)
-            finder = _StringFinder()
-            finder.visit(tree)
-            _string_cache[filename] = finder.strings
-    return _string_cache[filename].get(s, None)
-
-
 def _find_eval_env(s, fr):
-    ev = None
     while fr is not None:
-        filename = fr.f_code.co_filename
-        if "/_pytest/" in filename or "/pluggy/" in filename:
-            fr = fr.f_back
-            continue
-        lineno = _find_string(s, filename)
-        if lineno is not None:
-            if ev is not None:
-                if ev[0] != filename:  # pragma: no cover
-                    raise Exception(f"Ambiguous env for selector '{s}'")
-            ev = (filename, fr.f_globals)
+        glb = fr.f_globals
+        if not glb["__name__"].startswith("ptera"):
+            return glb
         fr = fr.f_back
-    return ev and ev[1]
+    raise AssertionError("Unreachable outside ptera.")  # pragma: no cover
 
 
 @dataclass(frozen=True)
@@ -701,7 +667,5 @@ def to_pattern(s, env=None):
     if env is None:
         fr = sys._getframe(1)
         env = _find_eval_env(s, fr)
-    if env is None:
-        raise Exception(f"Could not find env for selector '{s}'")
     pattern = _to_pattern(s)
     return _resolve(pattern, env, count())

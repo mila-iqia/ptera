@@ -267,9 +267,6 @@ def test_to_pattern_errors():
     with pytest.raises(Exception):
         sel.to_pattern("x:blahblahblah")
 
-    with pytest.raises(Exception):
-        sel.to_pattern("x" + "yz")
-
 
 @one_test_per_assert
 def test_validity():
