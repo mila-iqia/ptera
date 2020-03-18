@@ -1,10 +1,10 @@
-from ptera import ptera
+from ptera import tooled
 from ptera.tools import between, every, gt, gte, lt, lte, throttle
 
 from .common import one_test_per_assert
 
 
-@ptera
+@tooled
 def boucle_d_or(seq):
     accum = 0
     for i in seq:

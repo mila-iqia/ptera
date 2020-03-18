@@ -20,7 +20,7 @@ Take the following function, which estimates whether a point `c` in the complex 
 ```python
 MAX_ITER = 100
 
-@ptera
+@tooled
 def mandelbrot(real, imag):
     c = real + imag * 1j
     z = 0
@@ -71,7 +71,7 @@ print(mandelbrot_long(0.2501, 0))   # False
 
 As you can see, both versions of the function use their own version of `MAX_ITER`, without interference.
 
-Note however that Ptera will add significant overhead to a function like `mandelbrot` because all of its operations are cheap compared to the cost of tracking everything with Ptera. Only the body of functions decorated with `@ptera` will be slower, however, and if the bulk of the time of the program is spent in non-decorated functions, the overhead should be acceptable.
+Note however that Ptera will add significant overhead to a function like `mandelbrot` because all of its operations are cheap compared to the cost of tracking everything with Ptera. Only the body of functions decorated with `@tooled` will be slower, however, and if the bulk of the time of the program is spent in non-decorated functions, the overhead should be acceptable.
 
 
 ## Example 2
@@ -126,7 +126,7 @@ class MLP(torch.nn.Module):
         self.linear3 = torch.nn.Linear(100, 10)
 
     # Decorate this function
-    @ptera
+    @tooled
     def forward(self, inputs):
         h1 = torch.tanh(self.linear1(inputs))
         h2 = torch.tanh(self.linear2(h1))
@@ -134,7 +134,7 @@ class MLP(torch.nn.Module):
         return torch.log_softmax(h3, dim=1)
 
 # Decorate this function too
-@ptera
+@tooled
 def step(model, optimizer, inputs, targets):
     optimizer.zero_grad()
     output = model(Variable(inputs).float())
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     print(results.check_saturation)
 ```
 
-The interface is a bit different from the Mandelbrot example, because in this example the function we are calling, `fit`, is not decorated with `@ptera`. This is fine, however, because the overlay (which also has methods like `use`, `tweak`, etc.) will apply to everything that's going on inside the `with` block, and the data accumulated by the various listeners and plugins will be put in the `results` data structure.
+The interface is a bit different from the Mandelbrot example, because in this example the function we are calling, `fit`, is not decorated with `@tooled`. This is fine, however, because the overlay (which also has methods like `use`, `tweak`, etc.) will apply to everything that's going on inside the `with` block, and the data accumulated by the various listeners and plugins will be put in the `results` data structure.
 
 
 ## Overlays
@@ -249,7 +249,7 @@ from ptera import ptera, tag
 Animal = tag.Animal
 Thing = tag.Thing
 
-@ptera
+@tooled
 def art(a, b):               # art > a ; art > b ; art(!a, b) ; art(a, !b)
 
     a1: Animal = bee(a)      # a1 ; art > a1 ; art(!a1) ; art > $x
@@ -266,7 +266,7 @@ def art(a, b):               # art > a ; art > b ; art(!a, b) ; art(a, !b)
                              # art > $x
 
 
-@ptera
+@tooled
 def bee(c):
     c1 = c + 1               # bee > c1 ; art >> c1 ; art(a2) > bee > c1
                              # bee > c1 as xyz
@@ -274,7 +274,7 @@ def bee(c):
     return c1                # bee > #value ; bee(c) as bee_value
 
 
-@ptera
+@tooled
 def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
                              # art(bee(c)) > cap > d
     return d * d

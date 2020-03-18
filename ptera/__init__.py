@@ -32,4 +32,4 @@ class PteraDecorator:
         return fn
 
 
-ptera = PteraDecorator({})
+tooled = PteraDecorator({})

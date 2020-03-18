@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import BaseOverlay, Overlay, Recurrence, ptera, tag, to_pattern
+from ptera import BaseOverlay, Overlay, Recurrence, tag, to_pattern, tooled
 from ptera.core import Capture, Tap
 from ptera.selector import Element, parse
 from ptera.tools import every
@@ -8,7 +8,7 @@ from ptera.tools import every
 from .common import one_test_per_assert
 
 
-@ptera
+@tooled
 def brie(x, y) -> tag.Fromage:
     """Brie is a sort of cheese."""
     a: tag.Bouffe = x * x
@@ -16,12 +16,12 @@ def brie(x, y) -> tag.Fromage:
     return a + b
 
 
-@ptera
+@tooled
 def extra(cheese):
     return cheese + 1
 
 
-@ptera
+@tooled
 def double_brie(x1, y1):
     a = brie[[1]](x1, x1 + 1)
     b = brie[[2]](y1, y1 + 1)
@@ -130,19 +130,19 @@ def test_patterns():
     assert _dbrie("double_brie(#value=1234) > brie > x") == []
 
 
-@ptera
+@tooled
 def snapple(x):
     a = cabanana(x + 1)
     b = cabanana(x + 2)
     return a + b
 
 
-@ptera
+@tooled
 def cabanana(y):
     return peacherry(y + 1)
 
 
-@ptera
+@tooled
 def peacherry(z):
     return z + 1
 
@@ -154,7 +154,7 @@ def test_deep():
     ]
 
 
-@ptera
+@tooled
 def fib(n):
     f = Recurrence(2)
     f[0] = 1
@@ -211,7 +211,7 @@ def test_attach():
     assert hello.map("hello") == [12]
 
 
-@ptera
+@tooled
 def superbrie(n):
     result = 0
     k = 0
@@ -275,7 +275,7 @@ def test_nested_overlay():
     assert storey.results == expectedy
 
 
-@ptera
+@tooled
 def mystery(hat):
     surprise: tag.MyStErY
     return surprise * hat
@@ -390,13 +390,13 @@ def test_collect():
     assert results.sumx == 12
 
 
-@ptera
+@tooled
 def square(x):
     rval = x * x
     return rval
 
 
-@ptera
+@tooled
 def sumsquares(x, y):
     xx = square(x)
     yy = square(y)
@@ -436,7 +436,7 @@ def test_readme():
     assert result == 9
 
 
-@ptera.defaults(x=10, y=20)
+@tooled.defaults(x=10, y=20)
 def vanilla(x, y):
     return x * y
 
@@ -473,13 +473,13 @@ def test_capture():
         cap.value
 
 
-@ptera
+@tooled
 def cake():
     flavour: tag.Flavour
     return f"This is a {flavour} cake"
 
 
-@ptera
+@tooled
 def fruitcake():
     my_cake = cake.new(flavour="fruit").clone(return_object=True)
 
@@ -504,7 +504,7 @@ class Matou:
     def __init__(self, species):
         self.species = species
 
-    @ptera
+    @tooled
     def meow(self, repeat=1):
         ms = "m"
         es = "e"

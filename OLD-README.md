@@ -11,7 +11,7 @@ Ptera is a bit like a tracer, a bit like aspect-oriented programming, a bit like
 **Features!**
 
 * **"Selfless objects"** are objects that are defined as functions. The fields of these objects are simply the variables used in the function.
-* **Execution trace queries** lets you address any variable anywhere in functions decorated with `@ptera`, at arbitrary depths in the call tree, and either collect the values of these variables, or set these values.
+* **Execution trace queries** lets you address any variable anywhere in functions decorated with `@tooled`, at arbitrary depths in the call tree, and either collect the values of these variables, or set these values.
 * **Automatic CLI** will create a command-line interface from any properly annotated variable anywhere in the code.
 
 Although they can be used independently, selfless objects and trace queries interact together in Ptera in order to form a new programming paradigm.
@@ -30,7 +30,7 @@ Ptera can also be combined with other libraries to make certain tasks very easy:
 A selfless object is defined as a simple function. Any function can be a selfless object, but of particular interest are those that contain uninitialized variables. For example:
 
 ```python
-@ptera.defaults(debug=False)
+@tooled.defaults(debug=False)
 def bagel(x, y):
     z: int
     if debug:
@@ -83,12 +83,12 @@ Trace queries provide the same power, but over a whole call tree. They also allo
 Suppose you have this program:
 
 ```python
-@ptera
+@tooled
 def square(x):
     rval = x * x
     return rval
 
-@ptera
+@tooled
 def sumsquares(x, y):
     xx = square(x)
     yy = square(y)
@@ -204,7 +204,7 @@ It would be nice to be able to configure the number of iterations instead of usi
 ```python
 from ptera import auto_cli, tag, default, ptera
 
-@ptera
+@tooled
 def main():
     # Number of iterations
     n: tag.CliArgument = default(1000)
@@ -221,7 +221,7 @@ Then you can run it like this, for example:
 $ python script.py --n 15
 ```
 
-* Ptera will look for any variable annotated with the specified tag within `@ptera` functions that are accessible from `main`.
+* Ptera will look for any variable annotated with the specified tag within `@tooled` functions that are accessible from `main`.
   * There is no need to pass an options object around. If you need to add an argument to any function in any file, you can just plop it in there and ptera should find it and allow you to set it on the command line.
   * You can declare multiple CLI arguments in multiple places with the same name. They will all be set to the same value.
 * The comment right above the declaration of the variable, if there is one, is used as documentation.
@@ -247,7 +247,7 @@ from ptera import ptera, tag
 Animal = tag.Animal
 Thing = tag.Thing
 
-@ptera
+@tooled
 def art(a, b):               # art > a ; art > b ; art(!a, b) ; art(a, !b)
 
     a1: Animal = bee(a)      # a1 ; art > a1 ; art(!a1) ; art > $x
@@ -264,7 +264,7 @@ def art(a, b):               # art > a ; art > b ; art(!a, b) ; art(a, !b)
                              # art > $x
 
 
-@ptera
+@tooled
 def bee(c):
     c1 = c + 1               # bee > c1 ; art >> c1 ; art(a2) > bee > c1
                              # bee > c1 as xyz
@@ -272,7 +272,7 @@ def bee(c):
     return c1                # bee > #value ; bee(c) as bee_value
 
 
-@ptera
+@tooled
 def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
                              # art(bee(c)) > cap > d
     return d * d
