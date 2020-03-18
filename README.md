@@ -18,6 +18,8 @@ Ptera is a set of powerful tools to query or tweak the values of variables from 
 Take the following function, which estimates whether a point `c` in the complex pane belongs to the Mandelbrot set or not (repeat this for a range of real/imag values to draw a pretty monochrome fractal).
 
 ```python
+from ptera import tooled
+
 MAX_ITER = 100
 
 @tooled
@@ -115,7 +117,7 @@ You want to know whether the activations on the layer `h2` tend to saturate, mea
 Here is how to do this with ptera. Comments indicate all the changes you need to make:
 
 ```python
-from ptera import ptera, Overlay
+from ptera import tooled, Overlay
 from ptera.tools import every
 
 class MLP(torch.nn.Module):
