@@ -1,6 +1,6 @@
 import pytest
 
-from ptera import BaseOverlay, Overlay, Recurrence, tag, to_pattern, tooled
+from ptera import BaseOverlay, Overlay, Recurrence, select, tag, tooled
 from ptera.core import Capture, Tap
 from ptera.selector import Element, parse
 from ptera.tools import every
@@ -39,7 +39,7 @@ def test_normal_call():
 class GrabAll:
     def __init__(self, pattern):
         self.results = []
-        pattern = to_pattern(pattern)
+        pattern = select(pattern)
 
         def listener(**kwargs):
             self.results.append(

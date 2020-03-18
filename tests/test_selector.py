@@ -239,9 +239,9 @@ def apple():
 
 
 @one_test_per_assert
-def test_to_pattern():
+def test_select():
 
-    assert sel.to_pattern("apple > banana:tag.Sublime") == sel.Call(
+    assert sel.select("apple > banana:tag.Sublime") == sel.Call(
         element=sel.Element(name=apple, capture="/0"),
         captures=(
             sel.Element(
@@ -253,19 +253,17 @@ def test_to_pattern():
         ),
     )
 
-    assert sel.to_pattern("apple") == sel.to_pattern(">> *(!apple)")
-    assert sel.to_pattern("pie:tag.Fruit") == sel.to_pattern(
-        ">> *(!pie:tag.Fruit)"
-    )
+    assert sel.select("apple") == sel.select(">> *(!apple)")
+    assert sel.select("pie:tag.Fruit") == sel.select(">> *(!pie:tag.Fruit)")
 
 
-def test_to_pattern_errors():
+def test_select_errors():
     with pytest.raises(TypeError):
         # Variable category cannot be a type
-        sel.to_pattern("x:int")
+        sel.select("x:int")
 
     with pytest.raises(Exception):
-        sel.to_pattern("x:blahblahblah")
+        sel.select("x:blahblahblah")
 
 
 @one_test_per_assert

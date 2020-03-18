@@ -3,7 +3,7 @@ from collections import deque
 from contextvars import ContextVar
 from copy import copy
 
-from .selector import Element, MatchFunction, to_pattern
+from .selector import Element, MatchFunction, select
 from .selfless import Override, Selfless, choose, override
 from .tags import match_tag
 from .utils import (
@@ -292,7 +292,7 @@ def dict_to_collection(*rulesets):
     tmp = {}
     for rules in rulesets:
         for pattern, triggers in rules.items():
-            pattern = to_pattern(pattern)
+            pattern = select(pattern)
             for name, entries in triggers.items():
                 key = (name, pattern)
                 if not isinstance(entries, (tuple, list)):
@@ -588,7 +588,7 @@ class Tap:
     hasoutput = True
 
     def __init__(self, selector, mapper=None, immediate=False):
-        self.selector = to_pattern(selector)
+        self.selector = select(selector)
         self.mapper = mapper
         self.immediate = immediate
 
@@ -661,7 +661,7 @@ class Overlay:
 
     def tweak(self, values, priority=2):
         values = {
-            to_pattern(k): lambda __v=v, **_: override(__v, priority)
+            select(k): lambda __v=v, **_: override(__v, priority)
             for k, v in values.items()
         }
         self.plugins[f"#{len(self.plugins)}"] = StateOverlay(values)

@@ -1,7 +1,6 @@
 """Specifications for call paths."""
 
 
-import ast
 import builtins
 import re
 import sys
@@ -648,7 +647,7 @@ def _resolve(pattern, env, cnt):
         )
 
 
-def _to_pattern(pattern, context="root"):
+def _select(pattern, context="root"):
     if isinstance(pattern, str):
         pattern = parse(pattern)
     if isinstance(pattern, Element):
@@ -661,11 +660,11 @@ def _to_pattern(pattern, context="root"):
     return pattern
 
 
-def to_pattern(s, env=None):
+def select(s, env=None):
     if not isinstance(s, str):
         return s
     if env is None:
         fr = sys._getframe(1)
         env = _find_eval_env(s, fr)
-    pattern = _to_pattern(s)
+    pattern = _select(s)
     return _resolve(pattern, env, count())
