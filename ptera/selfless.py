@@ -55,6 +55,8 @@ class ExternalVariableCollector(NodeVisitor):
             self.assigned.add(node.id)
 
     def visit_arg(self, node):
+        if node.lineno in self.comments:
+            self.vardoc[node.arg] = self.comments[node.lineno]
         self.assigned.add(node.arg)
 
 
@@ -67,6 +69,7 @@ class PteraTransformer(NodeTransformer):
         self.assigned = evc.assigned
         self.external = evc.used - evc.assigned
         self.annotated = {}
+        self.linenos = {}
         self.defaults = {}
         self.result = self.visit_FunctionDef(tree, root=True)
 
@@ -79,6 +82,7 @@ class PteraTransformer(NodeTransformer):
     def make_interaction(self, target, ann, value, orig=None):
         if ann and isinstance(target, ast.Name):
             self.annotated[target.id] = ann
+            self.linenos[target.id] = target.lineno
         ann_arg = ann if ann else ast.Constant(value=None)
         value_arg = self._absent() if value is None else value
         if isinstance(target, ast.Name):
@@ -134,17 +138,25 @@ class PteraTransformer(NodeTransformer):
 
         elif isinstance(target, ast.arg):
             return self.make_interaction(
-                target=ast.Name(id=target.arg, ctx=ast.Store()),
+                target=ast.copy_location(
+                    ast.Name(id=target.arg, ctx=ast.Store()), target
+                ),
                 ann=target.annotation,
-                value=ast.Name(id=target.arg, ctx=ast.Load()),
+                value=ast.copy_location(
+                    ast.Name(id=target.arg, ctx=ast.Load()), target
+                ),
                 orig=target,
             )
 
         elif isinstance(target, ast.Name):
             return self.make_interaction(
-                target=ast.Name(id=target.id, ctx=ast.Store()),
+                target=ast.copy_location(
+                    ast.Name(id=target.id, ctx=ast.Store()), target
+                ),
                 ann=None,
-                value=ast.Name(id=target.id, ctx=ast.Load()),
+                value=ast.copy_location(
+                    ast.Name(id=target.id, ctx=ast.Load()), target
+                ),
                 orig=target,
             )
 
@@ -356,6 +368,13 @@ def transform(fn, interact):
                 )
                 if k in transformer.annotated
                 else ABSENT
+            ),
+            "location": (
+                filename,
+                fn,
+                transformer.linenos[k] + lineno - 1
+                if k in transformer.linenos
+                else None,
             ),
         }
         for k in all_vars

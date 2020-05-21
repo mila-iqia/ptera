@@ -13,7 +13,12 @@ from .common import one_test_per_assert
 
 
 @selfless
-def iceberg(x, y):
+def iceberg(
+    # The parameter x
+    x: float,
+    # The parameter y
+    y,
+):
     # The great
     # zee
     z: int
@@ -149,9 +154,24 @@ def test_override_arguments():
 
 
 def test_vardoc_and_ann():
-    assert type(iceberg.state).__info__["z"] == {
+    info = dict(type(iceberg.state).__info__["z"])
+    filename, fn, lineno = info.pop("location")
+    assert fn.__name__ == "iceberg"
+    assert lineno == 24
+    assert info == {
         "annotation": int,
         "doc": "The great\nzee",
+    }
+
+
+def test_vardoc_and_ann_parameter():
+    info = dict(type(iceberg.state).__info__["x"])
+    filename, fn, lineno = info.pop("location")
+    assert fn.__name__ == "iceberg"
+    assert lineno == 18
+    assert info == {
+        "annotation": float,
+        "doc": "The parameter x",
     }
 
 
