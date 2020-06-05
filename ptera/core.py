@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from copy import copy
 
 from .selector import Element, MatchFunction, select
-from .selfless import Override, Selfless, choose, override
+from .selfless import Override, Selfless, choose, name_error, override
 from .tags import match_tag
 from .utils import (
     ABSENT,
@@ -443,7 +443,7 @@ def interact(sym, key, category, __self__, value):
         if sym not in fr.accumulators:
             if from_state is ABSENT and not isinstance(value, Override):
                 if value is ABSENT:
-                    raise NameError(f"Variable {sym} of {__self__} is not set.")
+                    raise name_error(sym, __self__)
                 return value
             elif value is ABSENT and not isinstance(from_state, Override):
                 return from_state

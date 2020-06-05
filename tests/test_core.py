@@ -292,8 +292,13 @@ def test_provide_var():
 
 
 def test_missing_var():
-    with pytest.raises(NameError):
+    try:
         mystery(3)
+    except NameError as err:
+        assert err.varname == "surprise"
+        assert err.function == mystery
+        info = err.info()
+        assert info["annotation"] == tag.MyStErY
 
     with pytest.raises(NameError):
         mystery.tweaking({"mystery(hat=10) > surprise": 0})(3)

@@ -5,10 +5,36 @@ import tokenize
 from ast import NodeTransformer, NodeVisitor
 from copy import copy, deepcopy
 from textwrap import dedent
+from types import TracebackType
 
 from .utils import ABSENT, keyword_decorator
 
 idx = 0
+
+
+class PteraNameError(NameError):
+    def __init__(self, varname, function):
+        msg = (
+            f"No value could be found for variable '{varname}'"
+            f" in function '{function}'."
+        )
+        super().__init__(msg)
+        self.varname = varname
+        self.function = function
+
+    def info(self):
+        return self.function.state.__info__[self.varname]
+
+
+def name_error(varname, function, pop_frames=1):
+    fr = inspect.currentframe()
+    for i in range(pop_frames + 1):
+        if fr:
+            fr = fr.f_back
+    tb = TracebackType(
+        tb_next=None, tb_frame=fr, tb_lasti=fr.f_lasti, tb_lineno=fr.f_lineno
+    )
+    return PteraNameError(varname, function).with_traceback(tb)
 
 
 def readline_mock(src):
@@ -513,7 +539,7 @@ def selfless_interact(sym, key, category, __self__, value):
     from_state = __self__.get(sym)
     rval = choose([value, from_state], name=sym)
     if rval is ABSENT:
-        raise NameError(f"Variable {sym} of {__self__} is not set.")
+        raise name_error(sym, __self__)
     assert not isinstance(rval, Override)
     return rval
 
