@@ -200,7 +200,6 @@ def test_nested_function():
     assert kangaroo(3) == 25
 
 
-@pytest.mark.xfail(reason="Attribute assignment is not yet supported")
 def test_attribute_assignment():
     class X:
         pass
@@ -211,6 +210,15 @@ def test_attribute_assignment():
         return x.y
 
     assert obelisk(X()) == 2
+
+
+def test_nested_key_assignment():
+    @selfless
+    def limbo(x):
+        x[0][1] = 2
+        return x
+
+    assert limbo([[0, 1], 2]) == [[0, 2], 2]
 
 
 def test_empty_return():

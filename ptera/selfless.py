@@ -93,7 +93,9 @@ class PteraTransformer(NodeTransformer):
                 self.fself(),
                 value_arg,
             ]
-        elif isinstance(target, ast.Subscript):
+        elif isinstance(target, ast.Subscript) and isinstance(
+            target.value, ast.Name
+        ):
             value_args = [
                 ast.Constant(value=target.value.id),
                 deepcopy(target.slice.value),
@@ -102,12 +104,16 @@ class PteraTransformer(NodeTransformer):
                 value_arg,
             ]
         else:
-            raise SyntaxError(target)
-        new_value = ast.Call(
-            func=ast.Name("__ptera_interact", ctx=ast.Load()),
-            args=value_args,
-            keywords=[],
-        )
+            value_args = None
+
+        if value_args is None:
+            new_value = value
+        else:
+            new_value = ast.Call(
+                func=ast.Name("__ptera_interact", ctx=ast.Load()),
+                args=value_args,
+                keywords=[],
+            )
         return [
             ast.Assign(
                 targets=[target],
