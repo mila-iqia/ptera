@@ -211,3 +211,11 @@ def test_attribute_assignment():
         return x.y
 
     assert obelisk(X()) == 2
+
+
+def test_empty_return():
+    @selfless
+    def foo():
+        return
+
+    assert foo() == None

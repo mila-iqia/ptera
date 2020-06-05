@@ -250,7 +250,7 @@ class PteraTransformer(NodeTransformer):
                 ast.Constant(value=None),
                 ast.Constant(value=None),
                 self.fself(),
-                node.value,
+                node.value or ast.Constant(value=None),
             ],
             keywords=[],
         )
