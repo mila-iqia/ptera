@@ -226,4 +226,4 @@ def test_empty_return():
     def foo():
         return
 
-    assert foo() == None
+    assert foo() is None
