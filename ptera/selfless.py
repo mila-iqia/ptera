@@ -14,13 +14,22 @@ idx = 0
 
 class PteraNameError(NameError):
     def __init__(self, varname, function):
-        msg = (
-            f"No value could be found for variable '{varname}'"
-            f" in function '{function}'."
-        )
-        super().__init__(msg)
         self.varname = varname
         self.function = function
+        prov = self.info().get("provenance", None)
+        if prov == "external":
+            msg = (
+                f"Global or nonlocal variable '{varname}' used"
+                f" in function '{function}' is not set."
+                " Note that ptera tries to fetch its value before"
+                " executing the function."
+            )
+        else:
+            msg = (
+                f"Variable '{varname}' in function '{function}' is not set"
+                " and was not given a value in the dynamic environment."
+            )
+        super().__init__(msg)
 
     def info(self):
         return self.function.state.__info__[self.varname]

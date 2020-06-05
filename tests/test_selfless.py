@@ -45,6 +45,11 @@ def helicopter(x, y):
     return min(x, y)
 
 
+@selfless
+def wishful_thinking():
+    return unicorn
+
+
 @one_test_per_assert
 def test_selfless():
     assert iceberg.new(z=5)(2, 3) == 10
@@ -68,8 +73,10 @@ def test_selfless():
 def test_name_error():
     with pytest.raises(NameError):
         iceberg(2, 3)
-    with pytest.raises(Exception):
+    with pytest.raises(NameError):
         chocolat()
+    with pytest.raises(NameError):
+        wishful_thinking()
 
 
 @pytest.mark.xfail(
