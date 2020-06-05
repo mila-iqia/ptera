@@ -446,7 +446,7 @@ def interact(sym, key, category, __self__, value):
             elif value is ABSENT and not isinstance(from_state, Override):
                 return from_state
             else:
-                return choose([value, from_state])
+                return choose([value, from_state], name=sym)
 
         if sym in fr.getters:
             fr_value = fr.get(sym, key, category)
@@ -465,7 +465,7 @@ def interact(sym, key, category, __self__, value):
         ):
             pass
         else:
-            value = choose([value, fr_value, from_state])
+            value = choose([value, fr_value, from_state], name=sym)
         if value is ABSENT:
             raise NameError(f"Variable {sym} of {__self__} is not set.")
 

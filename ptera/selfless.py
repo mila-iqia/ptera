@@ -478,7 +478,7 @@ class ConflictError(Exception):
     pass
 
 
-def choose(opts):
+def choose(opts, name):
     real_opts = [opt for opt in opts if opt is not ABSENT]
     if not real_opts:
         return ABSENT
@@ -494,13 +494,16 @@ def choose(opts):
         ]
         with_prio.sort(key=lambda x: x[1])
         if with_prio[1][1] == with_prio[0][1]:
-            raise ConflictError("Multiple values with same priority conflict.")
+            raise ConflictError(
+                f"Multiple values with same priority conflict for "
+                f"variable '{name}'."
+            )
         return with_prio[0][0]
 
 
 def selfless_interact(sym, key, category, __self__, value):
     from_state = __self__.get(sym)
-    rval = choose([value, from_state])
+    rval = choose([value, from_state], name=sym)
     if rval is ABSENT:
         raise NameError(f"Variable {sym} of {__self__} is not set.")
     assert not isinstance(rval, Override)

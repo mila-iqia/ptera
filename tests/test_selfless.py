@@ -129,7 +129,7 @@ def test_override():
     ov2 = override(2, priority=2)
     ov3 = override(3, priority=3)
 
-    assert choose([ov1, ov2, ov3]) == 3
+    assert choose([ov1, ov2, ov3], name=None) == 3
 
     ov1x = override(ov1)
     assert ov1x.value == 1
