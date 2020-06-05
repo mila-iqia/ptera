@@ -493,10 +493,12 @@ def choose(opts, name):
             for opt in real_opts
         ]
         with_prio.sort(key=lambda x: x[1])
-        if with_prio[1][1] == with_prio[0][1]:
+        p = with_prio[0][1]
+        if with_prio[1][1] == p:
+            conflicts = [str(x) for x, y in with_prio if y == p]
             raise ConflictError(
                 f"Multiple values with same priority conflict for "
-                f"variable '{name}'."
+                f"variable '{name}': {', '.join(conflicts)}"
             )
         return with_prio[0][0]
 
