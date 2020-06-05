@@ -1,6 +1,7 @@
 import pytest
 
 from ptera.selfless import (
+    ABSENT,
     ConflictError,
     Override,
     choose,
@@ -153,25 +154,42 @@ def test_override_arguments():
     assert chocolat.new(x=override(2), y=3)(override(4, priority=2)) == 49
 
 
-def test_vardoc_and_ann():
+def test_info():
     info = dict(type(iceberg.state).__info__["z"])
     filename, fn, lineno = info.pop("location")
     assert fn.__name__ == "iceberg"
-    assert lineno == 24
+    assert lineno == 25
     assert info == {
+        "name": "z",
         "annotation": int,
+        "provenance": "body",
         "doc": "The great\nzee",
     }
 
 
-def test_vardoc_and_ann_parameter():
+def test_info_parameter():
     info = dict(type(iceberg.state).__info__["x"])
     filename, fn, lineno = info.pop("location")
     assert fn.__name__ == "iceberg"
-    assert lineno == 18
+    assert lineno == 19
     assert info == {
+        "name": "x",
         "annotation": float,
+        "provenance": "argument",
         "doc": "The parameter x",
+    }
+
+
+def test_info_external():
+    info = dict(type(iceberg.state).__info__["sum"])
+    filename, fn, lineno = info.pop("location")
+    assert fn.__name__ == "iceberg"
+    assert lineno is None
+    assert info == {
+        "name": "sum",
+        "annotation": ABSENT,
+        "provenance": "external",
+        "doc": None,
     }
 
 

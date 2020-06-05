@@ -64,6 +64,7 @@ class ExternalVariableCollector(NodeVisitor):
         self.assigned = set()
         self.comments = comments
         self.vardoc = {}
+        self.provenance = {}
         self.funcnames = set()
         self.visit(tree)
         self.used -= self.funcnames
@@ -78,11 +79,13 @@ class ExternalVariableCollector(NodeVisitor):
         else:
             if node.lineno in self.comments:
                 self.vardoc[node.id] = self.comments[node.lineno]
+            self.provenance[node.id] = "body"
             self.assigned.add(node.id)
 
     def visit_arg(self, node):
         if node.lineno in self.comments:
             self.vardoc[node.arg] = self.comments[node.lineno]
+        self.provenance[node.arg] = "argument"
         self.assigned.add(node.arg)
 
 
@@ -94,6 +97,9 @@ class PteraTransformer(NodeTransformer):
         self.used = evc.used
         self.assigned = evc.assigned
         self.external = evc.used - evc.assigned
+        self.provenance = evc.provenance
+        for ext in self.external:
+            self.provenance[ext] = "external"
         self.annotated = {}
         self.linenos = {}
         self.defaults = {}
@@ -387,7 +393,7 @@ def transform(fn, interact):
 
     info = {
         k: {
-            "doc": transformer.vardoc.get(k),
+            "name": k,
             "annotation": (
                 eval(
                     compile(
@@ -401,6 +407,8 @@ def transform(fn, interact):
                 if k in transformer.annotated
                 else ABSENT
             ),
+            "provenance": transformer.provenance.get(k),
+            "doc": transformer.vardoc.get(k),
             "location": (
                 filename,
                 fn,
