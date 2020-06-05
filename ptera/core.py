@@ -274,6 +274,8 @@ class SetterAccumulator(ImmediateAccumulator):
 
 class GetterAccumulator(ImmediateAccumulator):
     def varget(self, element, varname, category):
+        if not check_element(element, varname, category):
+            return ABSENT
         cap = Capture(element)
         self.captures[element.capture] = cap
         cap.names.append(varname)

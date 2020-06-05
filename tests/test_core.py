@@ -3,6 +3,7 @@ import pytest
 from ptera import BaseOverlay, Overlay, Recurrence, select, tag, tooled
 from ptera.core import Capture, Tap
 from ptera.selector import Element, parse
+from ptera.selfless import default
 from ptera.tools import every
 
 from .common import one_test_per_assert
@@ -570,3 +571,18 @@ def brooms(xs):
 def test_for_loop():
     assert brooms([1, 2, 3]) == 14
     assert brooms.tweaking({"i": 0})([1, 2, 3]) == 6
+
+
+@tooled
+def multitag():
+    y: tag.Bouffe = default(10)
+    y = y * y
+    return y
+
+
+def test_samevar_multitag():
+    assert multitag() == 100
+    with Overlay.tweaking({"y:tag.Bouffe": 5}):
+        assert multitag() == 25
+    with Overlay.tweaking({"y:tag.Irrelevant": 5}):
+        assert multitag() == 100
