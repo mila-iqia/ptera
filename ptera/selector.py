@@ -615,7 +615,6 @@ def _find_eval_env(s, fr, skip):
     while fr is not None:
         glb = fr.f_globals
         name = glb["__name__"]
-        print(name, skip, all(not name.startswith(pfx) for pfx in skip))
         if all(not name.startswith(pfx) for pfx in skip):
             return glb
         fr = fr.f_back
