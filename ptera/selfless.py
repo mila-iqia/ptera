@@ -41,7 +41,7 @@ def name_error(varname, function, pop_frames=1):
         if fr:
             fr = fr.f_back
     err = PteraNameError(varname, function)
-    try:
+    try:  # pragma: no cover
         tb = TracebackType(
             tb_next=None,
             tb_frame=fr,
