@@ -1,14 +1,13 @@
 import math
 import re
-from dataclasses import dataclass
 
 
-@dataclass
 class Location:
-    source: str
-    filename: str
-    start: int
-    end: int
+    def __init__(self, source, filename, start, end):
+        self.source = source
+        self.filename = filename
+        self.start = start
+        self.end = end
 
     def syntax_error(self, msg="Invalid syntax"):
         err = SyntaxError(msg)
@@ -48,25 +47,41 @@ class ASTNode:
 
 class Lexer:
     def __init__(self, definitions):
-        self.regexp = re.compile(f'({")|(".join(definitions)})')
+        self.definitions = definitions
         self.token_types = [None, *definitions.values()]
 
     def __call__(self, code):
         code = code.strip()
         tokens = []
         current = 0
-        for i, entry in enumerate(self.regexp.split(code)):
-            if entry:
+        while code:
+            for rx, typ in self.definitions.items():
+                m = re.match(rx, code)
+                if m:
+                    tokens.append(
+                        Token(
+                            value=code[: m.end()],
+                            type=typ,
+                            source=code,
+                            start=current,
+                            end=current + m.end(),
+                        )
+                    )
+                    current += m.end()
+                    code = code[m.end() :]
+                    break
+            else:
                 tokens.append(
                     Token(
-                        value=entry,
-                        type=self.token_types[i % len(self.token_types)],
+                        value=code[:1],
+                        type=None,
                         source=code,
                         start=current,
-                        end=current + len(entry),
+                        end=current + 1,
                     )
                 )
-                current += len(entry)
+                code = code[1:]
+                current += 1
         return tokens
 
 

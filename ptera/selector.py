@@ -4,7 +4,6 @@
 import builtins
 import re
 import sys
-from dataclasses import dataclass
 from itertools import count
 
 from . import opparse
@@ -235,7 +234,8 @@ class Call(metaclass=InternedMC):
 parser = opparse.Parser(
     lexer=opparse.Lexer(
         {
-            r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
+            # r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
+            r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])\s*|\s+": "OPERATOR",
             r"[a-zA-Z_0-9#*.-]+": "WORD",
             r"'[^']*'": "STRING",
         }
@@ -511,9 +511,9 @@ class VNode:
     pass
 
 
-@dataclass(frozen=True)
 class VSymbol(VNode):
-    value: str
+    def __init__(self, value):
+        self.value = value
 
     def eval(self, env):
         x = self.value
@@ -538,14 +538,20 @@ class VSymbol(VNode):
 
         return curr
 
+    def __eq__(self, other):
+        return isinstance(other, VSymbol) and self.value == other.value
+
+    def __hash__(self):
+        return hash(self.value)
+
     def __str__(self):
         return str(self.value)
 
 
-@dataclass(frozen=True)
 class VCall(VNode):
-    fn: object
-    args: tuple
+    def __init__(self, fn, args):
+        self.fn = fn
+        self.args = args
 
     def eval(self, env):
         fn = _eval(self.fn, env)
@@ -558,11 +564,31 @@ class VCall(VNode):
                 args.append(_eval(arg, env))
         return fn(*args, **kwargs)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, VCall)
+            and self.fn == other.fn
+            and self.args == other.args
+        )
 
-@dataclass(frozen=True)
+    def __hash__(self):
+        return hash((self.fn, self.args))
+
+
 class VKeyword(VNode):
-    key: object
-    value: object
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+    def __eq__(self, other):  # pragma: no cover
+        return (
+            isinstance(other, VCall)
+            and self.key == other.key
+            and self.value == other.value
+        )
+
+    def __hash__(self):
+        return hash((self.key, self.value))
 
 
 def _eval(x, env):
@@ -621,9 +647,9 @@ def _find_eval_env(s, fr, skip):
     raise AssertionError("Unreachable outside ptera.")  # pragma: no cover
 
 
-@dataclass(frozen=True)
 class MatchFunction:
-    fn: object
+    def __init__(self, fn):
+        self.fn = fn
 
 
 def _resolve(pattern, env, cnt):
@@ -642,7 +668,7 @@ def _resolve(pattern, env, cnt):
             f"/{next(cnt)}" if pattern.capture is None else pattern.capture
         )
         if category is not None and not isinstance(category, Tag):
-            raise TypeError(f"A pattern can only be a Tag.")
+            raise TypeError("A pattern can only be a Tag.")
         return pattern.clone(
             name=name, category=category, value=value, capture=capture
         )

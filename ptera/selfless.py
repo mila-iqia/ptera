@@ -40,10 +40,17 @@ def name_error(varname, function, pop_frames=1):
     for i in range(pop_frames + 1):
         if fr:
             fr = fr.f_back
-    tb = TracebackType(
-        tb_next=None, tb_frame=fr, tb_lasti=fr.f_lasti, tb_lineno=fr.f_lineno
-    )
-    return PteraNameError(varname, function).with_traceback(tb)
+    err = PteraNameError(varname, function)
+    try:
+        tb = TracebackType(
+            tb_next=None,
+            tb_frame=fr,
+            tb_lasti=fr.f_lasti,
+            tb_lineno=fr.f_lineno,
+        )
+        return err.with_traceback(tb)
+    except TypeError:  # pragma: no cover
+        return err
 
 
 def readline_mock(src):
@@ -115,10 +122,10 @@ class PteraTransformer(NodeTransformer):
         self.result = self.visit_FunctionDef(tree, root=True)
 
     def fself(self):
-        return ast.Name("__self__", ctx=ast.Load())
+        return ast.Name(id="__self__", ctx=ast.Load())
 
     def _absent(self):
-        return ast.Name("__ptera_ABSENT", ctx=ast.Load())
+        return ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
 
     def make_interaction(self, target, ann, value, orig=None):
         if ann and isinstance(target, ast.Name):
@@ -151,7 +158,7 @@ class PteraTransformer(NodeTransformer):
             new_value = value
         else:
             new_value = ast.Call(
-                func=ast.Name("__ptera_interact", ctx=ast.Load()),
+                func=ast.Name(id="__ptera_interact", ctx=ast.Load()),
                 args=value_args,
                 keywords=[],
             )
@@ -249,7 +256,7 @@ class PteraTransformer(NodeTransformer):
             node.args.defaults, node.args.args[-len(node.args.defaults) :]
         ):
             self.defaults[arg.arg] = dflt
-        new_args.args.insert(0, ast.arg("__self__"))
+        new_args.args.insert(0, ast.arg("__self__", ast.Constant(None)))
 
         first = node.body[0]
         if isinstance(first, ast.Expr):
@@ -291,7 +298,7 @@ class PteraTransformer(NodeTransformer):
 
     def visit_Return(self, node):
         new_value = ast.Call(
-            func=ast.Name("__ptera_interact", ctx=ast.Load()),
+            func=ast.Name(id="__ptera_interact", ctx=ast.Load()),
             args=[
                 ast.Constant(value="#value"),
                 ast.Constant(value=None),
