@@ -135,7 +135,7 @@ def test_parser():
     )
 
     assert sel.parse("*:Fruit") == sel.Element(
-        name=None, category=sel.VSymbol("Fruit"), capture=None,
+        name=None, category=sel.VSymbol("Fruit"), capture=None
     )
 
     assert sel.parse("apple > :Fruit") == sel.Call(
@@ -306,13 +306,13 @@ def test_rewrite():
     assert _rewrite(
         before="bug(world) > spider(!w, e, b)",
         after="bug > spider(!w, b)",
-        required=("w", "b",),
+        required=("w", "b"),
     )
 
     assert _rewrite(
         before="a(b(c), d(e, f(g)), h(!i), j)",
         after="a(d(f(g)), h(!i), j)",
-        required=("g", "j",),
+        required=("g", "j"),
     )
 
     assert _rewrite(
@@ -320,7 +320,7 @@ def test_rewrite():
     )
 
     assert _rewrite(
-        before="a[0](x)", after="a[0](x)", required=("x",), focus=None,
+        before="a[0](x)", after="a[0](x)", required=("x",), focus=None
     )
 
     assert _rewrite(before="a(!b)", after="a(!b)", required=(), focus="b")

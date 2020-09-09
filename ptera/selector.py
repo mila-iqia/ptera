@@ -338,7 +338,7 @@ def make_nested_imm_pfx(node, _, child, context):
     child = evaluate(child, context=context)
     if isinstance(child, Element):
         return Call(
-            element=Element(name=None), captures=(child,), immediate=True,
+            element=Element(name=None), captures=(child,), immediate=True
         )
     else:
         return child.clone(immediate=True)
