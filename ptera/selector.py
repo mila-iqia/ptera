@@ -507,6 +507,24 @@ def make_symbol(node, context):
     return element
 
 
+def dict_resolver(env):
+    def resolve(x):
+        start, *parts = x.split(".")
+        if start in env:
+            curr = env[start]
+        elif hasattr(builtins, start):
+            return getattr(builtins, start)
+        else:
+            raise Exception(f"Could not resolve '{start}'.")
+
+        for part in parts:
+            curr = getattr(curr, part)
+
+        return curr
+
+    return resolve
+
+
 class VNode:
     pass
 
@@ -524,19 +542,8 @@ class VSymbol(VNode):
             return int(x)
         elif re.match(r"'[^']*'", x):
             return x[1:-1]
-
-        start, *parts = x.split(".")
-        if start in env:
-            curr = env[start]
-        elif hasattr(builtins, start):
-            return getattr(builtins, start)
         else:
-            raise Exception(f"Could not resolve '{start}'.")
-
-        for part in parts:
-            curr = getattr(curr, part)
-
-        return curr
+            return env(x)
 
     def __eq__(self, other):
         return isinstance(other, VSymbol) and self.value == other.value
@@ -640,9 +647,11 @@ def parse(x):
 def _find_eval_env(s, fr, skip):
     while fr is not None:
         glb = fr.f_globals
+        if "__ptera_resolver__" in glb:
+            return glb["__ptera_resolver__"]
         name = glb["__name__"]
         if all(not name.startswith(pfx) for pfx in skip):
-            return glb
+            return dict_resolver(glb)
         fr = fr.f_back
     raise AssertionError("Unreachable outside ptera.")  # pragma: no cover
 
