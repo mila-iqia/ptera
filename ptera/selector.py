@@ -542,6 +542,8 @@ class VSymbol(VNode):
             return int(x)
         elif re.match(r"'[^']*'", x):
             return x[1:-1]
+        elif isinstance(env, dict):
+            return dict_resolver(env)(x)
         else:
             return env(x)
 
