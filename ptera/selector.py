@@ -653,7 +653,7 @@ def _find_eval_env(s, fr, skip):
             return glb["__ptera_resolver__"]
         name = glb["__name__"]
         if all(not name.startswith(pfx) for pfx in skip):
-            return dict_resolver(glb)
+            return glb
         fr = fr.f_back
     raise AssertionError("Unreachable outside ptera.")  # pragma: no cover
 
