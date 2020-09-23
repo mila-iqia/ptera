@@ -1,3 +1,5 @@
+"""Create objects out of functions."""
+
 import ast
 import builtins
 import inspect
@@ -13,6 +15,8 @@ idx = 0
 
 
 class PteraNameError(NameError):
+    """The Ptera equivalent of a NameError, which gives more information."""
+
     def __init__(self, varname, function):
         self.varname = varname
         self.function = function
@@ -36,6 +40,7 @@ class PteraNameError(NameError):
 
 
 def name_error(varname, function, pop_frames=1):
+    """Raise a PteraNameError pointing to the right location."""
     fr = inspect.currentframe()
     for i in range(pop_frames + 1):
         if fr:
@@ -54,6 +59,10 @@ def name_error(varname, function, pop_frames=1):
 
 
 def readline_mock(src):
+    """Line reader for the given text.
+
+    This is meant to be used with Python's tokenizer.
+    """
     curr = -1
     src = bytes(src, encoding="utf8")
     lines = [line + b"\n" for line in src.split(b"\n")]
@@ -69,12 +78,28 @@ def readline_mock(src):
 
 
 def gensym():
+    """Generate a fresh symbol."""
     global idx
     idx += 1
     return f"_ptera_tmp_{idx}"
 
 
 class ExternalVariableCollector(NodeVisitor):
+    """Collect variables referred to but not defined in the given AST.
+
+    The attributes are filled after the object is created.
+
+    Attributes:
+        used: Set of used variable names (does not include the names of
+            inner functions).
+        assigned: Set of assigned variable names.
+        vardoc: Dict that maps variable names to matching comments.
+        provenance: Dict that maps variable names to "body" or "argument"
+            if they are defined as variables in the body or as function
+            arguments.
+        funcnames: Set of function names defined in the body.
+    """
+
     def __init__(self, comments, tree):
         self.used = set()
         self.assigned = set()
@@ -106,6 +131,12 @@ class ExternalVariableCollector(NodeVisitor):
 
 
 class PteraTransformer(NodeTransformer):
+    """Transform the AST of a function to instrument it with ptera.
+
+    The `result` field is set to the AST of the transformed function
+    after instantiation of the PteraTransformer.
+    """
+
     def __init__(self, tree, comments):
         super().__init__()
         evc = ExternalVariableCollector(comments, tree)
@@ -122,12 +153,15 @@ class PteraTransformer(NodeTransformer):
         self.result = self.visit_FunctionDef(tree, root=True)
 
     def fself(self):
+        """Create a Name for the self-function."""
         return ast.Name(id="__self__", ctx=ast.Load())
 
     def _absent(self):
+        """Create a Name that represents the lack of a value."""
         return ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
 
     def make_interaction(self, target, ann, value, orig=None):
+        """Create code for setting the value of a variable."""
         if ann and isinstance(target, ast.Name):
             self.annotated[target.id] = ann
             self.linenos[target.id] = target.lineno
@@ -317,7 +351,7 @@ class PteraTransformer(NodeTransformer):
             x: int
 
         After::
-            x: int = ptera.interact('x', int)
+            x: int = _ptera_interact('x', int)
         """
         return self.make_interaction(
             node.target, node.annotation, node.value, orig=node
@@ -330,7 +364,7 @@ class PteraTransformer(NodeTransformer):
             x = y + z
 
         After::
-            x = ptera.interact('x', None, y + z)
+            x = _ptera_interact('x', None, y + z)
         """
         (target,) = node.targets
         if isinstance(target, ast.Tuple):
@@ -445,6 +479,13 @@ def transform(fn, interact):
 
 
 class Override:
+    """Represents a value with a priority.
+
+    Attributes:
+        value: The value.
+        priority: The priority.
+    """
+
     def __init__(self, value, priority=1):
         assert not isinstance(value, Override)
         self.value = value
@@ -452,6 +493,7 @@ class Override:
 
 
 def override(value, priority=1):
+    """Wraps a value to give it a priority."""
     if isinstance(value, Override):
         return value
     else:
@@ -459,6 +501,7 @@ def override(value, priority=1):
 
 
 def default(value, priority=-10):
+    """Wraps a value to give it a low priority (-10)."""
     return override(value, priority)
 
 
@@ -531,7 +574,7 @@ class Selfless:
 
 
 class ConflictError(Exception):
-    pass
+    """Represents an error due to different values having the same priority."""
 
 
 def choose(opts, name):
@@ -560,6 +603,7 @@ def choose(opts, name):
 
 
 def selfless_interact(sym, key, category, __self__, value):
+    """Simple interaction function for selfless objects."""
     from_state = __self__.get(sym)
     rval = choose([value, from_state], name=sym)
     if rval is ABSENT:
@@ -570,6 +614,7 @@ def selfless_interact(sym, key, category, __self__, value):
 
 @keyword_decorator
 def selfless(fn, **defaults):
+    """Create a selfless object."""
     new_fn, state = transform(fn, interact=selfless_interact)
     rval = Selfless(new_fn, state)
     if defaults:

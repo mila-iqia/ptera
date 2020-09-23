@@ -25,6 +25,7 @@ class InternedMC(type):
 
 
 class Element(metaclass=InternedMC):
+    """Represents a variable or some other atom."""
 
     _constructor_defaults = {
         "value": ABSENT,
@@ -96,6 +97,7 @@ class Element(metaclass=InternedMC):
             return set()
 
     def specialize(self, specializations):
+        """Replace $variables in the selector using a specializations dict."""
         spc = specializations.get(self.capture, ABSENT)
         if spc is ABSENT:
             return self
@@ -111,6 +113,7 @@ class Element(metaclass=InternedMC):
         return rval
 
     def encode(self):
+        """Return a string representation of the selector."""
         if self.name is None and self.capture is not None:
             name = f"${self.capture}"
             cap = ""
@@ -133,6 +136,7 @@ class Element(metaclass=InternedMC):
 
 
 class Call(metaclass=InternedMC):
+    """Represents a call in the call stack."""
 
     _constructor_defaults = {
         "children": (),
@@ -203,6 +207,7 @@ class Call(metaclass=InternedMC):
         return rval
 
     def specialize(self, specializations):
+        """Replace $variables in the selector using a specializations dict."""
         return self.clone(
             element=self.element and self.element.specialize(specializations),
             children=tuple(
@@ -214,6 +219,7 @@ class Call(metaclass=InternedMC):
         )
 
     def encode(self):
+        """Return a string representation of the selector."""
         name = self.element.encode()
         caps = []
         for cap in self.captures:
@@ -259,6 +265,11 @@ parser = opparse.Parser(
 
 
 def _guarantee_call(parent, context, resolve=True):
+    """Always returns a Call instance.
+
+    If given an Element, return a Call with that Element as the function
+    to call. The focus and capture name are removed, if there are any.
+    """
     if isinstance(parent, Element):
         name = VSymbol(parent.name) if parent.name and resolve else parent.name
         parent = parent.clone(capture=None, name=name).without_focus()
@@ -508,6 +519,8 @@ def make_symbol(node, context):
 
 
 def dict_resolver(env):
+    """Resolve a symbol from a dictionary, e.g. the globals directory."""
+
     def resolve(x):
         start, *parts = x.split(".")
         if start in env:
@@ -699,6 +712,17 @@ def _select(pattern, context="root"):
 
 
 def select(s, env=None, skip_modules=[]):
+    """Create a selector from a string.
+
+    Arguments:
+        s: The string to compile to a Selector, or a Selector to return
+            unchanged.
+        env: The environment to use to evaluate symbols in the selector.
+            If not given, the environment chosen is the parent scope.
+        skip_modules: Modules to skip when looking for an environment.
+            We will go up through the stack until we get to a scope that
+            is outside these modules.
+    """
     if not isinstance(s, str):
         return s
     if env is None:
