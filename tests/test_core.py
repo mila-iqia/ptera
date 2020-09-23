@@ -23,6 +23,8 @@ def extra(cheese):
 
 
 @tooled
+@tooled
+@tooled
 def double_brie(x1, y1):
     a = brie[[1]](x1, x1 + 1)
     b = brie[[2]](y1, y1 + 1)

@@ -20,6 +20,8 @@ class PteraDecorator:
         return PteraDecorator({**self.kwargs, "defaults": defaults})
 
     def __call__(self, fn):
+        if isinstance(fn, PteraFunction):
+            return fn
         new_fn, state = transform(fn, interact=interact)
         fn = PteraFunction(new_fn, state)
         if "defaults" in self.kwargs:
