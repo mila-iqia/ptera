@@ -160,10 +160,12 @@ class PteraTransformer(NodeTransformer):
 
     def _ann(self, ann):
         if isinstance(ann, ast.Str) and ann.s.startswith("#"):
-            tags = re.split(r" *& *", ann.s[1:])
+            tags = re.split(r" *& *", ann.s)
             ann = ast.Call(
                 func=ast.Name(id="__ptera_get_tags", ctx=ast.Load()),
-                args=[ast.Str(s=tag) for tag in tags],
+                args=[
+                    ast.Str(s=tag[1:]) for tag in tags if tag.startswith("#")
+                ],
                 keywords=[],
             )
         return ann
