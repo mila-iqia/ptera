@@ -190,9 +190,11 @@ class PteraTransformer(NodeTransformer):
         elif isinstance(target, ast.Subscript) and isinstance(
             target.value, ast.Name
         ):
+            slc = target.slice
+            slc = slc.value if isinstance(target.slice, ast.Index) else slc
             value_args = [
                 ast.Constant(value=target.value.id),
-                deepcopy(target.slice.value),
+                deepcopy(slc),
                 ann_arg,
                 self.fself(),
                 value_arg,
