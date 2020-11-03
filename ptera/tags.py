@@ -55,4 +55,12 @@ def match_tag(to_match, tg):
         return tg == to_match
 
 
+def get_tags(*tags):
+    tags = [getattr(tag, tg) if isinstance(tg, str) else tg for tg in tags]
+    if len(tags) == 1:
+        return tags[0]
+    else:
+        return TagSet(tags)
+
+
 tag = _TagFactory()

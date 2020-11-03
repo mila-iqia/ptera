@@ -13,7 +13,7 @@ from .common import one_test_per_assert
 def brie(x, y) -> tag.Fromage:
     """Brie is a sort of cheese."""
     a: tag.Bouffe = x * x
-    b: tag.Bouffe = y * y
+    b: "#Bouffe & Agrement" = y * y
     return a + b
 
 

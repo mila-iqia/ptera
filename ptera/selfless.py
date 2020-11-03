@@ -3,12 +3,14 @@
 import ast
 import builtins
 import inspect
+import re
 import tokenize
 from ast import NodeTransformer, NodeVisitor
 from copy import copy, deepcopy
 from textwrap import dedent
 from types import TracebackType
 
+from .tags import get_tags
 from .utils import ABSENT, keyword_decorator
 
 idx = 0
@@ -156,6 +158,23 @@ class PteraTransformer(NodeTransformer):
         """Create a Name for the self-function."""
         return ast.Name(id="__self__", ctx=ast.Load())
 
+    def _ann(self, ann):
+        if isinstance(ann, ast.Str) and ann.s.startswith("#"):
+            tags = re.split(r" *& *", ann.s[1:])
+            ann = ast.Call(
+                func=ast.Name("__ptera_get_tags", ctx=ast.Load()),
+                args=[ast.Str(s=tag) for tag in tags],
+                keywords=[],
+            )
+        elif isinstance(ann, ast.Constant) and ann.value.startswith("#"):
+            tags = re.split(r" *& *", ann.value[1:])
+            ann = ast.Call(
+                func=ast.Name("__ptera_get_tags", ctx=ast.Load()),
+                args=[ast.Constant(value=tag) for tag in tags],
+                keywords=[],
+            )
+        return ann
+
     def _absent(self):
         """Create a Name that represents the lack of a value."""
         return ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
@@ -229,7 +248,7 @@ class PteraTransformer(NodeTransformer):
                 target=ast.copy_location(
                     ast.Name(id=target.arg, ctx=ast.Store()), target
                 ),
-                ann=target.annotation,
+                ann=self._ann(target.annotation),
                 value=ast.copy_location(
                     ast.Name(id=target.arg, ctx=ast.Load()), target
                 ),
@@ -354,7 +373,7 @@ class PteraTransformer(NodeTransformer):
             x: int = _ptera_interact('x', int)
         """
         return self.make_interaction(
-            node.target, node.annotation, node.value, orig=node
+            node.target, self._ann(node.annotation), node.value, orig=node
         )
 
     def visit_Assign(self, node):
@@ -427,6 +446,7 @@ def transform(fn, interact):
     glb = fn.__globals__
     glb["__ptera_interact"] = interact
     glb["__ptera_ABSENT"] = ABSENT
+    glb["__ptera_get_tags"] = get_tags
     exec(new_fn, glb, glb)
 
     state = {
