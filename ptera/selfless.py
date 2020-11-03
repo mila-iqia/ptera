@@ -162,15 +162,8 @@ class PteraTransformer(NodeTransformer):
         if isinstance(ann, ast.Str) and ann.s.startswith("#"):
             tags = re.split(r" *& *", ann.s[1:])
             ann = ast.Call(
-                func=ast.Name("__ptera_get_tags", ctx=ast.Load()),
+                func=ast.Name(id="__ptera_get_tags", ctx=ast.Load()),
                 args=[ast.Str(s=tag) for tag in tags],
-                keywords=[],
-            )
-        elif isinstance(ann, ast.Constant) and ann.value.startswith("#"):
-            tags = re.split(r" *& *", ann.value[1:])
-            ann = ast.Call(
-                func=ast.Name("__ptera_get_tags", ctx=ast.Load()),
-                args=[ast.Constant(value=tag) for tag in tags],
                 keywords=[],
             )
         return ann
