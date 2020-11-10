@@ -522,6 +522,9 @@ def dict_resolver(env):
     """Resolve a symbol from a dictionary, e.g. the globals directory."""
 
     def resolve(x):
+        if x.startswith("@"):
+            return getattr(tag_factory, x[1:])
+
         start, *parts = x.split(".")
         if start in env:
             curr = env[start]
@@ -555,8 +558,6 @@ class VSymbol(VNode):
             return int(x)
         elif re.fullmatch(r"'[^']*'", x):
             return x[1:-1]
-        elif x.startswith("@"):
-            return getattr(tag_factory, x[1:])
         elif isinstance(env, dict):
             return dict_resolver(env)(x)
         else:
