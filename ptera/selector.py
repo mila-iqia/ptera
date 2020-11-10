@@ -7,7 +7,7 @@ import sys
 from itertools import count
 
 from . import opparse
-from .tags import Tag
+from .tags import Tag, tag as tag_factory
 from .utils import ABSENT
 
 
@@ -242,7 +242,7 @@ parser = opparse.Parser(
         {
             # r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])?\s*": "OPERATOR",
             r"\s*(?:\bas\b|>>|!+|\[\[|\]\]|[(){}\[\]>:,$=~])\s*|\s+": "OPERATOR",
-            r"[a-zA-Z_0-9#*.-]+": "WORD",
+            r"[a-zA-Z_0-9#@*.-]+": "WORD",
             r"'[^']*'": "STRING",
         }
     ),
@@ -549,12 +549,14 @@ class VSymbol(VNode):
     def eval(self, env):
         x = self.value
 
-        if re.match(r"-?[0-9]+\.[0-9]*", x):
+        if re.fullmatch(r"-?[0-9]+\.[0-9]*", x):
             return float(x)
-        elif re.match(r"-?[0-9]+", x):
+        elif re.fullmatch(r"-?[0-9]+", x):
             return int(x)
-        elif re.match(r"'[^']*'", x):
+        elif re.fullmatch(r"'[^']*'", x):
             return x[1:-1]
+        elif x.startswith("@"):
+            return getattr(tag_factory, x[1:])
         elif isinstance(env, dict):
             return dict_resolver(env)(x)
         else:

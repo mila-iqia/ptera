@@ -159,12 +159,12 @@ class PteraTransformer(NodeTransformer):
         return ast.Name(id="__self__", ctx=ast.Load())
 
     def _ann(self, ann):
-        if isinstance(ann, ast.Str) and ann.s.startswith("#"):
+        if isinstance(ann, ast.Str) and ann.s.startswith("@"):
             tags = re.split(r" *& *", ann.s)
             ann = ast.Call(
                 func=ast.Name(id="__ptera_get_tags", ctx=ast.Load()),
                 args=[
-                    ast.Str(s=tag[1:]) for tag in tags if tag.startswith("#")
+                    ast.Str(s=tag[1:]) for tag in tags if tag.startswith("@")
                 ],
                 keywords=[],
             )

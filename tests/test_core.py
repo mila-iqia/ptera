@@ -13,7 +13,7 @@ from .common import one_test_per_assert
 def brie(x, y) -> tag.Fromage:
     """Brie is a sort of cheese."""
     a: tag.Bouffe = x * x
-    b: "#Bouffe & #Agrement" = y * y
+    b: "@Bouffe & @Agrement" = y * y
     return a + b
 
 
@@ -107,6 +107,7 @@ def test_patterns():
 
     # Parameter
     assert _dbrie("brie($v:tag.Bouffe)") == [{"v": [4, 9]}, {"v": [100, 121]}]
+    assert _dbrie("brie($v:@Bouffe)") == [{"v": [4, 9]}, {"v": [100, 121]}]
     assert _dbrie("brie(!$v:tag.Bouffe)") == [
         {"v": [4]},
         {"v": [9]},
