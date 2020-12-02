@@ -631,3 +631,20 @@ def test_redirect_noclobber():
     with Overlay.tweaking({"x": 7}):
         assert one() == 7
         assert two() == 14
+
+
+def exposure(n):
+    x = 2
+    return n ** x
+
+
+def test_redirect_global():
+    old_exposure = exposure
+
+    tooled.inplace(exposure)
+    assert exposure(8) == 64
+
+    with Overlay.tweaking({"x": 3}):
+        assert exposure(8) == 512
+
+    assert old_exposure is exposure

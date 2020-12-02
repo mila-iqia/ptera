@@ -440,11 +440,22 @@ def transform(fn, interact):
     new_fn = compile(
         ast.Module(body=[new_tree], type_ignores=[]), filename, "exec"
     )
+
+    # We add a few extra variables in the existing namespace
     glb = fn.__globals__
     glb["__ptera_interact"] = interact
     glb["__ptera_ABSENT"] = ABSENT
     glb["__ptera_get_tags"] = get_tags
+
+    fname = fn.__name__
+    save = glb.get(fname, None)
     exec(new_fn, glb, glb)
+
+    # Get the new function (populated with exec)
+    actual_fn = glb[fname]
+
+    # However, we don't want to change the existing mapping of fn
+    glb[fname] = save
 
     state = {
         k: override(
@@ -454,8 +465,6 @@ def transform(fn, interact):
         for k, v in transformer.defaults.items()
     }
 
-    fname = fn.__name__
-    actual_fn = glb[fname]
     all_vars = transformer.used | transformer.assigned
 
     info = {
