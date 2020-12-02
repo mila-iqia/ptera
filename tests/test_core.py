@@ -594,3 +594,40 @@ def test_samevar_multitag():
         assert multitag() == 25
     with Overlay.tweaking({"y:tag.Irrelevant": 5}):
         assert multitag() == 100
+
+
+def test_redirect():
+    def funkykong(x):
+        surf: tag.Surfboard = True
+        return x * x if surf else x
+
+    orig_funky = funkykong
+    new_funky = tooled.inplace(funkykong)
+
+    assert funkykong is orig_funky
+    assert funkykong is new_funky
+
+    assert funkykong(10) == 100
+    with Overlay.tweaking({"surf:tag.Surfboard": False}):
+        assert funkykong(10) == 10
+    assert funkykong(10) == 100
+
+
+def test_redirect_noclobber():
+    def one():
+        x = 1
+        return x
+
+    def two():
+        x = 1
+        return x * 2
+
+    tooled.inplace(one)
+    tooled.inplace(two)
+
+    assert one() == 1
+    assert two() == 2
+
+    with Overlay.tweaking({"x": 7}):
+        assert one() == 7
+        assert two() == 14
