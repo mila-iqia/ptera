@@ -63,8 +63,6 @@ class PteraDecorator:
                 **{k: override(v, -0.5) for k, v in self._defaults.items()}
             )
 
-        glb = {}
-
         if self._inplace:
             redirect(fn, new_fn)
             return fn
