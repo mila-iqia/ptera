@@ -522,6 +522,15 @@ class Matou:
         meows = [cry] * repeat
         return " ".join(meows)
 
+    def meow_nodeco(self, repeat=1):
+        ms = "m"
+        es = "e"
+        os = "o" * repeat
+        ws = "w" * len(self.species)
+        cry = ms + es + os + ws
+        meows = [cry] * repeat
+        return " ".join(meows)
+
 
 def test_method():
     siamese = Matou("siamese")
@@ -539,6 +548,27 @@ def test_method():
     with BaseOverlay(store.rules):
         for i in range(3):
             siamese.meow(i)
+    assert store.results == [
+        {"os": [""], "repeat": [0]},
+        {"os": ["o"], "repeat": [1]},
+        {"os": ["oo"], "repeat": [2]},
+    ]
+
+
+def test_redirect_method():
+    siamese = Matou("siamese")
+
+    tooled.inplace(Matou.meow_nodeco)
+
+    assert siamese.meow_nodeco() == "meowwwwwww"
+
+    with Overlay.tweaking({"Matou.meow_nodeco > es": "eee"}):
+        assert siamese.meow_nodeco() == "meeeowwwwwww"
+
+    store = GrabAll("Matou.meow_nodeco(repeat) > os")
+    with BaseOverlay(store.rules):
+        for i in range(3):
+            siamese.meow_nodeco(i)
     assert store.results == [
         {"os": [""], "repeat": [0]},
         {"os": ["o"], "repeat": [1]},

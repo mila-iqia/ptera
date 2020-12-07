@@ -536,7 +536,7 @@ def dict_resolver(env):
         for part in parts:
             curr = getattr(curr, part)
 
-        return curr
+        return getattr(curr, "__ptera__", curr)
 
     return resolve
 

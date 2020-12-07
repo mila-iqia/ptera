@@ -65,6 +65,7 @@ class PteraDecorator:
 
         if self._inplace:
             redirect(fn, new_fn)
+            fn.__ptera__ = new_fn
             return fn
         else:
             return new_fn
