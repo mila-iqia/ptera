@@ -5,6 +5,7 @@ import builtins
 import inspect
 import re
 import tokenize
+import types
 from ast import NodeTransformer, NodeVisitor
 from copy import copy, deepcopy
 from textwrap import dedent
@@ -412,6 +413,31 @@ class PteraTransformer(NodeTransformer):
             return self.make_interaction(target, None, node.value, orig=node)
 
 
+class Conformer:
+    __slots__ = ("code", "ptera_fn", "interact")
+
+    def __init__(self, fn, ptera_fn, interact):
+        self.ptera_fn = ptera_fn
+        self.code = fn.__code__
+        self.interact = interact
+
+    def __conform__(self, new):
+        from jurigged import db
+
+        if isinstance(new, types.CodeType):
+            self.code = new
+            return
+
+        new_fn = new
+        new_code = new.__code__
+
+        result, _ = transform(new_fn, self.interact)
+        self.ptera_fn.__code__ = result.__code__
+
+        db.update_cache_entry(self, self.code, new_code)
+        self.code = new_code
+
+
 def transform(fn, interact):
     src = dedent(inspect.getsource(fn))
 
@@ -450,6 +476,14 @@ def transform(fn, interact):
     fname = fn.__name__
     save = glb.get(fname, None)
     exec(new_fn, glb, glb)
+
+    try:
+        from jurigged import db
+
+        co = fn.__code__
+        db.assimilate(co, (co.co_filename,))
+    except ImportError:
+        pass
 
     # Get the new function (populated with exec)
     actual_fn = glb[fname]
@@ -501,6 +535,7 @@ def transform(fn, interact):
     # The necessary globals may not yet be set, so we create a "PreState" that
     # will be filled in whenever we first need to fetch the state.
     state_obj = PreState(state=state_obj, names=transformer.external, glbls=glb)
+    actual_fn._conformer = Conformer(fn, actual_fn, interact)
     return actual_fn, state_obj
 
 
