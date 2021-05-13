@@ -80,8 +80,10 @@ class Probe(rx.Observable):
     def subscribe_(
         self, on_next=None, on_error=None, on_completed=None, scheduler=None
     ):
-        self.listeners.append(on_next)
-        self.clisteners.append(on_completed)
+        if on_next is not None:
+            self.listeners.append(on_next)
+        if on_completed is not None:
+            self.clisteners.append(on_completed)
 
     def emit(self, **data):
         if not self.raw:
