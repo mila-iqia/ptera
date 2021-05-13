@@ -12,3 +12,4 @@ from .selector import select
 from .selfless import ConflictError, Override, default, override, transform
 from .tags import Tag, TagSet, match_tag, tag
 from .utils import ABSENT
+from .version import version
