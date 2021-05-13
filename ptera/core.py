@@ -401,7 +401,6 @@ class PatternCollection:
 
 
 global_patterns = PatternCollection([])
-PatternCollection.current.set(global_patterns)
 
 
 class proceed:
@@ -409,18 +408,11 @@ class proceed:
         self.fn = fn
 
     def __enter__(self):
-        self.curr = PatternCollection.current.get()
-        if self.curr is None:  # pragma: no cover
-            # This doesn't happen anymore since there is now a default
-            # global collection for Probe
-            self.frame = _empty_frame
-            self.frame_reset = Frame.top.set(self.frame)
-            return None
-        else:
-            self.frame, new = self.curr.proceed(self.fn)
-            self.frame_reset = Frame.top.set(self.frame)
-            self.reset = PatternCollection.current.set(new)
-            return new
+        self.curr = PatternCollection.current.get() or global_patterns
+        self.frame, new = self.curr.proceed(self.fn)
+        self.frame_reset = Frame.top.set(self.frame)
+        self.reset = PatternCollection.current.set(new)
+        return new
 
     def __exit__(self, typ, exc, tb):
         if self.curr is not None:

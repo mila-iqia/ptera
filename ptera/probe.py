@@ -65,6 +65,12 @@ class Probe(rx.Observable):
         if auto_activate:
             self.activate()
 
+    @property  # pragma: no cover
+    @contextmanager
+    def lock(self):
+        # This is called by throttle_first when on a different thread, I think
+        yield None
+
     def activate(self):
         global_patterns.extend(self.patterns)
 
