@@ -54,11 +54,12 @@ def make_resolver(*namespaces):
 
 
 class Probe(rx.Observable):
-    def __init__(self, selector, auto_activate=True):
+    def __init__(self, selector, auto_activate=True, raw=False):
         self.selector = select(selector, env_wrapper=make_resolver)
         self.patterns = dict_to_pattern_list(
             {self.selector: {"immediate": self.emit}}
         )
+        self.raw = raw
         self.listeners = []
         self.clisteners = []
         if auto_activate:
@@ -77,13 +78,13 @@ class Probe(rx.Observable):
         self.clisteners.append(on_completed)
 
     def emit(self, **data):
+        if not self.raw:
+            data = {name: cap.value for name, cap in data.items()}
         for fn in self.listeners:
-            print("feed", data)
             fn(data)
 
     def complete(self):
         for fn in self.clisteners:
-            print("completion of", fn)
             fn()
 
 

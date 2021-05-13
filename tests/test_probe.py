@@ -1,3 +1,5 @@
+from operator import itemgetter
+
 import pytest
 import rx
 from rx import operators as op
@@ -60,8 +62,23 @@ def loopy():
     return acc
 
 
-def test_probe():
+def test_probe_raw():
     results = Accumulator(lambda data: data["a"].value)
+    probe = Probe("f > a", raw=True)
+
+    probe.subscribe(results)
+
+    loopy()
+    results.check(x * x for x in range(100))
+
+    results.clear()
+    probe.deactivate()
+    loopy()
+    results.check([])
+
+
+def test_probe():
+    results = Accumulator(itemgetter("a"))
     probe = Probe("f > a")
 
     probe.subscribe(results)
@@ -76,7 +93,7 @@ def test_probe():
 
 
 def test_probe_method():
-    results = Accumulator(lambda data: data["wow"].value)
+    results = Accumulator(itemgetter("wow"))
     probe = Probe("Elephant.sing > wow")
 
     probe.subscribe(results)
@@ -91,7 +108,7 @@ def test_probe_method():
 
 
 def test_probe_tag():
-    results = Accumulator(lambda data: data["x"].value)
+    results = Accumulator(itemgetter("x"))
     probe = Probe("f > $x:@flag")
 
     probe.subscribe(results)
@@ -109,7 +126,7 @@ def test_pipe():
     results = Accumulator()
     probe = Probe("f > a")
 
-    neg = probe.pipe(op.map(lambda data: -data["a"].value))
+    neg = probe.pipe(op.map(lambda data: -data["a"]))
 
     neg.subscribe(results)
 
@@ -124,7 +141,7 @@ def test_merge():
     probe = Probe("f > a")
 
     arr = rx.of(-1, -2, -3)
-    vals = probe.pipe(op.map(lambda data: data["a"].value))
+    vals = probe.pipe(op.map(itemgetter("a")))
     merged = arr.pipe(op.merge(vals))
 
     merged.subscribe(results)
@@ -136,8 +153,8 @@ def test_merge():
 
 
 def test_two_probes():
-    results1 = Accumulator(lambda data: data["a"].value)
-    results2 = Accumulator(lambda data: data["a"].value)
+    results1 = Accumulator(itemgetter("a"))
+    results2 = Accumulator(itemgetter("a"))
 
     probe1 = Probe("f > a")
     probe2 = Probe("g > a")
@@ -162,8 +179,8 @@ def test_two_probes():
 
 
 def test_probe_same_var_twice():
-    results1 = Accumulator(lambda data: data["a"].value)
-    results2 = Accumulator(lambda data: data["a"].value)
+    results1 = Accumulator(itemgetter("a"))
+    results2 = Accumulator(itemgetter("a"))
 
     probe1 = Probe("f > a")
     probe2 = Probe("f > a")  # Different probe for same var
@@ -195,9 +212,6 @@ def test_bad_probe():
 def test_probing():
     results = Accumulator()
     with probing("f > a") as probe:
-        probe.pipe(
-            op.map(lambda data: data["a"].value),
-            op.max(),
-        ).subscribe(results)
+        probe.pipe(op.map(itemgetter("a")), op.max()).subscribe(results)
         loopy()
     results.check([99 ** 2])
