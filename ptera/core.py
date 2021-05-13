@@ -410,7 +410,9 @@ class proceed:
 
     def __enter__(self):
         self.curr = PatternCollection.current.get()
-        if self.curr is None:
+        if self.curr is None:  # pragma: no cover
+            # This doesn't happen anymore since there is now a default
+            # global collection for Probe
             self.frame = _empty_frame
             self.frame_reset = Frame.top.set(self.frame)
             return None

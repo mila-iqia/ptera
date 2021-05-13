@@ -421,7 +421,7 @@ class Conformer:
         self.code = fn.__code__
         self.interact = interact
 
-    def __conform__(self, new):
+    def __conform__(self, new):  # pragma: no cover
         from jurigged import db
 
         if isinstance(new, types.CodeType):
@@ -477,7 +477,7 @@ def transform(fn, interact):
     save = glb.get(fname, None)
     exec(new_fn, glb, glb)
 
-    try:
+    try:  # pragma: no cover
         from jurigged import db
 
         co = fn.__code__
