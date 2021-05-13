@@ -714,7 +714,7 @@ def _select(pattern, context="root"):
     return pattern
 
 
-def select(s, env=None, skip_modules=[]):
+def select(s, env=None, env_wrapper=None, skip_modules=[]):
     """Create a selector from a string.
 
     Arguments:
@@ -730,6 +730,8 @@ def select(s, env=None, skip_modules=[]):
         return s
     if env is None:
         fr = sys._getframe(1)
-        env = _find_eval_env(s, fr, skip=["ptera", *skip_modules])
+        env = _find_eval_env(s, fr, skip=["ptera", "contextlib", *skip_modules])
+        if env_wrapper is not None:
+            env = env_wrapper(env)
     pattern = _select(s)
     return _resolve(pattern, env, count())

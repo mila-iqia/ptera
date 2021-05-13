@@ -291,7 +291,7 @@ accumulator_classes = {
 }
 
 
-def dict_to_collection(*rulesets):
+def dict_to_pattern_list(*rulesets):
     tmp = {}
     for rules in rulesets:
         for pattern, triggers in rules.items():
@@ -305,9 +305,12 @@ def dict_to_collection(*rulesets):
                         tmp[key] = accumulator_classes[name](pattern=pattern)
                     acc = tmp[key]
                     acc.rules.append(entry)
-    return PatternCollection(
-        [(pattern, acc) for (name, pattern), acc in tmp.items()]
-    )
+
+    return [(pattern, acc) for (name, pattern), acc in tmp.items()]
+
+
+def dict_to_collection(*rulesets):
+    return PatternCollection(dict_to_pattern_list(*rulesets))
 
 
 def check_element(el, name, category):
@@ -358,6 +361,12 @@ class PatternCollection:
     def __init__(self, patterns=None):
         self.patterns = patterns or []
 
+    def extend(self, patterns):
+        self.patterns += patterns
+
+    def remove_all(self, patterns):
+        self.patterns = [p for p in self.patterns if p not in patterns]
+
     def proceed(self, fn):
         frame = _empty_frame
         next_patterns = []
@@ -389,6 +398,10 @@ class PatternCollection:
                         next_patterns.append((child, acc))
         rval = PatternCollection(next_patterns)
         return frame, rval
+
+
+global_patterns = PatternCollection([])
+PatternCollection.current.set(global_patterns)
 
 
 class proceed:

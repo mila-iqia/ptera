@@ -6,6 +6,7 @@ from .core import (
     interact,
 )
 from .deco import PteraDecorator, tooled
+from .probe import Probe, probing
 from .recur import Recurrence
 from .selector import select
 from .selfless import ConflictError, Override, default, override, transform

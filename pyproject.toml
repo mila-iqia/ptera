@@ -10,6 +10,7 @@ repository = "https://github.com/breuleux/ptera"
 [tool.poetry.dependencies]
 python = "^3.6"
 contextvars = "^2.4"
+Rx = "^3.2.0"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"
