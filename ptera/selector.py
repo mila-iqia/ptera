@@ -714,7 +714,7 @@ def _select(pattern, context="root"):
     return pattern
 
 
-def select(s, env=None, env_wrapper=None, skip_modules=[]):
+def select(s, env=None, env_wrapper=None, skip_modules=[], skip_frames=0):
     """Create a selector from a string.
 
     Arguments:
@@ -725,11 +725,13 @@ def select(s, env=None, env_wrapper=None, skip_modules=[]):
         skip_modules: Modules to skip when looking for an environment.
             We will go up through the stack until we get to a scope that
             is outside these modules.
+        skip_frames: Number of frames to skip when looking for an
+            environment.
     """
     if not isinstance(s, str):
         return s
     if env is None:
-        fr = sys._getframe(1)
+        fr = sys._getframe(skip_frames + 1)
         env = _find_eval_env(s, fr, skip=["ptera", "contextlib", *skip_modules])
         if env_wrapper is not None:
             env = env_wrapper(env)
