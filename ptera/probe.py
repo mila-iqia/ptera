@@ -97,8 +97,8 @@ class Probe(rx.Observable):
 
 
 @contextmanager
-def probing(selector):
-    probe = Probe(selector)
+def probing(selector, raw=False):
+    probe = Probe(selector, raw=raw)
     try:
         yield probe
     finally:
