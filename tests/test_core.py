@@ -678,3 +678,14 @@ def test_redirect_global():
         assert exposure(8) == 512
 
     assert old_exposure is exposure
+
+
+@tooled
+def ratatouille(x):
+    return (y := x + 1) * y
+
+
+def test_named_expression():
+    res, fs = ratatouille.using("ratatouille > y")(5)
+    assert res == 36
+    assert fs.map("y") == [6]

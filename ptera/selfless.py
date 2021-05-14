@@ -175,7 +175,7 @@ class PteraTransformer(NodeTransformer):
         """Create a Name that represents the lack of a value."""
         return ast.Name(id="__ptera_ABSENT", ctx=ast.Load())
 
-    def make_interaction(self, target, ann, value, orig=None):
+    def make_interaction(self, target, ann, value, orig=None, expression=False):
         """Create code for setting the value of a variable."""
         if ann and isinstance(target, ast.Name):
             self.annotated[target.id] = ann
@@ -213,14 +213,22 @@ class PteraTransformer(NodeTransformer):
                 args=value_args,
                 keywords=[],
             )
-        return [
-            ast.Assign(
-                targets=[target],
+        if expression:
+            return ast.NamedExpr(
+                target=target,
                 value=new_value,
                 lineno=orig.lineno,
                 col_offset=orig.col_offset,
             )
-        ]
+        else:
+            return [
+                ast.Assign(
+                    targets=[target],
+                    value=new_value,
+                    lineno=orig.lineno,
+                    col_offset=orig.col_offset,
+                )
+            ]
 
     def visit_body(self, stmts):
         new_body = []
@@ -355,14 +363,31 @@ class PteraTransformer(NodeTransformer):
                 ast.Constant(value=None),
                 ast.Constant(value=None),
                 self.fself(),
-                node.value or ast.Constant(value=None),
+                self.visit(node.value or ast.Constant(value=None)),
             ],
             keywords=[],
         )
         return ast.copy_location(ast.Return(value=new_value), node)
 
+    def visit_NamedExpr(self, node):
+        """Rewrite an assignment expression.
+
+        Before::
+            x := y + z
+
+        After::
+            x := _ptera_interact('x', None, y + z)
+        """
+        return self.make_interaction(
+            node.target,
+            None,
+            self.visit(node.value),
+            orig=node,
+            expression=True,
+        )
+
     def visit_AnnAssign(self, node):
-        """Rewrite an annotated assignment expression.
+        """Rewrite an annotated assignment statement.
 
         Before::
             x: int
@@ -375,7 +400,7 @@ class PteraTransformer(NodeTransformer):
         )
 
     def visit_Assign(self, node):
-        """Rewrite an assignment expression.
+        """Rewrite an assignment statement.
 
         Before::
             x = y + z
