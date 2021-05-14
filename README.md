@@ -6,236 +6,171 @@
 
 ## What is Ptera?
 
-Ptera is a set of powerful tools to query or tweak the values of variables from a program.
+Ptera is a way to probe arbitrary variables in arbitrary functions in your program, for instance to plot their values over time, to get the maximum or minimum value during execution.
 
 * **Keep your program clean**: Queries can be defined outside of your main function, so there is no need to pollute your code with logging or debug code.
 * **Debug and analyze across scopes**: Easily write queries that collect variables at various points in the call stack, or even across different calls. Then, you can analyze them all together.
 * **Tag variables and functions**: Categorize parts of your program to make more general queries.
 
-
-## Example 1
-
-Take the following function, which estimates whether a point `c` in the complex pane belongs to the Mandelbrot set or not (repeat this for a range of real/imag values to draw a pretty monochrome fractal).
-
 ```python
-from ptera import tooled
+from ptera import probing, op
 
-MAX_ITER = 100
+def fact(n):
+    if n <= 1:
+        return n
+    else:
+        return n * fact(n - 1)
 
-@tooled
-def mandelbrot(real, imag):
-    c = real + imag * 1j
-    z = 0
-    for i in range(MAX_ITER):
-        z = z * z + c
-        if abs(z) > 2:
-            return False
-    return True
+with probing("fact(n) as v") as probe:
+    probe.pipe(op.keymap(lambda n, v: f"fact({n}) = {v}")).subscribe(print)
+    fact(3)
+    # prints fact(1) = 1; fact(2) = 2; fact(3) = 6
 ```
 
-Ptera allows you, among other things, to look at the values taken by the variable `z` through the course of the function. This can be very interesting!
+
+## probing
+
+Usage: `with ptera.probing(selector) as probe: ...`
+
+The **selector** is a specification of which variables in which functions we want to stream through the probe. One of the variables must be the *focus* of the selector, meaning that the probe is triggered when *that* variable is set. The focus may be indicated either as `f(!x)` or `f > x`.
+
+The **probe** is an instance of [rx.Observable](https://github.com/ReactiveX/RxPY). All of the `rx` [operators](https://rxpy.readthedocs.io/en/latest/reference_operators.html) should therefore work with ptera's probes (map, reduce, min, max, debounce, etc.)
+
+
+### Example 1: intermediate variables
+
+Ptera is capable of capturing any variable in a function, not just inputs and return values:
 
 ```python
-mandelbrot_zs = mandelbrot.using(zs="mandelbrot > z")
+def fact2(n):
+    curr = 1
+    for i in range(n):
+        curr = curr * (i + 1)
+    return curr
 
-print(mandelbrot_zs(0.25, 0).zs.map("z"))
-# -> Converges to 0.5
-
-print(mandelbrot_zs(-1, 0).zs.map("z"))
-# -> Oscillates between 0 and -1
-
-print(mandelbrot_zs(-0.125, 0.75).zs.map("z"))
-# -> 3-way oscillation between 0.01-0.006j, -0.125+0.75j and -0.67+0.56j
+with probing("fact2(i, !curr)") as probe:
+    probe.subscribe(print)
+    fact2(3)
+    # {'curr': 1}
+    # {'curr': 1, 'i': 0}
+    # {'curr': 2, 'i': 1}
+    # {'curr': 6, 'i': 2}
 ```
 
-(Depending on which bulb of the fractal you are looking at, the iteration will converge on a cycle with a finite period, which can be arbitrarily large, which you can sort of visualize [like this](https://en.wikipedia.org/wiki/Mandelbrot_set#/media/File:Logistic_Map_Bifurcations_Underneath_Mandelbrot_Set.gif). But enough about that.)
-
-All the values are collected together and can be mapped in any way you'd like. You can also capture multiple variables together, for instance:
+The "!" in the selector above means that the focus is `curr`. This means it is triggered when `curr` is set. This is why the first result does not have a value for `i`. You can use the selector `fact2(!i, curr)` to focus on `i` instead:
 
 ```python
-mandelbrot_zis = mandelbrot.using(zis="mandelbrot(i) > z")
-
-print(mandelbrot_zis(0.25, 0).zis.map(lambda z, i=None: (i, z)))
-# [(None, 0), (0, 0.25), (1, 0.3125), ..., (999, 0.499)]
+with probing("fact2(!i, curr)") as probe:
+    probe.subscribe(print)
+    fact2(3)
+    # {'i': 0, 'curr': 1}
+    # {'i': 1, 'curr': 1}
+    # {'i': 2, 'curr': 2}
 ```
 
-**Tweaking variables**
+You can see that the associations are different (curr is 2 when i is 2, whereas it was 6 with the other selector), but this is simply because they are now triggered when `i` is set.
 
-You can also "tweak" variables. For example, you can change the value of `MAX_ITER` within the call:
+### Example 2: multiple scopes
+
+A selector may act on several nested scopes in a call graph. For example, the selector `f(x) >> g(y) >> h > z` would capture variables `x`, `y` and `z` from the scopes of three different functions, but only when `f` calls `g` and `g` calls `h` (either directly or indirectly). (Note: `f(x) > g(y) > h > z` is also legal and is supposed to represent direct calls, but it may behave in confusing ways depending on which functions are instrumented globally, so avoid it for the time being).
 
 ```python
-mandelbrot_short = mandelbrot.tweaking({"MAX_ITER": 10})
-mandelbrot_long = mandelbrot.tweaking({"MAX_ITER": 1000})
+def f(x):
+    return g(x + 1) * g(-x - 1)
 
-print(mandelbrot_short(0.2501, 0))  # True
-print(mandelbrot_long(0.2501, 0))   # False
+def g(x):
+    return x * 2
+
+# Use "as" to rename a variable if there is a name conflict
+with probing("f(x) >> g > x as gx") as probe:
+    probe.subscribe(print)
+    f(5)
+    # {'gx': 6, 'x': 5}
+    # {'gx': -6, 'x': 5}
+    g(10)
+    # Prints nothing
 ```
 
-As you can see, both versions of the function use their own version of `MAX_ITER`, without interference.
+### Example 3: sibling calls
 
-Note however that Ptera will add significant overhead to a function like `mandelbrot` because all of its operations are cheap compared to the cost of tracking everything with Ptera. Only the body of functions decorated with `@tooled` will be slower, however, and if the bulk of the time of the program is spent in non-decorated functions, the overhead should be acceptable.
-
-
-## Example 2
-
-Suppose you have a simple PyTorch model with a few layers and a `tanh` activation function:
+Selectors can also specify variables on different paths in the call graph. For example:
 
 ```python
-class MLP(torch.nn.Module):
-    def __init__(self):
-        super(MLP, self).__init__()
-        self.linear1 = torch.nn.Linear(784, 250)
-        self.linear2 = torch.nn.Linear(250, 100)
-        self.linear3 = torch.nn.Linear(100, 10)
+def f(x):
+    v = g(x + 1) * h(-x - 1)
+    return v
 
-    def forward(self, inputs):
-        h1 = torch.tanh(self.linear1(inputs))
-        h2 = torch.tanh(self.linear2(h1))
-        h3 = self.linear3(h2)
-        return torch.log_softmax(h3, dim=1)
+def g(y):
+    return y * 2
 
-def step(model, optimizer, inputs, targets):
-    optimizer.zero_grad()
-    output = model(Variable(inputs).float())
-    loss = torch.nn.CrossEntropyLoss()(output, Variable(targets))
-    loss.backward()
-    optimizer.step()
+def h(z):
+    return z * 3
 
-def fit(model, data, epochs):
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    for epoch in range(epochs):
-        for batch_idx, (inputs, targets) in enumerate(data):
-            step(model, optimizer, inputs, targets)
-
-if __name__ == "__main__":
-    ...
-    fit(model, data, epochs)
+with probing("f(x, g(y), h(!z))") as probe:
+    probe.subscribe(print)
+    f(10)
+    # {'z': -11, 'x': 10, 'y': 11}
 ```
 
-You want to know whether the activations on the layer `h2` tend to saturate, meaning that they are very close to -1 or 1. Therefore, you would like to log the percentage of the values in the `h2` matrix that have an absolute value greater than 0.99. You would only like to check every 100 iterations or so, though.
+Remember to set the focus with `!`. It should ideally be on the last variable to be set.
 
-Here is how to do this with ptera. Comments indicate all the changes you need to make:
+There is currently no error if you don't set a focus, it will simply do nothing, so beware of that for the time being.
+
+### Example 4: tagging variables
+
+Using annotations, variables can be given various tags, and probes can use these tags instead of variable names.
 
 ```python
-from ptera import tooled, Overlay
-from ptera.tools import every
+def fishy(x):
+    a: "@fish" = x + 1
+    b: "@fish & @trout" = x + 2
+    return a * b
 
-class MLP(torch.nn.Module):
-    def __init__(self):
-        super(MLP, self).__init__()
-        self.linear1 = torch.nn.Linear(784, 250)
-        self.linear2 = torch.nn.Linear(250, 100)
-        self.linear3 = torch.nn.Linear(100, 10)
+with probing("fishy > $x:@trout") as probe:
+    probe.subscribe(print)
+    fishy(10)
+    # {'x': 12}
 
-    # Decorate this function
-    @tooled
-    def forward(self, inputs):
-        h1 = torch.tanh(self.linear1(inputs))
-        h2 = torch.tanh(self.linear2(h1))
-        h3 = self.linear3(h2)
-        return torch.log_softmax(h3, dim=1)
-
-# Decorate this function too
-@tooled
-def step(model, optimizer, inputs, targets):
-    optimizer.zero_grad()
-    output = model(Variable(inputs).float())
-    loss = torch.nn.CrossEntropyLoss()(output, Variable(targets))
-    loss.backward()
-    optimizer.step()
-
-def fit(model, data, epochs):
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    for epoch in range(epochs):
-        for batch_idx, (inputs, targets) in enumerate(data):
-            step(model, optimizer, inputs, targets)
-
-if __name__ == "__main__":
-    ...
-
-    # Create an overlay
-    overlay = Overlay()
-
-    # Set up a listener for the variable of MLP.forward named h2, but only
-    # within a call to step where the batch_idx variable is a multiple of 100.
-    # * The notation `x ~ f` means that we only trigger when f(x) == True.
-    # * The >> operator means arbitrary nesting.
-    # * The > operator means direct nesting
-    @overlay.on("step(batch_idx ~ every(100)) >> MLP.forward > h2")
-    def check_saturation(batch_idx, h2):
-        sat = float((h2.abs() > 0.99).float().mean())
-        print(sat)
-        return sat
-
-    # Call fit within a with block
-    with overlay as results:
-        fit(model, data, epochs)
-
-    # results.check_saturation contains a list of all the return values of the
-    # listener
-    print(results.check_saturation)
+with probing("fishy > $x:@fish") as probe:
+    probe.subscribe(print)
+    fishy(10)
+    # {'x': 11}
+    # {'x': 12}
 ```
 
-The interface is a bit different from the Mandelbrot example, because in this example the function we are calling, `fit`, is not decorated with `@tooled`. This is fine, however, because the overlay (which also has methods like `use`, `tweak`, etc.) will apply to everything that's going on inside the `with` block, and the data accumulated by the various listeners and plugins will be put in the `results` data structure.
 
+## Probe
 
-## Overlays
-
-An *overlay* is a collection of plugins that operate over the variables of ptera-decorated functions. It is used roughly like this:
+`Probe` works more or less the same way as `probing`, but it is not a context manager: it just works globally from the moment of its creation. This means that streams created with `Probe` never actually end, so operators that wait for the full stream before triggering, such as `ptera.op.min`, will not work.
 
 ```python
-overlay = Overlay()
-
-# Use plugins. A plugin can be a simple query string, which by default
-# creates a Tap plugin.
-overlay.use(p1=plugin1, p2=plugin2, ...)
-
-# Call a function every time the query is triggered
-@overlay.on(query)
-def p3(var1, var2, ...):
-    do_something(var1, var2, ...)
-
-# Change the value of a variable
-overlay.tweak({query: value, ...})
-
-# Change the value of a variable, but using a function which can depend on
-# other collected variables.
-overlay.rewrite({query: rewriter, ...})
-
-# Call the function while the overlay is active
-with overlay as results:
-    func()
-
-# Do something with the results
-do_something(results.p1)  # Set by plugin1
-do_something(results.p2)  # Set by plugin2
-do_something(results.p3)  # List of the return values of on(...)
-...
-
-# The "Tap" plugin, which is the default when giving a query string to use,
-# puts a Collector instance in its field in results. The main method you will
-# use is map:
-results.p1.map()                    # List of dictionaries with all captures
-results.p1.map("x")                 # List for variable "x"
-results.p1.map("x", "y")            # List of tuples of values for x and y
-results.p1.map(lambda x, y: x + y)  # Call the function on captured variables
-
-# map_all:
-# Each capture is a list of values. For example, the query `f(!x) > g(y)` will
-# trigger for every value of "x" because of the "!", but if g is called
-# multiple times, Ptera may list all of the values for "y". If that is the case,
-# `map` will error out and you must use `map_all`.
-results.p1.map_all()
-
-# map_full:
-# Each capture is a Capture object. This can be useful with a query
-# such as `$v:SomeTag` which captures any variable annotated with SomeTag, but
-# regardless of the variable's actual name. The value will be provided under
-# the name "v", but the actual name will be in the capture.name field.
-# results.p1.map("x") <=> results.p1.map_full(lambda x: x.value)
-# results.p1.map_all("x") <=> results.p1.map_full(lambda x: x.values)
-results.p1.map_full()
+Probe("fact() as result").subscribe(print)
+fact(2)
+# {'result': 1}
+# {'result': 2}
+fact(3)
+# {'result': 1}
+# {'result': 2}
+# {'result': 6}
 ```
+
+## Operators
+
+All the existing [operators](https://rxpy.readthedocs.io/en/latest/reference_operators.html) defined in the `rx` package should be compatible with `Probe` and `probing`. They may be imported as `ptera.operators` or `ptera.op` *In addition to this*, `ptera.operators` defines the following operators:
+
+### Utility
+
+* **`getitem(name)`**: extract an item from a stream of dicts
+* **`keymap(fn)`**: calls a function using kwargs from a stream of dicts
+* **`throttle(duration)`**: alias for `rx.operators.throttle_first`
+
+### Arithmetic
+
+* **`roll(n, reduce=None, key_mapper=None, seed=None)`**: transform a stream into rolling windows of size at most n. Successive windows overlap completely except for the first and last elements.
+  * If reduce is provided, it is called with arguments `(last, add, drop, last_size, current_size)`
+  * If transform is provided, it is called on each element
+* **`rolling_average(n, key_mapper=None)`**: efficient implementation of a rolling average (mean of the last n elements)
+* **`rolling_average_and_variance(n, key_mapper=None)`**: efficient implementation of a rolling average and (sample) variance of the last n elements, returned as a tuple.
 
 
 ## Query language
@@ -277,7 +212,7 @@ def bee(c):
 
 
 @tooled
-def cap(d: Thing & int):     # cap > d ; $x:Thing ; $x:int ; cap > $x
+def cap(d: Thing & int):     # cap > d ; $x:Thing ; cap > $x
                              # art(bee(c)) > cap > d
     return d * d
 ```
