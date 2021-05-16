@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from ptera.selfless import (
@@ -165,7 +167,7 @@ def test_info():
     info = dict(type(iceberg.state).__info__["z"])
     filename, fn, lineno = info.pop("location")
     assert fn.__name__ == "iceberg"
-    assert lineno == 25
+    assert lineno == 27
     assert info == {
         "name": "z",
         "annotation": int,
@@ -178,7 +180,7 @@ def test_info_parameter():
     info = dict(type(iceberg.state).__info__["x"])
     filename, fn, lineno = info.pop("location")
     assert fn.__name__ == "iceberg"
-    assert lineno == 19
+    assert lineno == 21
     assert info == {
         "name": "x",
         "annotation": float,
@@ -252,3 +254,12 @@ def test_empty_return():
         return
 
     assert foo() is None
+
+
+if sys.version_info >= (3, 8, 0):
+
+    def test_named_expression():
+        from .walrus import ratatouille
+
+        assert ratatouille(5) == 36
+        assert ratatouille.new(y=override(3))(5) == 9
