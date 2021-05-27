@@ -1,3 +1,4 @@
+import sys
 from operator import itemgetter
 
 import pytest
@@ -5,6 +6,8 @@ import rx
 from rx import operators as op
 
 from ptera.probe import Probe, probing
+
+from .milk import cheese as ch
 
 
 class Accumulator:
@@ -215,3 +218,15 @@ def test_probing():
         probe.pipe(op.map(itemgetter("a")), op.max()).subscribe(results)
         loopy()
     results.check([99 ** 2])
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python3.8 or higher"
+)
+def test_slash_probe():
+    results = Accumulator()
+    with probing("/tests.milk/cheese > a") as probe:
+        probe.pipe(op.map(itemgetter("a"))).subscribe(results)
+        assert ch(4) == 16 + 4
+        assert ch(5) == 25 + 4
+    results.check([16, 25])

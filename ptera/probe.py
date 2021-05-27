@@ -22,23 +22,35 @@ def make_resolver(*namespaces):
     """
 
     def __ptera_resolver__(x):
-        varname, *rest = x.split(".")
+        if x.startswith("/"):
+            import codefind
 
-        if varname.startswith("@"):
-            curr = getattr(tag, varname[1:])
+            _, module, *parts = x.split("/")
+            co = codefind.find_code(*parts, module=module)
+            (curr,) = [
+                fn
+                for fn in codefind.get_functions(co)
+                if inspect.isfunction(fn)
+            ]
 
         else:
-            for ns in namespaces:
-                if varname in ns:
-                    curr = ns[varname]
-                    seq = [(ns, varname, dict.__setitem__)]
-                    break
-            else:
-                raise NameError(f"Could not resolve '{varname}'.")
+            varname, *rest = x.split(".")
 
-            for part in rest:
-                seq.append((curr, part, setattr))
-                curr = getattr(curr, part)
+            if varname.startswith("@"):
+                curr = getattr(tag, varname[1:])
+
+            else:
+                for ns in namespaces:
+                    if varname in ns:
+                        curr = ns[varname]
+                        seq = [(ns, varname, dict.__setitem__)]
+                        break
+                else:
+                    raise NameError(f"Could not resolve '{varname}'.")
+
+                for part in rest:
+                    seq.append((curr, part, setattr))
+                    curr = getattr(curr, part)
 
         if inspect.isfunction(curr):
             # Instrument the function directly
