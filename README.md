@@ -154,6 +154,32 @@ fact(3)
 # {'result': 6}
 ```
 
+## Absolute probes
+
+Here is a notation to probe a function using an "absolute path" in the module system:
+
+```python
+Probe("/xyz.submodule/Klass/method > x")
+
+# is mostly equivalent to:
+
+from xyz.submodule import Klass
+Probe("Klass.method > x")
+```
+
+The slashes represent a physical nesting rather than object attributes. For example, `/module.submodule/x/y` means:
+
+* Go in the file that defines `module.submodule`
+* Enter `def x` or `class x` (it will *not* work if `x` is imported from elsewhere)
+* Within that definition, enter `def y` or `class y`
+
+Note:
+
+* Unlike the normal notation, the absolute notation bypasses decorators: `/module/function` will probe the function inside the `def function(): ...` in `module.py`, so it will work even if the function was wrapped by a decorator (unless the decorator does not actually call the function).
+* Although the `/module/function/closure` notation can theoretically point to closures, **this does not work yet.** (It will, eventually.)
+* Use `/module.submodule/func`, *not* `/module/submodule/func`. The former roughly corresponds to `from module.submodule import func` and the latter to `from module import submodule; func = submodule.func`, which can be different in Python. It's a bit odd, but it works that way to properly address Python quirks.
+
+
 ## Operators
 
 All the existing [operators](https://rxpy.readthedocs.io/en/latest/reference_operators.html) defined in the `rx` package should be compatible with `Probe` and `probing`. They may be imported as `ptera.operators` or `ptera.op` *In addition to this*, `ptera.operators` defines the following operators:
