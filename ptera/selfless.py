@@ -446,8 +446,8 @@ class Conformer:
         self.code = fn.__code__
         self.interact = interact
 
-    def __conform__(self, new):  # pragma: no cover
-        from jurigged import db
+    def __conform__(self, new):
+        from codefind import code_registry
 
         if isinstance(new, types.CodeType):
             self.code = new
@@ -459,7 +459,7 @@ class Conformer:
         result, _ = transform(new_fn, self.interact)
         self.ptera_fn.__code__ = result.__code__
 
-        db.update_cache_entry(self, self.code, new_code)
+        code_registry.update_cache_entry(self, self.code, new_code)
         self.code = new_code
 
 
@@ -502,12 +502,12 @@ def transform(fn, interact):
     save = glb.get(fname, None)
     exec(new_fn, glb, glb)
 
-    try:  # pragma: no cover
-        from jurigged import db
+    try:
+        from codefind import code_registry
 
         co = fn.__code__
-        db.assimilate(co, (co.co_filename,))
-    except ImportError:
+        code_registry.assimilate(co, (co.co_filename,))
+    except ImportError:  # pragma: no cover
         pass
 
     # Get the new function (populated with exec)

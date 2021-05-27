@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from ptera import BaseOverlay, Overlay, Recurrence, select, tag, tooled
@@ -678,3 +680,31 @@ def test_redirect_global():
         assert exposure(8) == 512
 
     assert old_exposure is exposure
+
+
+def broccoli(n):
+    factor = 2
+    a = n * factor
+    return a + 1
+
+
+def cauliflower(n):
+    factor = 2
+    a = n * factor
+    return a + 2
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python3.8 or higher"
+)
+def test_conform():
+    from codefind import conform
+
+    tooled.inplace(broccoli)
+
+    with Overlay.tweaking({"factor": 3}):
+        assert broccoli(10) == 31
+        conformer = broccoli.__ptera__.fn._conformer
+        conform(conformer.code, cauliflower)
+        conform(conformer.code, cauliflower.__code__)
+        assert broccoli(10) == 32

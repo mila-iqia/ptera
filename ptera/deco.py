@@ -28,11 +28,11 @@ def redirect(fn, new_fn):
     # the new function in there. This is why we generated a unique name.
     fn.__globals__[uniq] = new_fn
     # We replace the code pointer
-    try:  # pragma: no cover
-        from jurigged import db
+    try:
+        from codefind import code_registry
 
-        db.update_cache_entry(fn, fn.__code__, glb[fname].__code__)
-    except ImportError:
+        code_registry.update_cache_entry(fn, fn.__code__, glb[fname].__code__)
+    except ImportError:  # pragma: no cover
         pass
     fn.__code__ = glb[fname].__code__
 
