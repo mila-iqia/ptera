@@ -7,7 +7,7 @@ from rx import operators as op
 
 from ptera.probe import Probe, probing
 
-from .milk import cheese as ch
+from .milk import cheese as ch, gouda
 
 
 class Accumulator:
@@ -230,3 +230,29 @@ def test_slash_probe():
         assert ch(4) == 16 + 4
         assert ch(5) == 25 + 4
     results.check([16, 25])
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python3.8 or higher"
+)
+def test_slash_probe_multi():
+    # Probing a function rewrites it and gives it a new code object, so
+    # we need to check if we can find multiple times reliably
+
+    results = Accumulator()
+    with probing("/tests.milk/gouda > a") as probe:
+        probe.pipe(op.map(itemgetter("a"))).subscribe(results)
+        assert gouda(4) == 64
+    results.check([8])
+
+    results = Accumulator()
+    with probing("/tests.milk/gouda > b") as probe:
+        probe.pipe(op.map(itemgetter("b"))).subscribe(results)
+        assert gouda(4) == 64
+    results.check([64])
+
+    results = Accumulator()
+    with probing("/tests.milk/gouda() as ret") as probe:
+        probe.pipe(op.map(itemgetter("ret"))).subscribe(results)
+        assert gouda(4) == 64
+    results.check([64])

@@ -27,11 +27,13 @@ def make_resolver(*namespaces):
 
             _, module, *parts = x.split("/")
             co = codefind.find_code(*parts, module=module)
-            (curr,) = [
+            funcs = [
                 fn
                 for fn in codefind.get_functions(co)
                 if inspect.isfunction(fn)
+                and not fn.__name__.endswith("__ptera_redirect")
             ]
+            (curr,) = funcs
 
         else:
             varname, *rest = x.split(".")

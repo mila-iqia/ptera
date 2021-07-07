@@ -11,3 +11,9 @@ def inc(fn):
 def cheese(x):
     a = x * x
     return a + 1
+
+
+def gouda(x):
+    a = x * 2
+    b = a * a
+    return b
