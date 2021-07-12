@@ -110,11 +110,37 @@ class Probe(rx.Observable):
             fn()
 
 
-@contextmanager
-def probing(selector, raw=False):
-    probe = Probe(selector, raw=raw)
-    try:
-        yield probe
-    finally:
-        probe.deactivate()
-        probe.complete()
+class LocalProbe:
+    def __init__(self, selector, pipes=[], subscribes=[]):
+        self.probe = None
+        self.obs = None
+        self.selector = selector
+        self.pipes = pipes
+        self.subscribes = subscribes
+
+    def pipe(self, *ops):
+        return LocalProbe(
+            self.selector, pipes=[*self.pipes, *ops], subscribes=self.subscribes
+        )
+
+    def subscribe(self, *args):
+        self.subscribes.append(args)
+
+    def __enter__(self):
+        assert self.probe is None
+        self.probe = Probe(self.selector)
+        self.obs = self.probe.pipe(*self.pipes)
+        for sub in self.subscribes:
+            self.obs.subscribe(*sub)
+        self.obs._local_probe = self
+        return self.obs
+
+    def __exit__(self, exc_type, exc, tb):
+        self.probe.deactivate()
+        self.probe.complete()
+        self.probe = None
+        self.obs = None
+        return None
+
+
+probing = LocalProbe

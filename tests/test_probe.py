@@ -5,7 +5,7 @@ import pytest
 import rx
 from rx import operators as op
 
-from ptera.probe import Probe, probing
+from ptera.probe import LocalProbe, Probe, probing
 
 from .milk import cheese as ch, gouda
 
@@ -210,6 +210,24 @@ def test_probe_same_var_twice():
 def test_bad_probe():
     with pytest.raises(NameError):
         Probe("unknown > a")
+
+
+def test_local_probe():
+    results = Accumulator()
+    lp = LocalProbe("f > a").pipe(op.map(itemgetter("a")), op.max())
+    lp.subscribe(results)
+    with lp as probe:
+        assert probe._local_probe is lp
+        loopy()
+    results.check([99 ** 2])
+
+    results.clear()
+    loopy()  # Should not accumulate
+
+    with lp:
+        # lp should be reusable
+        loopy()
+    results.check([99 ** 2])
 
 
 def test_probing():
