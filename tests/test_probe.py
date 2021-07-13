@@ -238,6 +238,13 @@ def test_probing():
     results.check([99 ** 2])
 
 
+def test_probing_format(capsys):
+    with probing("f > a", format="a={a}"):
+        loopy()
+    captured = capsys.readouterr()
+    assert captured.out == "".join(f"a={a * a}\n" for a in range(100))
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 8), reason="requires python3.8 or higher"
 )

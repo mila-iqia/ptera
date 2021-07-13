@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import rx
 
+from . import operators as op
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled
 from .selector import select
@@ -158,8 +159,6 @@ class LocalProbe:
     manager). The Probe is deactivated and marked as complete at the end of
     the block in order to trigger reduction operators.
 
-    Note: ``LocalProbe`` and ``probing`` are the same function.
-
     Example:
 
     >>> def f(x):
@@ -225,7 +224,44 @@ class LocalProbe:
         return None
 
 
-probing = LocalProbe
+def as_local_probe(lprobe):
+    if isinstance(lprobe, LocalProbe):
+        return lprobe
+    else:
+        return LocalProbe(lprobe)
+
+
+def probing(selector, do=None, format=None):
+    """Probe that can be used as a context manager.
+
+    ``probing`` is a thin wrapper around ``LocalProbe``.
+
+    Example:
+
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
+
+    >>> with probing("f > a", do=print).pipe(op.getitem("a")):
+    ...     f(4)  # Prints 16
+
+    Arguments:
+        selector: The selector string describing the variables to probe.
+        do: A function to execute on each data point.
+        format: A format string (implies do=print)
+    """
+
+    lprobe = as_local_probe(selector).pipe()
+
+    if format is not None:
+        lprobe = lprobe.pipe(op.format(format))
+        if do is None:
+            do = print
+
+    if do is not None:
+        lprobe.subscribe(do)
+
+    return lprobe
 
 
 @contextmanager
@@ -246,10 +282,7 @@ def accumulate(lprobe):
     Arguments:
         lprobe: Either a selector string or a LocalProbe.
     """
-
-    if isinstance(lprobe, str):
-        lprobe = LocalProbe(lprobe)
-
+    lprobe = as_local_probe(lprobe)
     results = []
     with lprobe as probe:
         probe.subscribe(results.append)
