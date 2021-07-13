@@ -20,6 +20,46 @@ def test_getitem():
         assert results == [1, 1, 2, 3, 5]
 
 
+def test_getitem2():
+    with probing("fib(a) > b") as probe:
+        results = []
+        probe.pipe(op.getitem("a", "b")).subscribe(results.append)
+        fib(5)
+        assert results == [(0, 1), (1, 1), (1, 2), (2, 3), (3, 5)]
+
+
+def test_format():
+    with probing("fib > b") as probe:
+        results = []
+        probe.pipe(op.format("b={b}")).subscribe(results.append)
+        fib(5)
+        assert results == ["b=1", "b=1", "b=2", "b=3", "b=5"]
+
+
+def test_format2():
+    with probing("fib > b") as probe:
+        results = []
+        probe.pipe(op.getitem("b"), op.format("b={}")).subscribe(results.append)
+        fib(5)
+        assert results == ["b=1", "b=1", "b=2", "b=3", "b=5"]
+
+
+def test_format3():
+    with probing("fib(a) > b") as probe:
+        results = []
+        probe.pipe(op.getitem("a", "b"), op.format("a={},b={}")).subscribe(
+            results.append
+        )
+        fib(5)
+        assert results == [
+            "a=0,b=1",
+            "a=1,b=1",
+            "a=1,b=2",
+            "a=2,b=3",
+            "a=3,b=5",
+        ]
+
+
 def test_keymap():
     with probing("fib > b") as probe:
         results = []

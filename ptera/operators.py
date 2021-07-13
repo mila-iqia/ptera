@@ -140,7 +140,25 @@ from rx.operators import (  # noqa: F401
 throttle = throttle_first
 
 
-def getitem(name):
+def format(string):
+    """Format an object using a format string.
+
+    Arguments:
+        string: The format string.
+    """
+
+    def _fmt(x):
+        if isinstance(x, dict):
+            return string.format(**x)
+        elif isinstance(x, (list, tuple)):
+            return string.format(*x)
+        else:
+            return string.format(x)
+
+    return map(_fmt)
+
+
+def getitem(*names):
     """Extract a key from a dictionary.
 
     Arguments:
@@ -148,7 +166,11 @@ def getitem(name):
     """
     import operator
 
-    return map(operator.itemgetter(name))
+    if len(names) == 1:
+        (name,) = names
+        return map(operator.itemgetter(name))
+    else:
+        return map(lambda arg: tuple(arg[name] for name in names))
 
 
 def keymap(fn):

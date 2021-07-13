@@ -22,7 +22,7 @@ def fact(n):
         return n * fact(n - 1)
 
 with probing("fact(n) as v") as probe:
-    probe.pipe(op.keymap(lambda n, v: f"fact({n}) = {v}")).subscribe(print)
+    probe.pipe(op.format("fact({n}) = {v}")).subscribe(print)
     fact(3)
     # prints fact(1) = 1; fact(2) = 2; fact(3) = 6
 ```
@@ -186,6 +186,7 @@ All the existing [operators](https://rxpy.readthedocs.io/en/latest/reference_ope
 
 ### Utility
 
+* **`format(string)`**: format each item of the stream (like str.format)
 * **`getitem(name)`**: extract an item from a stream of dicts
 * **`keymap(fn)`**: calls a function using kwargs from a stream of dicts
 * **`throttle(duration)`**: alias for `rx.operators.throttle_first`
