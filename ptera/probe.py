@@ -68,10 +68,33 @@ def make_resolver(*namespaces):
 
 
 class Probe(rx.Observable):
+    """Observable which generates a stream of values from program variables.
+
+    Example:
+
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
+
+    >>> probe = Probe("f > a").pipe(op.getitem("a"))
+    >>> probe.subscribe(print)
+    >>> f(4)  # Prints 16
+
+    Arguments:
+        selector: A selector string describing the variables to probe.
+        auto_activate: Whether to activate this probe on creation (default: True)
+        raw: Defaults to False. If True, produce a stream of Capture objects that
+            contain extra information about the capture. Mostly relevant for
+            advanced selectors such as "f > $x:#Parameter" which captures the value
+            of any variable with the Parameter tag under the generic name "x".
+            When raw is True, the actual name of the variable is preserved in a
+            Capture object associated to x.
+    """
+
     def __init__(self, selector, auto_activate=True, raw=False):
         self.selector = select(selector, env_wrapper=make_resolver)
         self.patterns = dict_to_pattern_list(
-            {self.selector: {"immediate": self.emit}}
+            {self.selector: {"immediate": self._emit}}
         )
         self.raw = raw
         self.listeners = []
@@ -86,31 +109,74 @@ class Probe(rx.Observable):
         yield None
 
     def activate(self):
+        """Activate this Probe."""
         global_patterns.extend(self.patterns)
 
     def deactivate(self):
+        """Deactivate this Probe."""
         global_patterns.remove_all(self.patterns)
 
     def subscribe_(
         self, on_next=None, on_error=None, on_completed=None, scheduler=None
     ):
+        """Subscribe a function to this Probe.
+
+        The function is executed each time the selector's focus variable is
+        set.
+        """
         if on_next is not None:
             self.listeners.append(on_next)
         if on_completed is not None:
             self.clisteners.append(on_completed)
 
-    def emit(self, **data):
+    def _emit(self, **data):
+        """Emit data on the stream.
+
+        This is used internally.
+        """
         if not self.raw:
             data = {name: cap.value for name, cap in data.items()}
         for fn in self.listeners:
             fn(data)
 
     def complete(self):
+        """Mark the probe as complete.
+
+        This is necessary in order to trigger operators such as sum or max
+        which can only yield a result once the stream is complete.
+        """
         for fn in self.clisteners:
             fn()
 
 
 class LocalProbe:
+    """Probe that can be used as a context manager.
+
+    A LocalProbe has ``pipe`` and ``subscribe`` methods like a normal Probe
+    or Observable, but must be used as a context manager in order to
+    instantiate a real Probe (which is only valid within the context
+    manager). The Probe is deactivated and marked as complete at the end of
+    the block in order to trigger reduction operators.
+
+    Note: ``LocalProbe`` and ``probing`` are the same function.
+
+    Example:
+
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
+
+    >>> with LocalProbe("f > a").pipe(op.getitem("a")) as probe:
+    ...     probe.subscribe(print)
+    ...     f(4)  # Prints 16
+
+    Arguments:
+        selector: The selector string describing the variables to probe.
+        pipes: A list of operators to pipe the stream into.
+        subscribes: A list of functions to subscribe to the probe once
+            it is created.
+    """
+
     def __init__(self, selector, pipes=[], subscribes=[]):
         self.probe = None
         self.obs = None
@@ -119,11 +185,27 @@ class LocalProbe:
         self.subscribes = subscribes
 
     def pipe(self, *ops):
+        """Pipe the stream into the provided operators.
+
+        Arguments:
+            ops: A list of operators (ptera.op.getitem, ptera.op.map, etc.)
+
+        Returns:
+            A new LocalProbe.
+        """
         return LocalProbe(
             self.selector, pipes=[*self.pipes, *ops], subscribes=self.subscribes
         )
 
     def subscribe(self, *args):
+        """Subscribe a function to the stream.
+
+        Arguments:
+            args: The same arguments as would be given to rx.Observable.pipe.
+
+        Returns:
+            None
+        """
         self.subscribes.append(args)
 
     def __enter__(self):
@@ -148,6 +230,23 @@ probing = LocalProbe
 
 @contextmanager
 def accumulate(lprobe):
+    """Accumulate variables from a probe into a list.
+
+    Example:
+
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
+
+    >>> with accumulate("f > a") as results:
+    ...     f(4)
+    ...     f(5)
+    ...     assert results == [{"a": 16}, {"a": 25}]
+
+    Arguments:
+        lprobe: Either a selector string or a LocalProbe.
+    """
+
     if isinstance(lprobe, str):
         lprobe = LocalProbe(lprobe)
 
