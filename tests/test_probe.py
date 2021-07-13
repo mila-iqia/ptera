@@ -3,9 +3,9 @@ from operator import itemgetter
 
 import pytest
 import rx
-from rx import operators as op
 
-from ptera.probe import LocalProbe, Probe, probing
+from ptera import op
+from ptera.probe import LocalProbe, Probe, accumulate, probing
 
 from .milk import cheese as ch, gouda
 
@@ -274,3 +274,21 @@ def test_slash_probe_multi():
         probe.pipe(op.map(itemgetter("ret"))).subscribe(results)
         assert gouda(4) == 64
     results.check([64])
+
+
+def test_accumulate():
+    with accumulate("f > a") as results:
+        f(4)
+        f(5)
+
+    assert results == [{"a": 16}, {"a": 25}]
+
+
+def test_accumulate2():
+    lp = LocalProbe("f > a").pipe(op.getitem("a"))
+
+    with accumulate(lp) as results:
+        f(4)
+        f(5)
+
+    assert results == [16, 25]

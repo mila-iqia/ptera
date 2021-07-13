@@ -144,3 +144,14 @@ class LocalProbe:
 
 
 probing = LocalProbe
+
+
+@contextmanager
+def accumulate(lprobe):
+    if isinstance(lprobe, str):
+        lprobe = LocalProbe(lprobe)
+
+    results = []
+    with lprobe as probe:
+        probe.subscribe(results.append)
+        yield results
