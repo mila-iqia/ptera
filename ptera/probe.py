@@ -174,14 +174,17 @@ class LocalProbe:
         pipes: A list of operators to pipe the stream into.
         subscribes: A list of functions to subscribe to the probe once
             it is created.
+        raw: Defaults to False. If True, produce a stream of Capture objects that
+            contain extra information about the capture.
     """
 
-    def __init__(self, selector, pipes=[], subscribes=[]):
+    def __init__(self, selector, pipes=[], subscribes=[], raw=False):
         self.probe = None
         self.obs = None
         self.selector = selector
         self.pipes = pipes
         self.subscribes = subscribes
+        self.raw = raw
 
     def pipe(self, *ops):
         """Pipe the stream into the provided operators.
@@ -209,7 +212,7 @@ class LocalProbe:
 
     def __enter__(self):
         assert self.probe is None
-        self.probe = Probe(self.selector)
+        self.probe = Probe(self.selector, raw=self.raw)
         self.obs = self.probe.pipe(*self.pipes)
         for sub in self.subscribes:
             self.obs.subscribe(*sub)
@@ -224,14 +227,14 @@ class LocalProbe:
         return None
 
 
-def as_local_probe(lprobe):
+def as_local_probe(lprobe, raw=False):
     if isinstance(lprobe, LocalProbe):
         return lprobe
     else:
-        return LocalProbe(lprobe)
+        return LocalProbe(lprobe, raw=raw)
 
 
-def probing(selector, do=None, format=None):
+def probing(selector, *, do=None, format=None, raw=False):
     """Probe that can be used as a context manager.
 
     ``probing`` is a thin wrapper around ``LocalProbe``.
@@ -249,9 +252,11 @@ def probing(selector, do=None, format=None):
         selector: The selector string describing the variables to probe.
         do: A function to execute on each data point.
         format: A format string (implies do=print)
+        raw: Defaults to False. If True, produce a stream of Capture objects that
+            contain extra information about the capture.
     """
 
-    lprobe = as_local_probe(selector).pipe()
+    lprobe = as_local_probe(selector, raw=raw).pipe()
 
     if format is not None:
         lprobe = lprobe.pipe(op.format(format))
