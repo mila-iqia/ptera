@@ -9,12 +9,12 @@ repository = "https://github.com/breuleux/ptera"
 
 [tool.poetry.dependencies]
 python = "^3.6"
+codefind = {version = "^0.1.2", python = "^3.8"}
 contextvars = {version = "^2.4", python = "~3.6"}
 Rx = "^3.2.0"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.5b1", python = "^3.7"}
-codefind = {version = "^0.1.2", python = "^3.8"}
 pytest = "^5.3.2"
 pytest-cov = "^2.8.1"
 isort = {extras = ["pyproject"], version = "^5.6.4"}
