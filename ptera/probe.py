@@ -178,12 +178,12 @@ class LocalProbe:
             contain extra information about the capture.
     """
 
-    def __init__(self, selector, pipes=[], subscribes=[], raw=False):
+    def __init__(self, selector, pipes=(), subscribes=(), raw=False):
         self.probe = None
         self.obs = None
         self.selector = selector
-        self.pipes = pipes
-        self.subscribes = subscribes
+        self.pipes = list(pipes)
+        self.subscribes = list(subscribes)
         self.raw = raw
 
     def pipe(self, *ops):
@@ -195,9 +195,7 @@ class LocalProbe:
         Returns:
             A new LocalProbe.
         """
-        return LocalProbe(
-            self.selector, pipes=[*self.pipes, *ops], subscribes=self.subscribes
-        )
+        return LocalProbe(self.selector, pipes=[*self.pipes, *ops])
 
     def subscribe(self, *args):
         """Subscribe a function to the stream.
