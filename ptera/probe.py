@@ -2,8 +2,7 @@ import inspect
 from contextlib import contextmanager
 
 import rx
-from giving import operators as op
-from giving.obs import ObservableProxy
+from giving import ObservableProxy, op
 
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled

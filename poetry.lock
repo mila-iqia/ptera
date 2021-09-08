@@ -139,7 +139,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
 name = "giving"
-version = "0.1.1"
+version = "0.1.3"
 description = "Reactive logging"
 category = "main"
 optional = false
@@ -444,7 +444,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "0fb001cac98cf2dc191c61ba3c4c4770c071dca346e304c94be30572895071ce"
+content-hash = "7ff8e7e748d756d6f2fd078ebf78c68ab48018600f1c3e649661ad79861ee07c"
 
 [metadata.files]
 asttokens = [
@@ -541,8 +541,8 @@ flake8 = [
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
 giving = [
-    {file = "giving-0.1.1-py3-none-any.whl", hash = "sha256:f68cfdfdb8799784f79d9027c40648d9edcbec6e96a5bcfc93e66e6c463276e3"},
-    {file = "giving-0.1.1.tar.gz", hash = "sha256:5b86592b895dd82db7afb8369de8e460317e812c7ff3c1957a40ad8bc91fe521"},
+    {file = "giving-0.1.3-py3-none-any.whl", hash = "sha256:a2096f14a4de6bb3e983c3b45952e8fc2b30a50adf2003a4753d6f100a800d26"},
+    {file = "giving-0.1.3.tar.gz", hash = "sha256:72e7067bebbb5e5685f34edc416d721da85acd63f835501a7f6da289899b0987"},
 ]
 immutables = [
     {file = "immutables-0.16-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:acbfa79d44228d96296279068441f980dc63dbed52522d9227ff9f4d96c6627e"},
