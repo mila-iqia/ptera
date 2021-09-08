@@ -1,7 +1,8 @@
-from ptera import operators as op
+from giving import operators as op
+
 from ptera.probe import probing
 
-TOLERANCE = 1e-7
+TOLERANCE = 1e-6
 
 
 def fib(n):
@@ -80,17 +81,6 @@ def test_roll():
         assert results == [[1], [1, 1], [1, 1, 2], [1, 2, 3], [2, 3, 5]]
 
 
-def test_rolling_mapper():
-    with probing("fib > b") as probe:
-        results = []
-        probe.pipe(
-            op.roll(3, key_mapper=lambda data: data["b"]),
-            op.map(list),
-        ).subscribe(results.append)
-        fib(5)
-        assert results == [[1], [1, 1], [1, 1, 2], [1, 2, 3], [2, 3, 5]]
-
-
 def test_rolling_average():
     with probing("fib > b") as probe:
         results1 = []
@@ -98,7 +88,7 @@ def test_rolling_average():
         bs = probe.pipe(op.getitem("b"))
 
         bs.pipe(
-            op.rolling_average(7),
+            op.average(scan=7),
         ).subscribe(results1.append)
 
         bs.pipe(
@@ -119,7 +109,8 @@ def test_rolling_average_and_variance():
         bs = probe.pipe(op.getitem("b"))
 
         bs.pipe(
-            op.rolling_average_and_variance(7),
+            op.average_and_variance(scan=7),
+            op.skip(1),
         ).subscribe(results1.append)
 
         def meanvar(xs):

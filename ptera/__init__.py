@@ -1,4 +1,5 @@
-from . import operators as op
+from giving import operators as op
+
 from .core import (
     BaseOverlay,
     Overlay,

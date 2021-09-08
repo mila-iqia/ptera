@@ -2,8 +2,8 @@ import inspect
 from contextlib import contextmanager
 
 import rx
+from giving import operators as op
 
-from . import operators as op
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled
 from .selector import select
