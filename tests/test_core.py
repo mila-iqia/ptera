@@ -614,6 +614,19 @@ def test_for_loop():
 
 
 @tooled
+def excite():
+    try:
+        1 / 0
+    except ZeroDivisionError as exc:
+        return exc
+
+
+def test_exception():
+    assert isinstance(excite(), ZeroDivisionError)
+    assert excite.tweaking({"exc": "nope"})() == "nope"
+
+
+@tooled
 def multitag():
     y: tag.Bouffe = default(10)
     y = y * y

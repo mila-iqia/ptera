@@ -126,6 +126,10 @@ class ExternalVariableCollector(NodeVisitor):
             self.provenance[node.id] = "body"
             self.assigned.add(node.id)
 
+    def visit_ExceptHandler(self, node):
+        self.provenance[node.name] = "body"
+        self.assigned.add(node.name)
+
     def visit_arg(self, node):
         if node.lineno in self.comments:
             self.vardoc[node.arg] = self.comments[node.lineno]
@@ -351,6 +355,21 @@ class PteraTransformer(NodeTransformer):
                 iter=self.visit(node.iter),
                 body=new_body,
                 orelse=self.visit_body(node.orelse),
+            ),
+            node,
+        )
+
+    def visit_ExceptHandler(self, node):
+        target = ast.copy_location(
+            ast.Name(id=node.name, ctx=ast.Store()), node
+        )
+        new_body = self.generate_interactions(target)
+        new_body.extend(self.visit_body(node.body))
+        return ast.copy_location(
+            ast.ExceptHandler(
+                name=node.name,
+                type=self.visit(node.type),
+                body=new_body,
             ),
             node,
         )
