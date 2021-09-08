@@ -16,7 +16,7 @@ def fib(n):
 def test_getitem():
     with probing("fib > b") as probe:
         results = []
-        probe.pipe(op.getitem("b")).subscribe(results.append)
+        probe["b"].subscribe(results.append)
         fib(5)
         assert results == [1, 1, 2, 3, 5]
 
@@ -24,7 +24,7 @@ def test_getitem():
 def test_getitem2():
     with probing("fib(a) > b") as probe:
         results = []
-        probe.pipe(op.getitem("a", "b")).subscribe(results.append)
+        probe["a", "b"].subscribe(results.append)
         fib(5)
         assert results == [(0, 1), (1, 1), (1, 2), (2, 3), (3, 5)]
 
@@ -32,15 +32,7 @@ def test_getitem2():
 def test_format():
     with probing("fib > b") as probe:
         results = []
-        probe.pipe(op.format("b={b}")).subscribe(results.append)
-        fib(5)
-        assert results == ["b=1", "b=1", "b=2", "b=3", "b=5"]
-
-
-def test_format2():
-    with probing("fib > b") as probe:
-        results = []
-        probe.pipe(op.getitem("b"), op.format("b={}")).subscribe(results.append)
+        probe.format("b={b}").subscribe(results.append)
         fib(5)
         assert results == ["b=1", "b=1", "b=2", "b=3", "b=5"]
 
@@ -48,9 +40,7 @@ def test_format2():
 def test_format3():
     with probing("fib(a) > b") as probe:
         results = []
-        probe.pipe(op.getitem("a", "b"), op.format("a={},b={}")).subscribe(
-            results.append
-        )
+        probe["a", "b"].format("a={},b={}").subscribe(results.append)
         fib(5)
         assert results == [
             "a=0,b=1",
@@ -64,7 +54,7 @@ def test_format3():
 def test_keymap():
     with probing("fib > b") as probe:
         results = []
-        probe.pipe(op.keymap(lambda b: -b)).subscribe(results.append)
+        probe.keymap(lambda b: -b).subscribe(results.append)
         fib(5)
         assert results == [-1, -1, -2, -3, -5]
 
@@ -72,34 +62,9 @@ def test_keymap():
 def test_roll():
     with probing("fib > b") as probe:
         results = []
-        probe.pipe(
-            op.getitem("b"),
-            op.roll(3),
-            op.map(list),
-        ).subscribe(results.append)
+        probe["b"].roll(3).map(list).subscribe(results.append)
         fib(5)
         assert results == [[1], [1, 1], [1, 1, 2], [1, 2, 3], [2, 3, 5]]
-
-
-def test_rolling_average():
-    with probing("fib > b") as probe:
-        results1 = []
-        results2 = []
-        bs = probe.pipe(op.getitem("b"))
-
-        bs.pipe(
-            op.average(scan=7),
-        ).subscribe(results1.append)
-
-        bs.pipe(
-            op.roll(7),
-            op.map(lambda xs: sum(xs) / len(xs)),
-        ).subscribe(results2.append)
-
-        fib(25)
-        assert all(
-            abs(m1 - m2) < TOLERANCE for m1, m2 in zip(results1, results2)
-        )
 
 
 def test_rolling_average_and_variance():
@@ -108,10 +73,7 @@ def test_rolling_average_and_variance():
         results2 = []
         bs = probe.pipe(op.getitem("b"))
 
-        bs.pipe(
-            op.average_and_variance(scan=7),
-            op.skip(1),
-        ).subscribe(results1.append)
+        bs.average_and_variance(scan=7).skip(1) >> results1
 
         def meanvar(xs):
             n = len(xs)
@@ -122,11 +84,7 @@ def test_rolling_average_and_variance():
             else:
                 return (None, None)
 
-        bs.pipe(
-            op.roll(7),
-            op.map(meanvar),
-            op.skip(1),
-        ).subscribe(results2.append)
+        bs.roll(7).map(meanvar).skip(1) >> results2
 
         fib(25)
         assert all(

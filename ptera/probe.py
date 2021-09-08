@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import rx
 from giving import operators as op
+from giving.obs import ObservableProxy
 
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled
@@ -68,7 +69,7 @@ def make_resolver(*namespaces):
     return __ptera_resolver__
 
 
-class Probe(rx.Observable):
+class Probe(ObservableProxy):
     """Observable which generates a stream of values from program variables.
 
     Example:
@@ -93,21 +94,23 @@ class Probe(rx.Observable):
     """
 
     def __init__(self, selector, auto_activate=True, raw=False):
+        self.observers = []
+
+        def make(observer, scheduler):
+            self.observers.append(observer)
+
+        src = rx.create(make)
+
+        super().__init__(src)
+
         self.selector = select(selector, env_wrapper=make_resolver)
         self.patterns = dict_to_pattern_list(
             {self.selector: {"immediate": self._emit}}
         )
         self.raw = raw
-        self.listeners = []
-        self.clisteners = []
+
         if auto_activate:
             self.activate()
-
-    @property  # pragma: no cover
-    @contextmanager
-    def lock(self):
-        # This is called by throttle_first when on a different thread, I think
-        yield None
 
     def activate(self):
         """Activate this Probe."""
@@ -117,19 +120,6 @@ class Probe(rx.Observable):
         """Deactivate this Probe."""
         global_patterns.remove_all(self.patterns)
 
-    def subscribe_(
-        self, on_next=None, on_error=None, on_completed=None, scheduler=None
-    ):
-        """Subscribe a function to this Probe.
-
-        The function is executed each time the selector's focus variable is
-        set.
-        """
-        if on_next is not None:
-            self.listeners.append(on_next)
-        if on_completed is not None:
-            self.clisteners.append(on_completed)
-
     def _emit(self, **data):
         """Emit data on the stream.
 
@@ -137,8 +127,8 @@ class Probe(rx.Observable):
         """
         if not self.raw:
             data = {name: cap.value for name, cap in data.items()}
-        for fn in self.listeners:
-            fn(data)
+        for obs in self.observers:
+            obs.on_next(data)
 
     def complete(self):
         """Mark the probe as complete.
@@ -146,8 +136,8 @@ class Probe(rx.Observable):
         This is necessary in order to trigger operators such as sum or max
         which can only yield a result once the stream is complete.
         """
-        for fn in self.clisteners:
-            fn()
+        for obs in self.observers:
+            obs.on_completed()
 
 
 class LocalProbe:
