@@ -627,6 +627,23 @@ def test_exception():
 
 
 @tooled
+def oxygen():
+    j = 0
+    for i in range(10):
+        j = j + 1
+        yield j
+    return j
+
+
+def test_generator():
+    results = list(oxygen())
+    assert results == list(range(1, 11))
+
+    results = list(oxygen.tweaking({"j": 0})())
+    assert results == [0] * 10
+
+
+@tooled
 def multitag():
     y: tag.Bouffe = default(10)
     y = y * y

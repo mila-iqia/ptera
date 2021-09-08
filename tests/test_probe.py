@@ -65,6 +65,12 @@ def loopy():
     return acc
 
 
+def nitrogen(n):
+    for i in range(n):
+        j = i * i
+        yield j
+
+
 def test_probe_raw():
     results = Accumulator(lambda data: data["a"].value)
     probe = Probe("f > a", raw=True)
@@ -236,6 +242,16 @@ def test_probing():
         probe.pipe(op.map(itemgetter("a")), op.max()).subscribe(results)
         loopy()
     results.check([99 ** 2])
+
+
+def test_probing_generator():
+    results = Accumulator()
+    with probing("nitrogen > j") as probe:
+        probe.pipe(op.map(itemgetter("j"))).subscribe(results)
+        for x in nitrogen(10):
+            if x > 10:
+                break
+    results.check([0, 1, 4, 9, 16])
 
 
 def test_probing_format(capsys):

@@ -1,4 +1,5 @@
 import functools
+import inspect
 import time
 from collections import deque
 from contextvars import ContextVar
@@ -763,6 +764,7 @@ class PteraFunction(Selfless):
         partial_args=(),
     ):
         super().__init__(fn, state)
+        self.isgenerator = inspect.isgeneratorfunction(self.fn)
         self.overlay = overlay or Overlay()
         self.return_object = return_object
         self.origin = origin or self
@@ -842,14 +844,26 @@ class PteraFunction(Selfless):
         else:
             return self.clone(partial_args=self.partial_args + (obj,))
 
+    def _run_attachments(self):
+        interact("#time", None, None, self, time.time())
+        if self.attachments:
+            for k, v in self.attachments.items():
+                interact(f"#{k}", None, None, self, v)
+
+    def __gcall__(self, *args, **kwargs):
+        with self.overlay as _:
+            with proceed(self):
+                self._run_attachments()
+                yield from super().__call__(*self.partial_args, *args, **kwargs)
+
     def __call__(self, *args, **kwargs):
         self.ensure_state()
+        if self.isgenerator:
+            return self.__gcall__(*args, **kwargs)
+
         with self.overlay as callres:
             with proceed(self):
-                interact("#time", None, None, self, time.time())
-                if self.attachments:
-                    for k, v in self.attachments.items():
-                        interact(f"#{k}", None, None, self, v)
+                self._run_attachments()
                 rval = super().__call__(*self.partial_args, *args, **kwargs)
                 callres["0"] = callres["value"] = rval
 
