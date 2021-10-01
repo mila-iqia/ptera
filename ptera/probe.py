@@ -1,3 +1,4 @@
+import atexit
 import inspect
 
 from giving import Given
@@ -8,6 +9,8 @@ from .selector import select
 from .selfless import override
 from .tags import tag
 from .utils import ABSENT
+
+global_probes = set()
 
 
 def make_resolver(*namespaces):
@@ -230,6 +233,7 @@ class Probe(Given):
             raise Exception("An instance of Probe can only be entered once")
 
         self._activated = True
+        global_probes.add(self)
         global_patterns.extend(self._patterns)
         return self
 
@@ -241,6 +245,7 @@ class Probe(Given):
         for obs in self._observers:
             obs.on_completed()
         global_patterns.remove_all(self._patterns)
+        global_probes.remove(self)
 
 
 def probing(selector, *, raw=False):
@@ -263,3 +268,9 @@ def probing(selector, *, raw=False):
             contain extra information about the capture.
     """
     return Probe(selector, auto_activate=False, raw=raw)
+
+
+@atexit.register
+def _terminate_global_probes():  # pragma: no cover
+    for probe in list(global_probes):
+        probe.__exit__(None, None, None)
