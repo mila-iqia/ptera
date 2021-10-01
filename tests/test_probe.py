@@ -5,7 +5,7 @@ import pytest
 import rx
 
 from ptera import op
-from ptera.probe import LocalProbe, Probe, accumulate, probing
+from ptera.probe import Probe, probing
 
 from .milk import cheese as ch, gouda
 
@@ -81,7 +81,7 @@ def test_probe_raw():
     results.check(x * x for x in range(100))
 
     results.clear()
-    probe.deactivate()
+    probe.__exit__()
     loopy()
     results.check([])
 
@@ -96,7 +96,7 @@ def test_probe():
     results.check(x * x for x in range(100))
 
     results.clear()
-    probe.deactivate()
+    probe.__exit__()
     loopy()
     results.check([])
 
@@ -111,7 +111,7 @@ def test_probe_method():
     results.check(x + 10 for x in range(100))
 
     results.clear()
-    probe.deactivate()
+    probe.__exit__()
     loopy()
     results.check([])
 
@@ -126,7 +126,7 @@ def test_probe_tag():
     results.check(x * x for x in range(100))
 
     results.clear()
-    probe.deactivate()
+    probe.__exit__()
     loopy()
     results.check([])
 
@@ -142,7 +142,7 @@ def test_pipe():
     loopy()
     results.check(-x * x for x in range(100))
 
-    probe.deactivate()
+    probe.__exit__()
 
 
 def test_merge():
@@ -158,59 +158,59 @@ def test_merge():
     loopy()
     results.check({x * x for x in range(100)} | {-1, -2, -3})
 
-    probe.deactivate()
+    probe.__exit__()
 
 
-def test_two_probes():
-    results1 = Accumulator(itemgetter("a"))
-    results2 = Accumulator(itemgetter("a"))
+# def test_two_probes():
+#     results1 = Accumulator(itemgetter("a"))
+#     results2 = Accumulator(itemgetter("a"))
 
-    probe1 = Probe("f > a")
-    probe2 = Probe("g > a")
+#     probe1 = Probe("f > a")
+#     probe2 = Probe("g > a")
 
-    probe1.subscribe(results1)
-    probe2.subscribe(results2)
+#     probe1.subscribe(results1)
+#     probe2.subscribe(results2)
 
-    probe2.deactivate()
-    loopy()
-    results1.check([x * x for x in range(100)])
-    results2.check([])
+#     probe2.deactivate()
+#     loopy()
+#     results1.check([x * x for x in range(100)])
+#     results2.check([])
 
-    probe2.activate()
-    loopy()
-    results1.check([x * x for x in range(100)] * 2)
-    results2.check([-x for x in range(100)])
+#     probe2.activate()
+#     loopy()
+#     results1.check([x * x for x in range(100)] * 2)
+#     results2.check([-x for x in range(100)])
 
-    probe1.deactivate()
-    loopy()
-    results1.check([x * x for x in range(100)] * 2)
-    results2.check([-x for x in range(100)] * 2)
+#     probe1.deactivate()
+#     loopy()
+#     results1.check([x * x for x in range(100)] * 2)
+#     results2.check([-x for x in range(100)] * 2)
 
 
-def test_probe_same_var_twice():
-    results1 = Accumulator(itemgetter("a"))
-    results2 = Accumulator(itemgetter("a"))
+# def test_probe_same_var_twice():
+#     results1 = Accumulator(itemgetter("a"))
+#     results2 = Accumulator(itemgetter("a"))
 
-    probe1 = Probe("f > a")
-    probe2 = Probe("f > a")  # Different probe for same var
+#     probe1 = Probe("f > a")
+#     probe2 = Probe("f > a")  # Different probe for same var
 
-    probe1.subscribe(results1)
-    probe2.subscribe(results2)
+#     probe1.subscribe(results1)
+#     probe2.subscribe(results2)
 
-    probe2.deactivate()
-    loopy()
-    results1.check([x * x for x in range(100)])
-    results2.check([])
+#     probe2.deactivate()
+#     loopy()
+#     results1.check([x * x for x in range(100)])
+#     results2.check([])
 
-    probe2.activate()
-    loopy()
-    results1.check([x * x for x in range(100)] * 2)
-    results2.check([x * x for x in range(100)])
+#     probe2.activate()
+#     loopy()
+#     results1.check([x * x for x in range(100)] * 2)
+#     results2.check([x * x for x in range(100)])
 
-    probe1.deactivate()
-    loopy()
-    results1.check([x * x for x in range(100)] * 2)
-    results2.check([x * x for x in range(100)] * 2)
+#     probe1.deactivate()
+#     loopy()
+#     results1.check([x * x for x in range(100)] * 2)
+#     results2.check([x * x for x in range(100)] * 2)
 
 
 def test_bad_probe():
@@ -218,22 +218,22 @@ def test_bad_probe():
         Probe("unknown > a")
 
 
-def test_local_probe():
-    results = Accumulator()
-    lp = LocalProbe("f > a").pipe(op.map(itemgetter("a")), op.max())
-    lp.subscribe(results)
-    with lp as probe:
-        assert probe._local_probe is lp
-        loopy()
-    results.check([99 ** 2])
+# def test_local_probe():
+#     results = Accumulator()
+#     lp = LocalProbe("f > a").pipe(op.map(itemgetter("a")), op.max())
+#     lp.subscribe(results)
+#     with lp as probe:
+#         assert probe._local_probe is lp
+#         loopy()
+#     results.check([99 ** 2])
 
-    results.clear()
-    loopy()  # Should not accumulate
+#     results.clear()
+#     loopy()  # Should not accumulate
 
-    with lp:
-        # lp should be reusable
-        loopy()
-    results.check([99 ** 2])
+#     with lp:
+#         # lp should be reusable
+#         loopy()
+#     results.check([99 ** 2])
 
 
 def test_probing():
@@ -255,10 +255,20 @@ def test_probing_generator():
 
 
 def test_probing_format(capsys):
-    with probing("f > a", format="a={a}"):
+    with probing("f > a").print("a={a}"):
         loopy()
     captured = capsys.readouterr()
     assert captured.out == "".join(f"a={a * a}\n" for a in range(100))
+
+
+def test_reactivate():
+    prb = probing("f > a")
+    with prb:
+        pass
+
+    with pytest.raises(Exception):
+        with prb:
+            pass
 
 
 @pytest.mark.skipif(
@@ -300,7 +310,7 @@ def test_slash_probe_multi():
 
 
 def test_accumulate():
-    with accumulate("f > a") as results:
+    with probing("f > a").values() as results:
         f(4)
         f(5)
 
@@ -308,9 +318,7 @@ def test_accumulate():
 
 
 def test_accumulate2():
-    lp = LocalProbe("f > a").pipe(op.getitem("a"))
-
-    with accumulate(lp) as results:
+    with probing("f > a")["a"].values() as results:
         f(4)
         f(5)
 
@@ -334,4 +342,4 @@ def test_probe_override():
 def test_probe_koverride():
     with probing("f > a") as probe:
         probe.koverride(lambda a: a * a)
-        assert f(5) == 5**4 + 1
+        assert f(5) == 5 ** 4 + 1

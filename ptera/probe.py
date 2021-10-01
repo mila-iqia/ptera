@@ -1,8 +1,6 @@
 import inspect
-from contextlib import contextmanager
 
-import rx
-from giving import ObservableProxy, op
+from giving import Given
 
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled
@@ -70,21 +68,50 @@ def make_resolver(*namespaces):
     return __ptera_resolver__
 
 
-class ProbeProxy(ObservableProxy):
-    def __init__(self, obs, root):
-        super().__init__(obs)
-        self._root = root
+class Probe(Given):
+    """Observable which generates a stream of values from program variables.
 
-    def _copy(self, new_obs):
-        return ProbeProxy(new_obs, root=self._root)
+    Example:
 
-    def breakpoint(self, *args, skip=[], **kwargs):  # pragma: no cover
-        skip = ["ptera.*", *skip]
-        super().breakpoint(*args, skip=skip, **kwargs)
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
 
-    def breakword(self, *args, skip=[], **kwargs):  # pragma: no cover
-        skip = ["ptera.*", *skip]
-        super().breakword(*args, skip=skip, **kwargs)
+    >>> probe = Probe("f > a")
+    >>> probe["a"].print()
+    >>> f(4)  # Prints 16
+
+    Arguments:
+        selector: A selector string describing the variables to probe.
+        auto_activate: Whether to activate this probe on creation (default: True)
+        raw: Defaults to False. If True, produce a stream of Capture objects that
+            contain extra information about the capture. Mostly relevant for
+            advanced selectors such as "f > $x:@Parameter" which captures the value
+            of any variable with the Parameter tag under the generic name "x".
+            When raw is True, the actual name of the variable is preserved in a
+            Capture object associated to x.
+    """
+
+    def __init__(
+        self,
+        selector=None,
+        auto_activate=True,
+        raw=False,
+        _obs=None,
+        _root=None,
+    ):
+        super().__init__(context=None, _obs=_obs, _root=_root)
+
+        if selector is not None:
+            self._selector = select(selector, env_wrapper=make_resolver)
+            self._patterns = dict_to_pattern_list(
+                {self._selector: {"value": self._emit}}
+            )
+            self._raw = raw
+            self._activated = False
+
+            if auto_activate:
+                self.__enter__()
 
     def override(self, setter=lambda x: x):
         """Override the value of the focus variable using a setter function.
@@ -123,7 +150,9 @@ class ProbeProxy(ObservableProxy):
         """
         if not callable(setter):
             value = setter
-            setter = lambda _: value
+
+            def setter(_):
+                return value
 
         def _override(data):
             self._root._value = override(setter(data))
@@ -154,62 +183,30 @@ class ProbeProxy(ObservableProxy):
             setter: A function that takes a value from the pipeline as keyword arguments
                 and produces the value to set the focus variable to.
         """
+
         def _override(data):
             self._root._value = override(setter(**data))
 
         return self.subscribe(_override)
 
+    ######################
+    # Changed from Given #
+    ######################
 
-class Probe(ProbeProxy):
-    """Observable which generates a stream of values from program variables.
+    def _copy(self, new_obs):
+        return type(self)(_obs=new_obs, _root=self._root)
 
-    Example:
+    def breakpoint(self, *args, skip=[], **kwargs):  # pragma: no cover
+        skip = ["ptera.*", *skip]
+        return super().breakpoint(*args, skip=skip, **kwargs)
 
-    >>> def f(x):
-    ...     a = x * x
-    ...     return a
+    def breakword(self, *args, skip=[], **kwargs):  # pragma: no cover
+        skip = ["ptera.*", *skip]
+        return super().breakword(*args, skip=skip, **kwargs)
 
-    >>> probe = Probe("f > a")
-    >>> probe["a"].print()
-    >>> f(4)  # Prints 16
-
-    Arguments:
-        selector: A selector string describing the variables to probe.
-        auto_activate: Whether to activate this probe on creation (default: True)
-        raw: Defaults to False. If True, produce a stream of Capture objects that
-            contain extra information about the capture. Mostly relevant for
-            advanced selectors such as "f > $x:#Parameter" which captures the value
-            of any variable with the Parameter tag under the generic name "x".
-            When raw is True, the actual name of the variable is preserved in a
-            Capture object associated to x.
-    """
-
-    def __init__(self, selector, auto_activate=True, raw=False):
-        self.observers = []
-
-        def make(observer, scheduler):
-            self.observers.append(observer)
-
-        src = rx.create(make)
-
-        super().__init__(src, root=self)
-
-        self.selector = select(selector, env_wrapper=make_resolver)
-        self.patterns = dict_to_pattern_list(
-            {self.selector: {"value": self._emit}}
-        )
-        self.raw = raw
-
-        if auto_activate:
-            self.activate()
-
-    def activate(self):
-        """Activate this Probe."""
-        global_patterns.extend(self.patterns)
-
-    def deactivate(self):
-        """Deactivate this Probe."""
-        global_patterns.remove_all(self.patterns)
+    ###################
+    # Context manager #
+    ###################
 
     def _emit(self, **data):
         """Emit data on the stream.
@@ -217,110 +214,37 @@ class Probe(ProbeProxy):
         This is used internally.
         """
         self._value = ABSENT
-        if not self.raw:
+        if not self._raw:
             data = {name: cap.value for name, cap in data.items()}
-        for obs in self.observers:
-            obs.on_next(data)
+        self._push(data)
         # self._value is set by override(), but this will only work if the pipeline
         # is synchronous
         return self._value
 
-    def complete(self):
-        """Mark the probe as complete.
-
-        This is necessary in order to trigger operators such as sum or max
-        which can only yield a result once the stream is complete.
-        """
-        for obs in self.observers:
-            obs.on_completed()
-
-
-class LocalProbe:
-    """Probe that can be used as a context manager.
-
-    A LocalProbe has ``pipe`` and ``subscribe`` methods like a normal Probe
-    or Observable, but must be used as a context manager in order to
-    instantiate a real Probe (which is only valid within the context
-    manager). The Probe is deactivated and marked as complete at the end of
-    the block in order to trigger reduction operators.
-
-    Example:
-
-    >>> def f(x):
-    ...     a = x * x
-    ...     return a
-
-    >>> with LocalProbe("f > a").pipe(op.getitem("a")) as probe:
-    ...     probe.subscribe(print)
-    ...     f(4)  # Prints 16
-
-    Arguments:
-        selector: The selector string describing the variables to probe.
-        pipes: A list of operators to pipe the stream into.
-        subscribes: A list of functions to subscribe to the probe once
-            it is created.
-        raw: Defaults to False. If True, produce a stream of Capture objects that
-            contain extra information about the capture.
-    """
-
-    def __init__(self, selector, pipes=(), subscribes=(), raw=False):
-        self.probe = None
-        self.obs = None
-        self.selector = selector
-        self.pipes = list(pipes)
-        self.subscribes = list(subscribes)
-        self.raw = raw
-
-    def pipe(self, *ops):
-        """Pipe the stream into the provided operators.
-
-        Arguments:
-            ops: A list of operators (ptera.op.getitem, ptera.op.map, etc.)
-
-        Returns:
-            A new LocalProbe.
-        """
-        return LocalProbe(self.selector, pipes=[*self.pipes, *ops])
-
-    def subscribe(self, *args):
-        """Subscribe a function to the stream.
-
-        Arguments:
-            args: The same arguments as would be given to rx.Observable.pipe.
-
-        Returns:
-            None
-        """
-        self.subscribes.append(args)
-
     def __enter__(self):
-        assert self.probe is None
-        self.probe = Probe(self.selector, raw=self.raw)
-        self.obs = self.probe.pipe(*self.pipes)
-        for sub in self.subscribes:
-            self.obs.subscribe(*sub)
-        self.obs._local_probe = self
-        return self.obs
+        if self._root is not self:
+            self._root.__enter__()
+            return self
 
-    def __exit__(self, exc_type, exc, tb):
-        self.probe.deactivate()
-        self.probe.complete()
-        self.probe = None
-        self.obs = None
-        return None
+        if self._activated:
+            raise Exception("An instance of Probe can only be entered once")
 
+        self._activated = True
+        global_patterns.extend(self._patterns)
+        return self
 
-def as_local_probe(lprobe, raw=False):
-    if isinstance(lprobe, LocalProbe):
-        return lprobe
-    else:
-        return LocalProbe(lprobe, raw=raw)
+    def __exit__(self, exc_type=None, exc=None, tb=None):
+        if self._root is not self:
+            self._root.__exit__(exc_type, exc, tb)
+            return
+
+        for obs in self._observers:
+            obs.on_completed()
+        global_patterns.remove_all(self._patterns)
 
 
-def probing(selector, *, do=None, format=None, raw=False):
+def probing(selector, *, raw=False):
     """Probe that can be used as a context manager.
-
-    ``probing`` is a thin wrapper around ``LocalProbe``.
 
     Example:
 
@@ -328,8 +252,8 @@ def probing(selector, *, do=None, format=None, raw=False):
     ...     a = x * x
     ...     return a
 
-    >>> with probing("f > a", do=print).pipe(op.getitem("a")):
-    ...     f(4)  # Prints 16
+    >>> with probing("f > a").print():
+    ...     f(4)  # Prints {"a": 16}
 
     Arguments:
         selector: The selector string describing the variables to probe.
@@ -338,40 +262,4 @@ def probing(selector, *, do=None, format=None, raw=False):
         raw: Defaults to False. If True, produce a stream of Capture objects that
             contain extra information about the capture.
     """
-
-    lprobe = as_local_probe(selector, raw=raw).pipe()
-
-    if format is not None:
-        lprobe = lprobe.pipe(op.format(format))
-        if do is None:
-            do = print
-
-    if do is not None:
-        lprobe.subscribe(do)
-
-    return lprobe
-
-
-@contextmanager
-def accumulate(lprobe):
-    """Accumulate variables from a probe into a list.
-
-    Example:
-
-    >>> def f(x):
-    ...     a = x * x
-    ...     return a
-
-    >>> with accumulate("f > a") as results:
-    ...     f(4)
-    ...     f(5)
-    ...     assert results == [{"a": 16}, {"a": 25}]
-
-    Arguments:
-        lprobe: Either a selector string or a LocalProbe.
-    """
-    lprobe = as_local_probe(lprobe)
-    results = []
-    with lprobe as probe:
-        probe.subscribe(results.append)
-        yield results
+    return Probe(selector, auto_activate=False, raw=raw)
