@@ -46,11 +46,11 @@ class Frame:
             if acc.status is ACTIVE:
                 acc.varset(element, varname, category, value)
 
-    def get(self, varname, key, category):
+    def get(self, varname, key, category, tentative):
         rval = ABSENT
         for element, acc in self.getters[varname]:
             if acc.status is ACTIVE:
-                tmp = acc.varget(element, varname, category)
+                tmp = acc.varget(element, varname, category, tentative)
                 if tmp is not ABSENT:
                     rval = tmp
         return rval
@@ -274,12 +274,13 @@ class SetterAccumulator(ImmediateAccumulator):
 
 
 class GetterAccumulator(ImmediateAccumulator):
-    def varget(self, element, varname, category):
+    def varget(self, element, varname, category, tentative):
         if not check_element(element, varname, category):
             return ABSENT
         cap = Capture(element)
         self.captures[element.capture] = cap
         cap.names.append(varname)
+        cap.set(varname, tentative)
         rval = self.run()
         del self.captures[element.capture]
         return rval
@@ -459,7 +460,7 @@ def interact(sym, key, category, __self__, value):
                 return choose([value, from_state], name=sym)
 
         if sym in fr.getters:
-            fr_value = fr.get(sym, key, category)
+            fr_value = fr.get(sym, key, category, value)
         else:
             fr_value = ABSENT
         if (

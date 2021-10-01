@@ -51,10 +51,10 @@ def test_format3():
         ]
 
 
-def test_keymap():
+def test_kmap():
     with probing("fib > b") as probe:
         results = []
-        probe.keymap(lambda b: -b).subscribe(results.append)
+        probe.kmap(lambda b: -b).subscribe(results.append)
         fib(5)
         assert results == [-1, -1, -2, -3, -5]
 
