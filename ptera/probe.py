@@ -1,7 +1,7 @@
 import atexit
 import inspect
 
-from giving import Given
+from giving import SourceProxy
 
 from .core import dict_to_pattern_list, global_patterns
 from .deco import tooled
@@ -71,7 +71,7 @@ def make_resolver(*namespaces):
     return __ptera_resolver__
 
 
-class Probe(Given):
+class Probe(SourceProxy):
     """Observable which generates a stream of values from program variables.
 
     Example:
@@ -103,7 +103,7 @@ class Probe(Given):
         _obs=None,
         _root=None,
     ):
-        super().__init__(context=None, _obs=_obs, _root=_root)
+        super().__init__(_obs=_obs, _root=_root)
 
         if selector is not None:
             self._selector = select(selector, env_wrapper=make_resolver)
@@ -196,9 +196,6 @@ class Probe(Given):
     # Changed from Given #
     ######################
 
-    def _copy(self, new_obs):
-        return type(self)(_obs=new_obs, _root=self._root)
-
     def breakpoint(self, *args, skip=[], **kwargs):  # pragma: no cover
         skip = ["ptera.*", *skip]
         return super().breakpoint(*args, skip=skip, **kwargs)
@@ -228,11 +225,7 @@ class Probe(Given):
         # is synchronous
         return self._value
 
-    def __enter__(self):
-        if self._root is not self:
-            self._root.__enter__()
-            return self
-
+    def _enter(self):
         if self._activated:
             raise Exception("An instance of Probe can only be entered once")
 
@@ -241,13 +234,7 @@ class Probe(Given):
         global_patterns.extend(self._patterns)
         return self
 
-    def __exit__(self, exc_type=None, exc=None, tb=None):
-        if self._root is not self:
-            self._root.__exit__(exc_type, exc, tb)
-            return
-
-        for obs in self._observers:
-            obs.on_completed()
+    def _exit(self):
         global_patterns.remove_all(self._patterns)
         global_probes.remove(self)
 
