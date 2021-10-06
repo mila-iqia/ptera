@@ -173,8 +173,8 @@ Define assertions with `fail()` (for debugging, also try `.breakpoint()`!)
 def unordered(xs):
     return any(x > y for x, y in zip(xs[:-1], xs[1:]))
 
-Probe("f > arr")["arr"] \
-    .filter(unordered).fail("List is unordered: {}")
+probe = Probe("f > arr")["arr"]
+probe.filter(unordered).fail("List is unordered: {}")
 
 f([1, 6, 30, 7], 18)
 ```
@@ -347,7 +347,16 @@ with probing("fishy > $x:@fish") as probe:
     # {'x': 12}
 ```
 
-The `$x` syntax means that we are not matching a variable called `x`, but instead matching any variable that has the right condition (in this case, the tags fish or trout) and offering it under the name `x`.
+The `$x` syntax means that we are not matching a variable called `x`, but instead matching any variable that has the right condition (in this case, the tags fish or trout) and offering it under the name `x`. You can pass `raw=True` to `probing` to get `Capture` objects instead of values. The `Capture` object gives access to the variable's actual name. For example:
+
+```python
+with probing("fishy > $x:@fish", raw=True) as probe:
+    probe["x"].map(lambda x: {x.name: x.value}).print()
+    fishy(10)
+    # {'a': 11}
+    # {'b': 12}
+```
+
 
 ### Example 5: overriding variables
 
