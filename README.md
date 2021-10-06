@@ -1,40 +1,249 @@
 
 # Ptera
 
-**Note**: This is super alpha. A lot of the features are implemented very inefficiently and the error reporting is not very good. That will be fixed in due time, and then this note will disappear into the mists of git history.
+Ptera is a powerful way to instrument your code for logging, debugging and testing purposes. With a simple `ptera.Probe()`, you can:
 
+* Obtain a stream of the values taken by any variable.
+* Probe multiple variables from multiple functions in multiple scopes.
+* Apply maps, filters, reductions, and much more to the streams.
+* Override the values of variables based on complex conditions.
+* Create external asserts or conditional breakpoints.
+* Et cetera :)
 
-## What is Ptera?
-
-Ptera is a way to probe arbitrary variables in arbitrary functions in your program, for instance to plot their values over time, to get the maximum or minimum value during execution.
-
-* **Keep your program clean**: Queries can be defined outside of your main function, so there is no need to pollute your code with logging or debug code.
-* **Debug and analyze across scopes**: Easily write queries that collect variables at various points in the call stack, or even across different calls. Then, you can analyze them all together.
-* **Tag variables and functions**: Categorize parts of your program to make more general queries.
+The main interface to ptera are the `Probe` and `probing` functions. The only difference between them is that the first applies globally whereas the second is a context manager and applies only to the code inside a block:
 
 ```python
-from ptera import probing, op
+from ptera import Probe, probing
 
-def fact(n):
-    if n <= 1:
-        return n
-    else:
-        return n * fact(n - 1)
+def f(x):
+    y = x * x
+    return y
 
-with probing("fact(n) as v") as probe:
-    probe.pipe(op.format("fact({n}) = {v}")).subscribe(print)
-    fact(3)
-    # prints fact(1) = 1; fact(2) = 2; fact(3) = 6
+Probe("f > y").print()
+
+with probing("f > y") as probe:
+    probe.print("y = {y}")
+
+    f(9)  # prints {"y": 81} and "y = 81"
+
+f(10)  # prints {"y": 100}
 ```
+
+`print()` is only one of a myriad operators. Ptera's interface is inspired from functional reactive programming and is identical to the interface of [giving](https://github.com/breuleux/giving) (itself based on `rx`). [See here for a more complete list of operators.](https://giving.readthedocs.io/en/latest/ref-operators.html).
+
+
+Note: reduction operators such as `min` or `sum` are applied at program exit for `Probe` or at the end of the `with` block with `probing`, so it is usually best to use `probing` for these.
+
+
+## Examples
+
+Ptera is all about providing new ways to inspect what your programs are doing, so all examples will be based on this simple binary search function:
+
+```python
+from ptera import Probe, probing
+
+def f(arr, key):
+    lo = -1
+    hi = len(arr)
+    while lo < hi - 1:
+        mid = lo + (hi - lo) // 2
+        if (elem := arr[mid]) > key:
+            hi = mid
+        else:
+            lo = mid
+    return lo + 1
+
+##############################
+# THE PROBING CODE GOES HERE #
+##############################
+
+f(list(range(1, 350, 7)), 136)
+```
+
+To get the output listed in the right column of the table below, the code in the left column should be inserted before the call to `f`, where the big comment is. Most of the methods on `Probe` define the pipeline through which the probed values will be routed (the interface is inspired from functional reactive programming), so it is important to define them before the instrumented functions are called.
+
+<table>
+<tr>
+<th>Code</th>
+<th>Output</th>
+</tr>
+
+<!--
+####################
+####### ROW ########
+####################
+-->
+
+<tr>
+<td>
+
+The `display` method provides a simple way to log values.
+
+```python
+Probe("f > mid").display()
+```
+
+</td>
+<td>
+
+```json
+mid: 24
+mid: 11
+mid: 17
+mid: 20
+mid: 18
+mid: 19
+```
+
+</td>
+</tr>
+<tr></tr>
+
+<!--
+####################
+####### ROW ########
+####################
+-->
+
+<tr>
+<td>
+
+The `print` method lets you specify a format string.
+
+```python
+Probe("f(mid) > elem").print("arr[{mid}] == {elem}")
+```
+
+</td>
+<td>
+
+```json
+arr[24] == 169
+arr[11] == 78
+arr[17] == 120
+arr[20] == 141
+arr[18] == 127
+arr[19] == 134
+```
+
+</td>
+</tr>
+<tr></tr>
+
+<!--
+####################
+####### ROW ########
+####################
+-->
+
+<tr>
+<td>
+
+Reductions are easy: extract the key and use `min`, `max`, etc.
+
+```python
+Probe("f > lo")["lo"].max().print("max(lo) = {}")
+Probe("f > hi")["hi"].min().print("min(hi) = {}")
+```
+
+</td>
+<td>
+
+```json
+max(lo) = 19
+min(hi) = 20
+```
+
+</td>
+</tr>
+<tr></tr>
+
+<!--
+####################
+####### ROW ########
+####################
+-->
+
+<tr>
+<td>
+
+Define assertions with `fail()` (for debugging, also try `.breakpoint()`!)
+
+```python
+def unordered(xs):
+    return any(x > y for x, y in zip(xs[:-1], xs[1:]))
+
+Probe("f > arr")["arr"] \
+    .filter(unordered).fail("List is unordered: {}")
+
+f([1, 6, 30, 7], 18)
+```
+
+</td>
+<td>
+
+```json
+Traceback (most recent call last):
+  ...
+  File "test.py", line 30, in <module>
+    f([1, 6, 30, 7], 18)
+  File "<string>", line 3, in f__ptera_redirect
+  File "test.py", line 3, in f
+    def f(arr, key):
+giving.gvn.Failure: List is unordered: [1, 6, 30, 7]
+```
+
+</td>
+</tr>
+<tr></tr>
+
+<!--
+####################
+####### ROW ########
+####################
+-->
+
+<tr>
+<td>
+
+Accumulate into a list:
+
+```python
+results = Probe("f > mid")["mid"].accum()
+f(list(range(1, 350, 7)), 136)
+print(results)
+```
+
+OR
+
+```python
+with probing("f > mid")["mid"].values() as results:
+    f(list(range(1, 350, 7)), 136)
+
+print(results)
+```
+
+</td>
+<td>
+
+```json
+[24, 11, 17, 20, 18, 19]
+```
+
+</td>
+</tr>
+<tr></tr>
+
+</table>
 
 
 ## probing
 
 Usage: `with ptera.probing(selector) as probe: ...`
 
-The **selector** is a specification of which variables in which functions we want to stream through the probe. One of the variables must be the *focus* of the selector, meaning that the probe is triggered when *that* variable is set. The focus may be indicated either as `f(!x)` or `f > x`.
+The **selector** is a specification of which variables in which functions we want to stream through the probe. One of the variables must be the **focus** of the selector, meaning that the probe is triggered when *that* variable is set. The focus may be indicated either as `f(!x)` or `f > x` (the focus is `x` in both cases).
 
-The **probe** is an instance of [rx.Observable](https://github.com/ReactiveX/RxPY). All of the `rx` [operators](https://rxpy.readthedocs.io/en/latest/reference_operators.html) should therefore work with ptera's probes (map, reduce, min, max, debounce, etc.)
+The **probe** is a wrapper around [rx.Observable](https://github.com/ReactiveX/RxPY) and supports a large number of [operators](https://giving.readthedocs.io/en/latest/ref-operators.html) such as `map`, `filter`, `min`, `average`, `throttle`, etc. (the interface is the same as in [giving](https://github.com/breuleux/giving)).
 
 
 ### Example 1: intermediate variables
@@ -42,27 +251,27 @@ The **probe** is an instance of [rx.Observable](https://github.com/ReactiveX/RxP
 Ptera is capable of capturing any variable in a function, not just inputs and return values:
 
 ```python
-def fact2(n):
+def fact(n):
     curr = 1
     for i in range(n):
         curr = curr * (i + 1)
     return curr
 
-with probing("fact2(i, !curr)") as probe:
-    probe.subscribe(print)
-    fact2(3)
+with probing("fact(i, !curr)") as probe:
+    probe.print()
+    fact(3)
     # {'curr': 1}
     # {'curr': 1, 'i': 0}
     # {'curr': 2, 'i': 1}
     # {'curr': 6, 'i': 2}
 ```
 
-The "!" in the selector above means that the focus is `curr`. This means it is triggered when `curr` is set. This is why the first result does not have a value for `i`. You can use the selector `fact2(!i, curr)` to focus on `i` instead:
+The "!" in the selector above means that the focus is `curr`. This means it is triggered when `curr` is set. This is why the first result does not have a value for `i`. You can use the selector `fact(!i, curr)` to focus on `i` instead:
 
 ```python
-with probing("fact2(!i, curr)") as probe:
-    probe.subscribe(print)
-    fact2(3)
+with probing("fact(!i, curr)") as probe:
+    probe.print()
+    fact(3)
     # {'i': 0, 'curr': 1}
     # {'i': 1, 'curr': 1}
     # {'i': 2, 'curr': 2}
@@ -83,7 +292,7 @@ def g(x):
 
 # Use "as" to rename a variable if there is a name conflict
 with probing("f(x) >> g > x as gx") as probe:
-    probe.subscribe(print)
+    probe.print()
     f(5)
     # {'gx': 6, 'x': 5}
     # {'gx': -6, 'x': 5}
@@ -107,7 +316,7 @@ def h(z):
     return z * 3
 
 with probing("f(x, g(y), h(!z))") as probe:
-    probe.subscribe(print)
+    probe.print()
     f(10)
     # {'z': -11, 'x': 10, 'y': 11}
 ```
@@ -127,24 +336,61 @@ def fishy(x):
     return a * b
 
 with probing("fishy > $x:@trout") as probe:
-    probe.subscribe(print)
+    probe.print()
     fishy(10)
     # {'x': 12}
 
 with probing("fishy > $x:@fish") as probe:
-    probe.subscribe(print)
+    probe.print()
     fishy(10)
     # {'x': 11}
     # {'x': 12}
 ```
 
+The `$x` syntax means that we are not matching a variable called `x`, but instead matching any variable that has the right condition (in this case, the tags fish or trout) and offering it under the name `x`.
+
+### Example 5: overriding variables
+
+It is also possible to override the value of a variable with the `override` (or `koverride`) methods:
+
+
+```python
+def add_ct(x):
+    ct = 1
+    return x + ct
+
+with probing("add_ct(x) > ct") as probe:
+    # The value of other variables can be used to compute the new value of ct
+    probe.override(lambda data: data["x"])
+
+    # You can also use koverride, which calls func(**data)
+    # probe.koverride(lambda x: x)
+
+    print(add_ct(3))   # sets ct = x = 3; prints 6
+    print(add_ct(10))  # sets ct = x = 20; prints 20
+```
+
+**Important:** override() only overrides the **focus variable**. As explained earlier, the focus variable is the one to the right of `>`, or the one prefixed with `!`. A Ptera selector is only triggered when the focus variable is set, so realistically it is the only one that it makes sense to override.
+
+This is worth keeping in mind, because otherwise it's not always obvious what override is doing. For example:
+
+```python
+with probing("add_ct(x) > ct") as probe:
+    # The focus is ct, so override will always set ct
+    # Therefore, this sets ct = 10 when x == 3:
+    probe.where(x=3).override(10)
+
+    print(add_ct(3))   # sets ct = 10; prints 13
+    print(add_ct(10))  # does not override anything; prints 11
+```
+
 
 ## Probe
 
-`Probe` works more or less the same way as `probing`, but it is not a context manager: it just works globally from the moment of its creation. This means that streams created with `Probe` never actually end, so operators that wait for the full stream before triggering, such as `ptera.op.min`, will not work.
+`Probe` works more or less the same way as `probing`, but it is not a context manager: it just works globally from the moment of its creation. This means that streams created with `Probe` only end when the program ends, so operators that wait for the full stream before triggering, such as `min()`, will run at program exit, which limits their usefulness.
 
 ```python
-Probe("fact() as result").subscribe(print)
+Probe("fact() as result").print()
 fact(2)
 # {'result': 1}
 # {'result': 2}
@@ -161,7 +407,7 @@ Here is a notation to probe a function using an "absolute path" in the module sy
 ```python
 Probe("/xyz.submodule/Klass/method > x")
 
-# is mostly equivalent to:
+# is essentially equivalent to:
 
 from xyz.submodule import Klass
 Probe("Klass.method > x")
@@ -182,25 +428,14 @@ Note:
 
 ## Operators
 
-All the existing [operators](https://rxpy.readthedocs.io/en/latest/reference_operators.html) defined in the `rx` package should be compatible with `Probe` and `probing`. They may be imported as `ptera.operators` or `ptera.op` *In addition to this*, `ptera.operators` defines the following operators:
+All the [operators](https://giving.readthedocs.io/en/latest/ref-operators.html) defined in the `rx` and `giving` packages should be compatible with `Probe` and `probing`. You can also define [custom operators](https://rxpy.readthedocs.io/en/latest/get_started.html#custom-operator).
 
-### Utility
-
-* **`format(string)`**: format each item of the stream (like str.format)
-* **`getitem(name)`**: extract an item from a stream of dicts
-* **`keymap(fn)`**: calls a function using kwargs from a stream of dicts
-* **`throttle(duration)`**: alias for `rx.operators.throttle_first`
-
-### Arithmetic
-
-* **`roll(n, reduce=None, key_mapper=None, seed=None)`**: transform a stream into rolling windows of size at most n. Successive windows overlap completely except for the first and last elements.
-  * If reduce is provided, it is called with arguments `(last, add, drop, last_size, current_size)`
-  * If transform is provided, it is called on each element
-* **`rolling_average(n, key_mapper=None)`**: efficient implementation of a rolling average (mean of the last n elements)
-* **`rolling_average_and_variance(n, key_mapper=None)`**: efficient implementation of a rolling average and (sample) variance of the last n elements, returned as a tuple.
+[Read this operator guide](https://giving.readthedocs.io/en/latest/guide.html#important-methods) for the most useful features (the `gv` variable in the examples has the same interface as probes).
 
 
 ## Query language
+
+**Note:** this section contains some references to a different interface to `ptera` which is still valid, but not documented.
 
 Here is some code annotated with queries that will match various variables. The queries are not exhaustive, just examples.
 

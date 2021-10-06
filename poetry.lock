@@ -117,7 +117,7 @@ toml = ["toml"]
 
 [[package]]
 name = "executing"
-version = "0.8.1"
+version = "0.8.2"
 description = "Get the currently executing AST node of a frame, and other information"
 category = "main"
 optional = false
@@ -139,7 +139,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
 name = "giving"
-version = "0.3.0"
+version = "0.3.2"
 description = "Reactive logging"
 category = "main"
 optional = false
@@ -444,7 +444,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "c518dfdf2648a67d9cff2202fdc76e8a8ee47279f7a511e4a61690fe828e9ab9"
+content-hash = "6e583381f188dacc4c6a352d145b50aabf95b5a4822bec7e42e098647fcbcd8e"
 
 [metadata.files]
 asttokens = [
@@ -533,16 +533,16 @@ coverage = [
     {file = "coverage-5.5.tar.gz", hash = "sha256:ebe78fe9a0e874362175b02371bdfbee64d8edc42a044253ddf4ee7d3c15212c"},
 ]
 executing = [
-    {file = "executing-0.8.1-py2.py3-none-any.whl", hash = "sha256:cfaa61564eff6e7a3afda98ea0ba7c646171d9e325203a159bf29a3c2438c129"},
-    {file = "executing-0.8.1.tar.gz", hash = "sha256:f3dd49578371a633bd1ff5ca0af4afad65e6d549a06eb35ef20df198eced58ef"},
+    {file = "executing-0.8.2-py2.py3-none-any.whl", hash = "sha256:32fc6077b103bd19e6494a72682d66d5763cf20a106d5aa7c5ccbea4e47b0df7"},
+    {file = "executing-0.8.2.tar.gz", hash = "sha256:c23bf42e9a7b9b212f185b1b2c3c91feb895963378887bb10e64a2e612ec0023"},
 ]
 flake8 = [
     {file = "flake8-3.9.2-py2.py3-none-any.whl", hash = "sha256:bf8fd333346d844f616e8d47905ef3a3384edae6b4e9beb0c5101e25e3110907"},
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
 giving = [
-    {file = "giving-0.3.0-py3-none-any.whl", hash = "sha256:665868b45b4eeb51747a109491b3ee4acb493677643d0c0dedef8243b9465324"},
-    {file = "giving-0.3.0.tar.gz", hash = "sha256:82acad1ef340d5940dab27239285a81e784c3935fd6c6a045d10e749b72b09fe"},
+    {file = "giving-0.3.2-py3-none-any.whl", hash = "sha256:8ec3f63a8e3069cdba0f2486438d072b12214e3cfe5c587c11831d3e2235e0a1"},
+    {file = "giving-0.3.2.tar.gz", hash = "sha256:e6d83eb1094a9a625b19c7f7a037b4d69f32545e2bf55fe861875417b359fe0c"},
 ]
 immutables = [
     {file = "immutables-0.16-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:acbfa79d44228d96296279068441f980dc63dbed52522d9227ff9f4d96c6627e"},
