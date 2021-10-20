@@ -11,7 +11,7 @@ repository = "https://github.com/breuleux/ptera"
 python = "^3.6"
 codefind = {version = "^0.1.2", python = "^3.8"}
 contextvars = {version = "^2.4", python = "~3.6"}
-giving = "^0.3.5"
+giving = "^0.3.6"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.5b1", python = "^3.7"}
