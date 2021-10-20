@@ -17,19 +17,21 @@ from ptera import Probe, probing
 
 def f(x):
     y = x * x
-    return y
+    return y + 1
 
 Probe("f > y").print()
+
+f(9)  # prints {"y": 81}
 
 with probing("f > y") as probe:
     probe.print("y = {y}")
 
-    f(9)  # prints {"y": 81} and "y = 81"
+    f(10)  # prints {"y": 100} and "y = 100"
 
-f(10)  # prints {"y": 100}
+f(11)  # prints {"y": 121}
 ```
 
-`print()` is only one of a myriad operators. Ptera's interface is inspired from functional reactive programming and is identical to the interface of [giving](https://github.com/breuleux/giving) (itself based on `rx`). [See here for a more complete list of operators.](https://giving.readthedocs.io/en/latest/ref-operators.html).
+`print()` is only one of a myriad operators. Ptera's interface is inspired from functional reactive programming and is identical to the interface of [giving](https://github.com/breuleux/giving) (itself based on `rx`). [See here for a more complete list of operators.](https://giving.readthedocs.io/en/latest/ref-operators.html)
 
 
 Note: reduction operators such as `min` or `sum` are applied at program exit for `Probe` or at the end of the `with` block with `probing`, so it is usually best to use `probing` for these.
@@ -257,8 +259,7 @@ def fact(n):
         curr = curr * (i + 1)
     return curr
 
-with probing("fact(i, !curr)") as probe:
-    probe.print()
+with probing("fact(i, !curr)").print():
     fact(3)
     # {'curr': 1}
     # {'curr': 1, 'i': 0}
@@ -269,8 +270,7 @@ with probing("fact(i, !curr)") as probe:
 The "!" in the selector above means that the focus is `curr`. This means it is triggered when `curr` is set. This is why the first result does not have a value for `i`. You can use the selector `fact(!i, curr)` to focus on `i` instead:
 
 ```python
-with probing("fact(!i, curr)") as probe:
-    probe.print()
+with probing("fact(!i, curr)").print():
     fact(3)
     # {'i': 0, 'curr': 1}
     # {'i': 1, 'curr': 1}
@@ -291,8 +291,7 @@ def g(x):
     return x * 2
 
 # Use "as" to rename a variable if there is a name conflict
-with probing("f(x) >> g > x as gx") as probe:
-    probe.print()
+with probing("f(x) >> g > x as gx").print():
     f(5)
     # {'gx': 6, 'x': 5}
     # {'gx': -6, 'x': 5}
@@ -335,13 +334,11 @@ def fishy(x):
     b: "@fish & @trout" = x + 2
     return a * b
 
-with probing("fishy > $x:@trout") as probe:
-    probe.print()
+with probing("fishy > $x:@trout").print():
     fishy(10)
     # {'x': 12}
 
-with probing("fishy > $x:@fish") as probe:
-    probe.print()
+with probing("fishy > $x:@fish").print():
     fishy(10)
     # {'x': 11}
     # {'x': 12}
