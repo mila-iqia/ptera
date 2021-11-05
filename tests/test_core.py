@@ -619,6 +619,8 @@ def excite():
         1 / 0
     except ZeroDivisionError as exc:
         return exc
+    except TypeError:
+        return None
 
 
 def test_exception():
