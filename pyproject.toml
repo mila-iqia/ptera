@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ptera"
-version = "0.4.2"
+version = "0.5.0"
 description = "Call graph addressing library."
 authors = ["Olivier Breuleux <breuleux@gmail.com>"]
 license = "MIT"
