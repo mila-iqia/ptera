@@ -88,7 +88,7 @@ global_probe("f > mid").display()
 </td>
 <td>
 
-```json
+```
 mid: 24
 mid: 11
 mid: 17
@@ -119,7 +119,7 @@ global_probe("f(mid) > elem").print("arr[{mid}] == {elem}")
 </td>
 <td>
 
-```json
+```
 arr[24] == 169
 arr[11] == 78
 arr[17] == 120
@@ -151,7 +151,7 @@ global_probe("f > hi")["hi"].min().print("min(hi) = {}")
 </td>
 <td>
 
-```json
+```
 max(lo) = 19
 min(hi) = 20
 ```
@@ -184,7 +184,7 @@ f([1, 6, 30, 7], 18)
 </td>
 <td>
 
-```json
+```
 Traceback (most recent call last):
   ...
   File "test.py", line 30, in <module>
@@ -228,7 +228,7 @@ print(results)
 </td>
 <td>
 
-```json
+```
 [24, 11, 17, 20, 18, 19]
 ```
 
