@@ -1,7 +1,7 @@
 
 # Ptera
 
-Ptera is a powerful way to instrument your code for logging, debugging and testing purposes. With a simple `ptera.Probe()`, you can:
+Ptera is a powerful way to instrument your code for logging, debugging and testing purposes. With a simple call to `ptera.probing()`, you can:
 
 * Obtain a stream of the values taken by any variable.
 * Probe multiple variables from multiple functions in multiple scopes.
@@ -10,16 +10,16 @@ Ptera is a powerful way to instrument your code for logging, debugging and testi
 * Create external asserts or conditional breakpoints.
 * Et cetera :)
 
-The main interface to ptera are the `Probe` and `probing` functions. The only difference between them is that the first applies globally whereas the second is a context manager and applies only to the code inside a block:
+The main interface to ptera are the `global_probe` and `probing` functions. The only difference between them is that the first applies globally whereas the second is a context manager and applies only to the code inside a block:
 
 ```python
-from ptera import Probe, probing
+from ptera import global_probe, probing
 
 def f(x):
     y = x * x
     return y + 1
 
-Probe("f > y").print()
+global_probe("f > y").print()
 
 f(9)  # prints {"y": 81}
 
@@ -34,7 +34,7 @@ f(11)  # prints {"y": 121}
 `print()` is only one of a myriad operators. Ptera's interface is inspired from functional reactive programming and is identical to the interface of [giving](https://github.com/breuleux/giving) (itself based on `rx`). [See here for a more complete list of operators.](https://giving.readthedocs.io/en/latest/ref-operators.html)
 
 
-Note: reduction operators such as `min` or `sum` are applied at program exit for `Probe` or at the end of the `with` block with `probing`, so it is usually best to use `probing` for these.
+Note: reduction operators such as `min` or `sum` are applied at program exit for `global_probe` or at the end of the `with` block with `probing`, so it is usually best to use `probing` for these.
 
 
 ## Examples
@@ -42,7 +42,7 @@ Note: reduction operators such as `min` or `sum` are applied at program exit for
 Ptera is all about providing new ways to inspect what your programs are doing, so all examples will be based on this simple binary search function:
 
 ```python
-from ptera import Probe, probing
+from ptera import global_probe, probing
 
 def f(arr, key):
     lo = -1
@@ -62,7 +62,7 @@ def f(arr, key):
 f(list(range(1, 350, 7)), 136)
 ```
 
-To get the output listed in the right column of the table below, the code in the left column should be inserted before the call to `f`, where the big comment is. Most of the methods on `Probe` define the pipeline through which the probed values will be routed (the interface is inspired from functional reactive programming), so it is important to define them before the instrumented functions are called.
+To get the output listed in the right column of the table below, the code in the left column should be inserted before the call to `f`, where the big comment is. Most of the methods on `global_probe` define the pipeline through which the probed values will be routed (the interface is inspired from functional reactive programming), so it is important to define them before the instrumented functions are called.
 
 <table>
 <tr>
@@ -82,7 +82,7 @@ To get the output listed in the right column of the table below, the code in the
 The `display` method provides a simple way to log values.
 
 ```python
-Probe("f > mid").display()
+global_probe("f > mid").display()
 ```
 
 </td>
@@ -113,7 +113,7 @@ mid: 19
 The `print` method lets you specify a format string.
 
 ```python
-Probe("f(mid) > elem").print("arr[{mid}] == {elem}")
+global_probe("f(mid) > elem").print("arr[{mid}] == {elem}")
 ```
 
 </td>
@@ -144,8 +144,8 @@ arr[19] == 134
 Reductions are easy: extract the key and use `min`, `max`, etc.
 
 ```python
-Probe("f > lo")["lo"].max().print("max(lo) = {}")
-Probe("f > hi")["hi"].min().print("min(hi) = {}")
+global_probe("f > lo")["lo"].max().print("max(lo) = {}")
+global_probe("f > hi")["hi"].min().print("min(hi) = {}")
 ```
 
 </td>
@@ -175,7 +175,7 @@ Define assertions with `fail()` (for debugging, also try `.breakpoint()`!)
 def unordered(xs):
     return any(x > y for x, y in zip(xs[:-1], xs[1:]))
 
-probe = Probe("f > arr")["arr"]
+probe = global_probe("f > arr")["arr"]
 probe.filter(unordered).fail("List is unordered: {}")
 
 f([1, 6, 30, 7], 18)
@@ -211,7 +211,7 @@ giving.gvn.Failure: List is unordered: [1, 6, 30, 7]
 Accumulate into a list:
 
 ```python
-results = Probe("f > mid")["mid"].accum()
+results = global_probe("f > mid")["mid"].accum()
 f(list(range(1, 350, 7)), 136)
 print(results)
 ```
@@ -391,12 +391,12 @@ with probing("add_ct(x) > ct") as probe:
 ```
 
 
-## Probe
+## global_probe
 
-`Probe` works more or less the same way as `probing`, but it is not a context manager: it just works globally from the moment of its creation. This means that streams created with `Probe` only end when the program ends, so operators that wait for the full stream before triggering, such as `min()`, will run at program exit, which limits their usefulness.
+`global_probe` works more or less the same way as `probing`, but it is not a context manager: it just works globally from the moment of its creation. This means that streams created with `global_probe` only end when the program ends, so operators that wait for the full stream before triggering, such as `min()`, will run at program exit, which limits their usefulness.
 
 ```python
-Probe("fact() as result").print()
+global_probe("fact() as result").print()
 fact(2)
 # {'result': 1}
 # {'result': 2}
@@ -411,12 +411,12 @@ fact(3)
 Here is a notation to probe a function using an "absolute path" in the module system:
 
 ```python
-Probe("/xyz.submodule/Klass/method > x")
+global_probe("/xyz.submodule/Klass/method > x")
 
 # is essentially equivalent to:
 
 from xyz.submodule import Klass
-Probe("Klass.method > x")
+global_probe("Klass.method > x")
 ```
 
 The slashes represent a physical nesting rather than object attributes. For example, `/module.submodule/x/y` means:
@@ -434,7 +434,7 @@ Note:
 
 ## Operators
 
-All the [operators](https://giving.readthedocs.io/en/latest/ref-operators.html) defined in the `rx` and `giving` packages should be compatible with `Probe` and `probing`. You can also define [custom operators](https://rxpy.readthedocs.io/en/latest/get_started.html#custom-operator).
+All the [operators](https://giving.readthedocs.io/en/latest/ref-operators.html) defined in the `rx` and `giving` packages should be compatible with `global_probe` and `probing`. You can also define [custom operators](https://rxpy.readthedocs.io/en/latest/get_started.html#custom-operator).
 
 [Read this operator guide](https://giving.readthedocs.io/en/latest/guide.html#important-methods) for the most useful features (the `gv` variable in the examples has the same interface as probes).
 
