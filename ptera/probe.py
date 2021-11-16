@@ -85,7 +85,7 @@ class Probe(SourceProxy):
     >>> f(4)  # Prints 16
 
     Arguments:
-        selector: A selector string describing the variables to probe.
+        selectors: The selector strings describing the variables to probe (at least one).
         auto_activate: Whether to activate this probe on creation (default: True)
         raw: Defaults to False. If True, produce a stream of Capture objects that
             contain extra information about the capture. Mostly relevant for
@@ -97,18 +97,24 @@ class Probe(SourceProxy):
 
     def __init__(
         self,
-        selector=None,
+        *selectors,
         auto_activate=True,
         raw=False,
         _obs=None,
         _root=None,
     ):
+        if not selectors and _obs is None:
+            raise TypeError("Probe() takes at least one selector argument.")
+
         super().__init__(_obs=_obs, _root=_root)
 
-        if selector is not None:
-            self._selector = select(selector, env_wrapper=make_resolver)
+        if selectors:
+            self._selectors = [
+                select(selector, env_wrapper=make_resolver)
+                for selector in selectors
+            ]
             self._patterns = dict_to_pattern_list(
-                {self._selector: {"value": self._emit}}
+                {sel: {"value": self._emit} for sel in self._selectors}
             )
             self._raw = raw
             self._activated = False
@@ -239,7 +245,7 @@ class Probe(SourceProxy):
         global_probes.remove(self)
 
 
-def probing(selector, *, raw=False):
+def probing(*selectors, raw=False):
     """Probe that can be used as a context manager.
 
     Example:
@@ -252,13 +258,13 @@ def probing(selector, *, raw=False):
     ...     f(4)  # Prints {"a": 16}
 
     Arguments:
-        selector: The selector string describing the variables to probe.
+        selectors: The selector strings describing the variables to probe (at least one).
         do: A function to execute on each data point.
         format: A format string (implies do=print)
         raw: Defaults to False. If True, produce a stream of Capture objects that
             contain extra information about the capture.
     """
-    return Probe(selector, auto_activate=False, raw=raw)
+    return Probe(*selectors, auto_activate=False, raw=raw)
 
 
 @atexit.register

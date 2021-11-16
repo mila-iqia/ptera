@@ -43,6 +43,16 @@ def nitrogen(n):
         yield j
 
 
+def click(n):
+    return n * n
+
+
+def clack(n):
+    a = click(n // 2)
+    b = click(n // 3)
+    return a + b
+
+
 def test_probe():
     probe = Probe("f > a")
     results = probe["a"].accum()
@@ -101,6 +111,30 @@ def test_merge():
         loopy()
 
     assert set(results) == {x * x for x in range(100)} | {-1, -2, -3}
+
+
+def test_probing_nested():
+    with probing("click > n") as prb1:
+        with probing("clack > b") as prb2:
+            prb = prb1 | prb2
+            results = prb.accum()
+            clack(9)
+            assert results == [
+                {"n": 4},
+                {"n": 3},
+                {"b": 9},
+            ]
+
+
+def test_probing_multi():
+    with probing("click > n", "clack > b") as prb:
+        results = prb.accum()
+        clack(9)
+        assert results == [
+            {"n": 4},
+            {"n": 3},
+            {"b": 9},
+        ]
 
 
 def test_two_probes():
@@ -239,3 +273,9 @@ def test_probe_koverride():
     with probing("f > a") as probe:
         probe.koverride(lambda a: a * a)
         assert f(5) == 5 ** 4 + 1
+
+
+def test_probing_no_arguments():
+    with pytest.raises(TypeError):
+        with probing():
+            pass
