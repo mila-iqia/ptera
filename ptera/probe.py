@@ -74,19 +74,10 @@ def make_resolver(*namespaces):
 class Probe(SourceProxy):
     """Observable which generates a stream of values from program variables.
 
-    Example:
-
-    >>> def f(x):
-    ...     a = x * x
-    ...     return a
-
-    >>> probe = Probe("f > a")
-    >>> probe["a"].print()
-    >>> f(4)  # Prints 16
+    Probes should be created with `ptera.probing` or `ptera.global_probe`.
 
     Arguments:
         selectors: The selector strings describing the variables to probe (at least one).
-        auto_activate: Whether to activate this probe on creation (default: True)
         raw: Defaults to False. If True, produce a stream of Capture objects that
             contain extra information about the capture. Mostly relevant for
             advanced selectors such as "f > $x:@Parameter" which captures the value
@@ -95,14 +86,7 @@ class Probe(SourceProxy):
             Capture object associated to x.
     """
 
-    def __init__(
-        self,
-        *selectors,
-        auto_activate=True,
-        raw=False,
-        _obs=None,
-        _root=None,
-    ):
+    def __init__(self, *selectors, raw=False, _obs=None, _root=None):
         if not selectors and _obs is None:
             raise TypeError("Probe() takes at least one selector argument.")
 
@@ -118,9 +102,6 @@ class Probe(SourceProxy):
             )
             self._raw = raw
             self._activated = False
-
-            if auto_activate:
-                self.__enter__()
 
     def override(self, setter=lambda x: x):
         """Override the value of the focus variable using a setter function.
@@ -264,7 +245,30 @@ def probing(*selectors, raw=False):
         raw: Defaults to False. If True, produce a stream of Capture objects that
             contain extra information about the capture.
     """
-    return Probe(*selectors, auto_activate=False, raw=raw)
+    return Probe(*selectors, raw=raw)
+
+
+def global_probe(*selectors, raw=False):
+    """Set a probe globally.
+
+    Example:
+
+    >>> def f(x):
+    ...     a = x * x
+    ...     return a
+
+    >>> probe = global_probe("f > a")
+    >>> probe["a"].print()
+    >>> f(4)  # Prints 16
+
+    Arguments:
+        selectors: The selector strings describing the variables to probe (at least one).
+        raw: Defaults to False. If True, produce a stream of Capture objects that
+            contain extra information about the capture.
+    """
+    prb = Probe(*selectors, raw=raw)
+    prb.__enter__()
+    return prb
 
 
 @atexit.register

@@ -3,7 +3,7 @@ import sys
 import pytest
 import rx
 
-from ptera.probe import Probe, probing
+from ptera.probe import global_probe, probing
 
 from .milk import cheese as ch, gouda
 
@@ -54,7 +54,7 @@ def clack(n):
 
 
 def test_probe():
-    probe = Probe("f > a")
+    probe = global_probe("f > a")
     results = probe["a"].accum()
     loopy()
     assert results == [x * x for x in range(100)]
@@ -138,8 +138,8 @@ def test_probing_multi():
 
 
 def test_two_probes():
-    probe1 = Probe("f > a")
-    probe2 = Probe("g > a")
+    probe1 = global_probe("f > a")
+    probe2 = global_probe("g > a")
 
     results1 = probe1["a"].accum()
     results2 = probe2["a"].accum()
@@ -153,13 +153,13 @@ def test_two_probes():
 
 
 def test_probe_same_var_twice():
-    probe1 = Probe("f > a")
+    probe1 = global_probe("f > a")
     results1 = probe1["a"].accum()
 
     loopy()
     assert results1 == [x * x for x in range(100)]
 
-    probe2 = Probe("f > a")  # Different probe for same var
+    probe2 = global_probe("f > a")  # Different probe for same var
     results2 = probe2["a"].accum()
 
     loopy()
@@ -169,7 +169,7 @@ def test_probe_same_var_twice():
 
 def test_bad_probe():
     with pytest.raises(NameError):
-        Probe("unknown > a")
+        global_probe("unknown > a")
 
 
 def test_probing():
