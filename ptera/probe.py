@@ -30,7 +30,7 @@ def make_resolver(*namespaces):
             import codefind
 
             _, module, *parts = x.split("/")
-            co = codefind.find_code(*parts, module=module)
+            co = codefind.find_code(*parts, module=module or "__main__")
             funcs = [
                 fn
                 for fn in codefind.get_functions(co)
