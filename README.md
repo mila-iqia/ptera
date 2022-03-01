@@ -8,9 +8,12 @@ Ptera is a powerful way to instrument your code for logging, debugging and testi
 * [Apply maps, filters, reductions, and much more to the streams.](https://ptera.readthedocs.io/en/latest/guide.html#map-filter-reduce)
 * [Override the values of variables based on complex conditions.](https://ptera.readthedocs.io/en/latest/guide.html#overriding-values)
 * Create [external asserts](https://ptera.readthedocs.io/en/latest/guide.html#asserts) or [conditional breakpoints](https://ptera.readthedocs.io/en/latest/guide.html#conditional-breakpoints).
+* Write [complex, focused tests](https://ptera.readthedocs.io/en/latest/testing.html).
 * Et cetera :)
 
 📖 **[Read the documentation](https://ptera.readthedocs.io/en/latest)**
+
+To use ptera for testing purposes, also check out [ptera-pytest](https://github.com/breuleux/giving).
 
 ## Install
 

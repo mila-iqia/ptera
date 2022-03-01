@@ -12,6 +12,7 @@ Welcome to ptera's documentation!
 
    intro.rst
    guide.rst
+   testing.rst
    reference.rst
 
 
