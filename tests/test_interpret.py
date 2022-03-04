@@ -146,7 +146,7 @@ def superbrie(n):
     for i in range(n):
         for j in range(n):
             result += brie(k, 2)
-            k = k + 1
+            k += 1
     return result
 
 

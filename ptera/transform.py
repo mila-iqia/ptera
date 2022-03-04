@@ -204,7 +204,7 @@ class PteraTransformer(NodeTransformer):
         for ext in self.external:
             self.provenance[ext] = "external"
         self.annotated = {}
-        self.evalcache = {}
+        self.evalcache = {None: ABSENT}
         self.linenos = {}
         self.defaults = {}
         self.lib = lib
@@ -602,6 +602,22 @@ class PteraTransformer(NodeTransformer):
             return accum
         else:
             return self.make_interaction(target, None, node.value, orig=node)
+
+    def visit_AugAssign(self, node):
+        if isinstance(node.target, ast.Name) and self.should_instrument(
+            node.target.id, None
+        ):
+            return [
+                self.generic_visit(node),
+                *self.make_interaction(
+                    node.target,
+                    None,
+                    ast.Name(id=node.target.id, ctx=ast.Load()),
+                    orig=node,
+                ),
+            ]
+        else:
+            return self.generic_visit(node)
 
     def visit_Import(self, node):
         """Rewrite an import statement.

@@ -588,6 +588,33 @@ def test_positional():
     ]
 
 
+def f(x, y):
+    x += 1
+    x += 2
+    return x + y
+
+
+def test_augassign():
+    f2 = wrap(all=True)(f)
+    data = f2(2, 10)
+    assert data.ret == 15
+    assert data == [
+        ("#enter", None, None, True, False),
+        ("x", None, None, 2, True),
+        ("y", None, None, 10, True),
+        ("x", None, None, 3, True),
+        ("x", None, None, 5, True),
+        ("#value", None, None, 15, True),
+    ]
+
+
+def test_augassign_ignore():
+    # Covers the else clause in the augassign transform
+    f3 = wrap(all=True, names=["y"])(f)
+    data = f3(2, 10)
+    assert data == [("y", None, None, 10, True)]
+
+
 def test_stacked_transforms():
     @contextmanager
     def with_syms(caps=None):
