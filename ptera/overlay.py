@@ -369,6 +369,9 @@ tooled.inplace = inplace
 
 
 def _tooler(fn, captures):
+    if not hasattr(fn, "__code__"):
+        raise TypeError(f"{fn} cannot be tooled")
+
     if hasattr(fn, "__ptera_stack__"):
         st = fn.__ptera_stack__
     else:

@@ -756,6 +756,8 @@ class MatchFunction:
 def _dig(fn):
     while hasattr(fn, "__wrapped__") and not is_tooled(fn):
         fn = fn.__wrapped__
+    if isinstance(fn, property):
+        return _dig(fn.fget)
     return fn
 
 

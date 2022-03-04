@@ -30,6 +30,10 @@ class Elephant:
         wow = x + self.secret
         return wow
 
+    @property
+    def size(self):
+        return self.secret
+
 
 def loopy():
     el = Elephant(10)
@@ -87,6 +91,20 @@ def test_probe_method():
         loopy()
 
     assert results == [x + 10 for x in range(100)]
+
+
+def test_probe_property():
+    with probing("Elephant.size() as size") as probe:
+        results = probe["size"].accum()
+        assert Elephant(10).size == 10
+
+    assert results == [10]
+
+
+def test_probe_methodwrapper():
+    with pytest.raises(TypeError):
+        with probing("Elephant.size.__get__() as size"):
+            pass
 
 
 def test_probe_tag():
