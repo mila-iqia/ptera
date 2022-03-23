@@ -460,3 +460,32 @@ def test_env_argument():
         xxx(10)
 
     assert values == [{"bar": 31}]
+
+
+def recurso(n):
+    if n == 0:
+        return 1
+    else:
+        return n * recurso(n - 1)
+
+
+def test_wrap():
+    results = []
+
+    with probing("recurso(!n) as !!v") as prb:
+
+        @prb.kwrap
+        def _wrap(n):
+            results.append(-n)
+            yield
+            results.append(n)
+
+        recurso(4)
+
+    assert results == [-4, -3, -2, -1, 0, 0, 1, 2, 3, 4]
+
+
+def test_bad_wrap_selector():
+    with pytest.raises(ValueError, match="Unsupported focus pattern"):
+        with probing("recurso(n, !!#value)"):
+            pass

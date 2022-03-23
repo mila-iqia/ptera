@@ -133,7 +133,7 @@ class WorkingFrame:
         """
         rval = ABSENT
         for element, acc in self.accumulators:
-            if element.focus and acc.intercept:
+            if element.tags and acc.intercept:
                 tmp = acc.intercept(
                     element, self.varname, self.category, tentative
                 )
@@ -149,8 +149,8 @@ class WorkingFrame:
     def trigger(self):
         """Trigger an event using what was accumulated."""
         for element, acc in self.accumulators:
-            if element.focus and acc.trigger:
-                acc.trigger()
+            if element.tags and acc.trigger:
+                acc.trigger(element)
 
 
 class Capture:
@@ -253,6 +253,8 @@ class BaseAccumulator:
             cloned prior to accumulating anything.
         check: Whether to filter that the values are correct in a selector
             such as ``f(x=1) > y``. Otherwise the ``=1`` would be ignored.
+        pass_info: Whether to pass the accumulator and current triggered
+            element to trigger or intercept.
     """
 
     def __init__(
@@ -265,6 +267,7 @@ class BaseAccumulator:
         parent=None,
         template=True,
         check=True,
+        pass_info=False,
     ):
         selector = select(selector)
 
@@ -284,13 +287,17 @@ class BaseAccumulator:
         if close is None:
             self.close = None
 
+        self.pass_info = pass_info
         self.children = []
         self.captures = {}
 
     def __check(self, fn, check):
-        def new_fn(results):
+        def new_fn(results, acc=None, element=None):
             if self.selector.check_captures(results):
-                return fn(results)
+                if self.pass_info:
+                    return fn(results, acc, element)
+                else:
+                    return fn(results)
             else:
                 return ABSENT
 
@@ -308,6 +315,7 @@ class BaseAccumulator:
             intercept=self._intercept,
             trigger=self._trigger,
             close=self._close,
+            pass_info=self.pass_info,
             parent=parent,
             template=False,
             check=False,  # False, because functions are already wrapped
@@ -339,9 +347,12 @@ class BaseAccumulator:
             curr = curr.parent
         return rval
 
-    def _call_with_snapshot(self, fn):
+    def _call_with_snapshot(self, element, fn):
         args = {k: cap.snapshot() for k, cap in self.build().items()}
-        return fn(args)
+        if self.pass_info:
+            return fn(args, self, element)
+        else:
+            return fn(args)
 
     def log(self, element, varname, category, value):  # pragma: no cover
         raise NotImplementedError()
@@ -351,12 +362,12 @@ class BaseAccumulator:
         self.captures[element.capture] = cap
         cap.names.append(varname)
         cap.set(varname, tentative)
-        rval = self._call_with_snapshot(self._intercept)
+        rval = self._call_with_snapshot(element, self._intercept)
         del self.captures[element.capture]
         return rval
 
-    def trigger(self):
-        self._call_with_snapshot(self._trigger)
+    def trigger(self, element):
+        self._call_with_snapshot(element, self._trigger)
 
     def close(self):  # pragma: no cover
         raise NotImplementedError()

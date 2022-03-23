@@ -56,7 +56,7 @@ class Probe(SourceProxy):
         probe_type=None,
         env=None,
         _obs=None,
-        _root=None
+        _root=None,
     ):
         # Note: the private _obs and _root parameters are used to "fork"
         # the probe when using operators on it while keeping a reference
@@ -68,16 +68,26 @@ class Probe(SourceProxy):
         super().__init__(_obs=_obs, _root=_root)
 
         if selectors:
+
+            def _emitter(sel):
+                tags = set(sel.all_tags)
+                if not tags or tags == {1}:
+                    return self._emit
+                elif tags == {1, 2}:
+                    return self._emit2
+                else:
+                    raise ValueError(f"Unsupported focus pattern: {tags}")
+
             if probe_type not in ("immediate", "total", None):
                 raise TypeError(
                     "probe_type must be 'immediate', 'total' or None"
                 )
             self._selectors = [select(s, env=env) for s in selectors]
             rules = [
-                Immediate(sel, intercept=self._emit)
+                Immediate(sel, intercept=_emitter(sel), pass_info=True)
                 if probe_type != "total"
                 and (sel.focus or probe_type == "immediate")
-                else Total(sel, close=self._emit)
+                else Total(sel, close=_emitter(sel))
                 for sel in self._selectors
             ]
             self._ol = BaseOverlay(*rules)
@@ -188,7 +198,7 @@ class Probe(SourceProxy):
     # Context manager #
     ###################
 
-    def _emit(self, data):
+    def _emit(self, data, acc=None, element=None):
         """Emit data on the stream.
 
         This is used internally.
@@ -196,6 +206,26 @@ class Probe(SourceProxy):
         self._value = ABSENT
         if not self._raw:
             data = {name: cap.value for name, cap in data.items()}
+        self._push(data)
+        # self._value is set by override(), but this will only work if the pipeline
+        # is synchronous
+        return self._value
+
+    def _emit2(self, data, acc=None, element=None):
+        """Emit data on the stream.
+
+        Used for selectors with two focuses
+        """
+        self._value = ABSENT
+        if not self._raw:
+            data = {name: cap.value for name, cap in data.items()}
+
+        data["$wrap"] = {
+            "id": id(acc),
+            "name": acc.selector.main.capture,
+            "step": "begin" if element.focus else "end",
+        }
+
         self._push(data)
         # self._value is set by override(), but this will only work if the pipeline
         # is synchronous

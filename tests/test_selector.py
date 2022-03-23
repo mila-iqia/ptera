@@ -135,11 +135,14 @@ def test_parser():
     )
 
     assert sel.parse("$f:Fruit") == sel.Element(
-        name=None, category=sel.VSymbol("Fruit"), capture="f"
+        name=None,
+        category=sel.VSymbol("Fruit"),
+        capture="f",
+        tags=frozenset({1}),
     )
 
     assert sel.parse("!!x") == sel.Element(
-        name="x", category=None, capture="x", tags=frozenset({1, 2})
+        name="x", category=None, capture="x", tags=frozenset({2})
     )
 
 
@@ -296,8 +299,8 @@ def test_encode():
     assert _encode("a > b") == "a(!b)"
     assert _encode("a(b)") == "a(b)"
     assert _encode("a(b, c(d))") == "a(b, c(d))"
-    assert _encode("$x") == "$x"
-    assert _encode("$x:Zoom") == "$x:Zoom"
+    assert _encode("$x") == "!$x"
+    assert _encode("$x:Zoom") == "!$x:Zoom"
 
     assert str(sel.parse("a")) == 'sel("!a")'
     assert str(sel.parse("a > b")) == 'sel("a(!b)")'

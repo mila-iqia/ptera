@@ -365,9 +365,9 @@ parser = opparse.Parser(
             ",": opparse.rassoc(10),
             ("", ">", ">>"): opparse.rassoc(100),
             ("=", "~"): opparse.lassoc(120),
-            ("!", "!!"): opparse.lassoc(150),
             ":": opparse.lassoc(300),
             "as": opparse.rassoc(350),
+            ("!", "!!"): opparse.lassoc(375),
             "$": opparse.lassoc(400),
             ("(", "[", "{", "[["): opparse.obrack(200),
             (")", "]", "}", "]]"): opparse.cbrack(500),
@@ -481,13 +481,13 @@ def make_focus(node, _, element, context):
 def make_double_focus(node, _, element, context):
     element = evaluate(element, context=context)
     assert isinstance(element, Element)
-    return element.clone(tags=frozenset(element.tags | {2}))
+    return element.clone(tags=frozenset({2}))
 
 
 @evaluate.register_action("_ $ X")
 def make_dollar(node, _, name, context):
     name = evaluate(name, context=context)
-    return Element(name=None, category=None, capture=name.name)
+    return Element(name=None, category=None, capture=name.name, tags=name.tags)
 
 
 @evaluate.register_action("X ( _ ) _")
@@ -518,13 +518,13 @@ def make_as(node, element, name, context):
     element = evaluate(element, context=context)
     name = evaluate(name, context=context)
     if isinstance(element, Element):
-        return element.clone(capture=name.name)
+        return element.clone(capture=name.name, tags=element.tags | name.tags)
     else:
         focus = context == "root"
         new_capture = Element(
             name="#value",
             capture=name.name,
-            tags=frozenset({1}) if focus else frozenset(),
+            tags=name.tags or (frozenset({1}) if focus else frozenset()),
         )
         return element.clone(captures=element.captures + (new_capture,))
 
