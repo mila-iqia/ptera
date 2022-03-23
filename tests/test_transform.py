@@ -98,7 +98,9 @@ class SimpleInteractor:
 
 
 @keyword_decorator
-def wrap(fn, all=False, names=True, noreset=False, allow_errors=False):
+def wrap(
+    fn, all=False, names=True, noreset=False, allow_errors=False, results=None
+):
     new_fn = transform(
         fn,
         proceed=SimpleInteractor,
@@ -109,8 +111,10 @@ def wrap(fn, all=False, names=True, noreset=False, allow_errors=False):
 
     @functools.wraps(fn)
     def wrapped(*args, **overrides):
+        nonlocal results
         kw = overrides.pop("KW", {})
-        results = Interactions()
+        if results is None:
+            results = Interactions()
         reset = _current_layer.set((results, overrides))
         try:
             rval = new_fn(*args, **kw)
@@ -583,6 +587,40 @@ def test_error_in_execution():
         ("verr", None, None, verr, False),
         ("x", None, None, 21, True),
         ("#error", None, None, verr, False),
+        ("#exit", None, None, True, False),
+    ]
+
+
+def test_generator_interactions():
+    data = Interactions()
+
+    @wrap(noreset=True, results=data)
+    def genny(x):
+        for i in range(x):
+            yield i * i
+        return -1
+
+    g = genny(3)
+    g.send(None)
+    g.send(111)
+    g.send(222)
+    with pytest.raises(StopIteration):
+        g.send(333)
+
+    assert data == [
+        ("#enter", None, None, True, False),
+        ("range", None, None, range, True),
+        ("x", None, None, 3, True),
+        ("i", None, None, 0, True),
+        ("#yield", None, None, 0, True),
+        ("#receive", None, None, 111, True),
+        ("i", None, None, 1, True),
+        ("#yield", None, None, 1, True),
+        ("#receive", None, None, 222, True),
+        ("i", None, None, 2, True),
+        ("#yield", None, None, 4, True),
+        ("#receive", None, None, 333, True),
+        ("#value", None, None, -1, True),
         ("#exit", None, None, True, False),
     ]
 

@@ -18,7 +18,7 @@ from .utils import (
     is_tooled,
 )
 
-_valid_hashvars = ("#enter", "#error", "#exit", "#value", "#yield")
+_valid_hashvars = ("#enter", "#error", "#exit", "#receive", "#value", "#yield")
 
 
 class SelectorError(Exception):

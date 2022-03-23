@@ -727,7 +727,14 @@ class PteraTransformer(NodeTransformer):
             self.visit(node.value or ast.Constant(value=None)),
             True,
         )
-        return ast.copy_location(ast.Yield(value=new_value), node)
+        new_yield = self._interact(
+            "#receive",
+            None,
+            None,
+            ast.Yield(value=new_value),
+            True,
+        )
+        return ast.copy_location(new_yield, node)
 
 
 class _Conformer:
