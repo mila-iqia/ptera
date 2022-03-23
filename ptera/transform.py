@@ -213,7 +213,7 @@ class PteraTransformer(NodeTransformer):
         self.to_instrument = to_instrument
         self.result = self.visit_FunctionDef(tree, root=True)
 
-    def should_instrument(self, varname, ann):
+    def should_instrument(self, varname, ann=None):
         evaluated_ann = self._evaluate(ann)
         if any(
             check_element(el, varname, evaluated_ann)
@@ -292,6 +292,61 @@ class PteraTransformer(NodeTransformer):
             args=list(args),
             keywords=[],
         )
+
+    def standalone_interaction(self, *args):
+        itn = self._interact(*args)
+        if isinstance(itn, ast.Constant):  # pragma: no cover
+            return []
+        else:
+            return [ast.Expr(itn)]
+
+    def delimit(self, body, enter, error, exit):
+        enter = [x for x in enter if self.should_instrument(x)]
+        error = [x for x in error if self.should_instrument(x)]
+        exit = [x for x in exit if self.should_instrument(x)]
+
+        enter_stmts = [
+            self.standalone_interaction(sym, None, None, True, False)
+            for sym in enter
+        ]
+        body = reduce(list.__add__, [*enter_stmts, body])
+
+        if not error and not exit:
+            return body
+
+        exit_stmts = [
+            self.standalone_interaction(sym, None, None, True, False)
+            for sym in exit
+        ]
+        finalbody = reduce(list.__add__, exit_stmts, [])
+
+        handlers = [
+            ast.ExceptHandler(
+                type=ast.Name(id="BaseException", ctx=ast.Load()),
+                name="#error",
+                body=[
+                    *self.standalone_interaction(
+                        sym,
+                        None,
+                        None,
+                        ast.Name(id="#error", ctx=ast.Load()),
+                        False,
+                    ),
+                    ast.Raise(),
+                ],
+            )
+            for sym in error
+        ]
+
+        trycatch = ast.Try(
+            body=body,
+            handlers=handlers,
+            orelse=[],
+            finalbody=finalbody,
+        )
+        body = [trycatch]
+
+        return body
 
     def make_interaction(self, target, ann, value, orig=None, expression=False):
         """Create code for setting the value of a variable."""
@@ -431,9 +486,7 @@ class PteraTransformer(NodeTransformer):
         if not root:
             return node
 
-        wrapped_body = []
-
-        new_body = [ast.Expr(self._interact("#enter", None, None, True, False))]
+        new_body = []
 
         for external in sorted(self.external):
             new_body.extend(
@@ -461,9 +514,12 @@ class PteraTransformer(NodeTransformer):
 
         new_body += self.generate_interactions(node.args)
 
+        wrapped_body = []
+
         body = node.body
         first = body[0]
         if isinstance(first, ast.Expr):
+            # Pull the docstring into wrapped_body
             v = first.value
             if (
                 isinstance(v, ast.Str)
@@ -474,6 +530,7 @@ class PteraTransformer(NodeTransformer):
                 body = body[1:]
 
         new_body += self.visit_body(node.body)
+        new_body = self.delimit(new_body, ["#enter"], ["#error"], ["#exit"])
 
         wrapped_body.append(
             ast.With(

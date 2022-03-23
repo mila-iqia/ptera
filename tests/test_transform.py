@@ -51,8 +51,8 @@ class Interactions(list):
 
     @property
     def ret(self):
-        assert self[-1][0] == "#value"
-        return self[-1][-2]
+        assert self[-2][0] == "#value"
+        return self[-2][-2]
 
 
 def test_Interactions():
@@ -98,7 +98,7 @@ class SimpleInteractor:
 
 
 @keyword_decorator
-def wrap(fn, all=False, names=True, noreset=False):
+def wrap(fn, all=False, names=True, noreset=False, allow_errors=False):
     new_fn = transform(
         fn,
         proceed=SimpleInteractor,
@@ -112,7 +112,13 @@ def wrap(fn, all=False, names=True, noreset=False):
         kw = overrides.pop("KW", {})
         results = Interactions()
         reset = _current_layer.set((results, overrides))
-        rval = new_fn(*args, **kw)
+        try:
+            rval = new_fn(*args, **kw)
+        except:  # noqa: E722
+            if allow_errors:
+                rval = None
+            else:
+                raise
         if not noreset:
             _current_layer.reset(reset)
         results.actual_ret = rval
@@ -190,6 +196,7 @@ def test_interact():
         ("y", None, None, 3, True),
         ("z", None, int, ABSENT, True),
         ("#value", None, None, 15, True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -383,7 +390,7 @@ def test_nested_no_crash():
 
     data = limbo([[0, 1], 2])
     assert data.ret == [[0, 2], 2]
-    assert data.syms() == ["#enter", "x", "#value"]
+    assert data.syms() == ["#enter", "x", "#value", "#exit"]
 
 
 def test_empty_return():
@@ -492,6 +499,7 @@ def test_closure():
         ("x", None, None, 3, False),
         ("y", None, None, 7, False),
         ("#value", None, None, 10, True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -514,6 +522,7 @@ def test_transform_method():
         ("self", None, None, cow, True),
         ("intensity", None, None, 2, True),
         ("#value", None, None, "moomoo", True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -540,6 +549,7 @@ def test_varargs():
         ("z", None, None, (3, 4), True),
         ("k", None, None, {"a": 5, "b": 6}, True),
         ("#value", None, None, 21, True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -555,6 +565,25 @@ def test_kwonly():
         ("x", None, None, 21, True),
         ("y", None, None, 32, True),
         ("#value", None, None, 53, True),
+        ("#exit", None, None, True, False),
+    ]
+
+
+def test_error_in_execution():
+    verr = ValueError(999)
+
+    @wrap(all=True, allow_errors=True)
+    def cheapo(x):
+        if x > 0:
+            raise verr
+
+    data = cheapo(21)
+    assert data == [
+        ("#enter", None, None, True, False),
+        ("verr", None, None, verr, False),
+        ("x", None, None, 21, True),
+        ("#error", None, None, verr, False),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -585,6 +614,7 @@ def test_positional():
         ("x", None, None, 21, True),
         ("y", None, None, 32, True),
         ("#value", None, None, 53, True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -605,6 +635,7 @@ def test_augassign():
         ("x", None, None, 3, True),
         ("x", None, None, 5, True),
         ("#value", None, None, 15, True),
+        ("#exit", None, None, True, False),
     ]
 
 
@@ -656,7 +687,7 @@ def test_stacked_transforms():
 
     with with_syms(select("comb > $x").captures) as results:
         call(50)
-    assert results.syms() == ["#enter", "x", "y", "z", "q", "#value"]
+    assert results.syms() == ["#enter", "x", "y", "z", "q", "#value", "#exit"]
 
     with with_syms(select("comb() as fabulous").captures) as results:
         call(50)
