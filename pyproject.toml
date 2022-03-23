@@ -11,7 +11,7 @@ repository = "https://github.com/mila-iqia/ptera"
 python = "^3.6"
 codefind = {version = "^0.1.2", python = "^3.8"}
 contextvars = {version = "^2.4", python = "~3.6"}
-giving = "^0.3.6"
+giving = "^0.3.10"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.5b1", python = "^3.7"}
@@ -37,5 +37,5 @@ combine_as_imports = true
 omit = []
 
 [build-system]
-requires = ["poetry-core@https://github.com/python-poetry/poetry-core/archive/325312c016d69189ac93c945ba0c1b69296c5e54.zip"]
+requires = ["poetry-core>=1.0.8"]
 build-backend = "poetry.core.masonry.api"

@@ -116,7 +116,7 @@ toml = ["toml"]
 
 [[package]]
 name = "executing"
-version = "0.8.2"
+version = "0.8.3"
 description = "Get the currently executing AST node of a frame, and other information"
 category = "main"
 optional = false
@@ -138,7 +138,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
 name = "giving"
-version = "0.3.7"
+version = "0.3.10"
 description = "Reactive logging"
 category = "main"
 optional = false
@@ -404,7 +404,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "varname"
-version = "0.8.1"
+version = "0.8.3"
 description = "Dark magics about variable names in python."
 category = "main"
 optional = false
@@ -412,7 +412,7 @@ python-versions = ">=3.6,<4.0"
 
 [package.dependencies]
 asttokens = ">=2.0.0,<3.0.0"
-executing = "*"
+executing = ">=0.8.3,<0.9.0"
 pure_eval = "<1.0.0"
 
 [[package]]
@@ -430,7 +430,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "d569f261665c70a57e5bbbe8e635e6859919031bf223a14e859369fa1760360a"
+content-hash = "da459934d9d135888aa299280516e7adc3b3c5c73b071c25150d2af918086f2c"
 
 [metadata.files]
 asttokens = [
@@ -519,16 +519,16 @@ coverage = [
     {file = "coverage-5.5.tar.gz", hash = "sha256:ebe78fe9a0e874362175b02371bdfbee64d8edc42a044253ddf4ee7d3c15212c"},
 ]
 executing = [
-    {file = "executing-0.8.2-py2.py3-none-any.whl", hash = "sha256:32fc6077b103bd19e6494a72682d66d5763cf20a106d5aa7c5ccbea4e47b0df7"},
-    {file = "executing-0.8.2.tar.gz", hash = "sha256:c23bf42e9a7b9b212f185b1b2c3c91feb895963378887bb10e64a2e612ec0023"},
+    {file = "executing-0.8.3-py2.py3-none-any.whl", hash = "sha256:d1eef132db1b83649a3905ca6dd8897f71ac6f8cac79a7e58a1a09cf137546c9"},
+    {file = "executing-0.8.3.tar.gz", hash = "sha256:c6554e21c6b060590a6d3be4b82fb78f8f0194d809de5ea7df1c093763311501"},
 ]
 flake8 = [
     {file = "flake8-3.9.2-py2.py3-none-any.whl", hash = "sha256:bf8fd333346d844f616e8d47905ef3a3384edae6b4e9beb0c5101e25e3110907"},
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
 giving = [
-    {file = "giving-0.3.7-py3-none-any.whl", hash = "sha256:3c083d18b84f8c0ad32a7aa6228ad37bd02763d381a423f57ba578a2c2bbabcf"},
-    {file = "giving-0.3.7.tar.gz", hash = "sha256:cd28ee477c77c05a417d838fc8b69ce3ef8b36929216021b6c59035d5a654198"},
+    {file = "giving-0.3.10-py3-none-any.whl", hash = "sha256:6ca005525b288c3db07a03b69a1f8fd5c691fe852ddf653c65afb50044cc7206"},
+    {file = "giving-0.3.10.tar.gz", hash = "sha256:8f364d2c5ccf2d38643217ae5a6543580ecb5d7225ec533f044aff0fa865821a"},
 ]
 immutables = [
     {file = "immutables-0.16-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:acbfa79d44228d96296279068441f980dc63dbed52522d9227ff9f4d96c6627e"},
@@ -701,8 +701,8 @@ typing-extensions = [
     {file = "typing_extensions-4.1.1.tar.gz", hash = "sha256:1a9462dcc3347a79b1f1c0271fbe79e844580bb598bafa1ed208b94da3cdcd42"},
 ]
 varname = [
-    {file = "varname-0.8.1-py3-none-any.whl", hash = "sha256:344f6e9a38d338aad30bb953bc68e1dc5645e0b0f45e7b3171b3ca3edfd3c490"},
-    {file = "varname-0.8.1.tar.gz", hash = "sha256:06f8fa6e7db0a9897ada5e096eab95f9c2e3811e69e7a29f747517e4377f3d2b"},
+    {file = "varname-0.8.3-py3-none-any.whl", hash = "sha256:f954e72127da2bf249e2ae3fae44fa6ee41e5fc87a65dca1bc5cdfdb74428ed0"},
+    {file = "varname-0.8.3.tar.gz", hash = "sha256:53283f002ea6757a6157cc362cd9464243687bf7d88d7d49a9c853f956e73973"},
 ]
 zipp = [
     {file = "zipp-3.6.0-py3-none-any.whl", hash = "sha256:9fe5ea21568a0a70e50f273397638d39b03353731e6cbbb3fd8502a33fec40bc"},
