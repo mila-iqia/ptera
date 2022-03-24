@@ -231,6 +231,54 @@ The :func:`~ptera.probe.global_probe` function can be used to set up a probe tha
     Reduction operators such as :func:`~giving.operators.min` or :func:`~giving.operators.sum` are finalized when the probe exits. With ``probing``, that happens at the end of the ``with`` block. With ``global_probe``, that happens either when ``deactivate`` is called or when the program exits.
 
 
+Wrapper probe
+~~~~~~~~~~~~~
+
+.. warning::
+    This is a less mature feature, use at your own risk.
+
+A wrapper probe is a probe that has *two* focuses. On the first focus, it generates an opening event, and on the second focus, it generates a closing event. These events can be fed into a context manager or generator using :func:`~ptera.probe.Probe.wrap`, :func:`~ptera.probe.Probe.kwrap` (subscribers), or :func:`~giving.operators.wmap` (operator).
+
+The first focus works as normal and can be specified with ``!``. The second focus is specified with ``!!``. In the example below we compute the elapsed time between ``a = 1`` and ``b = 2``:
+
+.. code-block:: python
+
+    def main(x):
+        for i in range(1, x + 1):
+            a = 1
+            time.sleep(i)
+            b = 2
+
+    def _timeit():
+        t0 = time.time()
+        yield
+        t1 = time.time()
+        return t1 - t0
+
+    with probing("main(!a, !!b)") as prb:
+        times = prb.wmap(_timeit).accum()
+        main(3)
+
+    print(times)  # Approximately [0.1, 0.2, 0.3]
+
+The ``wmap`` method takes a generator that yields exactly once. It is called when the first focus is triggered (captured values may be passed as keyword arguments). Then it must yield and will be resumed when the second focus is triggered (``yield`` returns the captured data). The return value becomes the next value of the resulting stream.
+
+The ``wrap`` and ``kwrap`` functions are similar, but they do not return streams. They work like ``subscribe`` and ``ksubscribe``, but you can pass either a generator that yields once or an arbitrary context manager.
+
+You can use meta-variables if needed:
+
+* ``main(!#enter, !!#exit)`` can be used to wrap the entire function.
+* ``main(!#loop_i, !!#endloop_i)`` can be used to wrap each iteration of the for loop that uses an iteration variable named ``i``.
+
+.. note::
+    If ``prb`` is a stream that contains multiple wrapper probes and you only want to wrap one of them, you can pass the name of the focus variable of its selector as the first argument to ``wmap``.
+
+.. important::
+    Wrapper probes work a little like ``with`` statements, but not really: if an error occurs between the two focuses, the wrapper probe will not be informed. The second focus will simply not happen and the generator will not be called back (it will just hang somewhere forever, wasting memory).
+
+    There is one safe special case: if you use a selector like ``f(!#enter, #error, !!#exit)``, it should always complete because the special meta-variable ``#exit`` is always emitted when a function ends, even if there is an error. The error, if there is one, will be offered as ``#error``. You can get that from the dictionary returned by ``yield`` in the handler you pass to ``wmap``.
+
+
 Operations
 ----------
 
@@ -440,7 +488,13 @@ There are a few meta-variables recognized by Ptera that start with a hash sign:
 
 * ``#enter`` is triggered immediately when entering a function. For example, if you want to set a breakpoint at the start of a function with no arguments you can use ``probing("f > #enter").breakpoint()``.
 * ``#value`` stands in for the return value of a function. ``f() as x`` is sugar for ``f > #value as x``.
+* ``#error`` stands for the exception raised by the function, if there is one.
+* ``#exit`` is triggered when exiting a function, both on a normal return and when there is an error.
 * ``#yield`` is triggered whenever a generator yields.
+* ``#receive`` stands for the output of ``yield``.
+* ``#loop_X`` and ``#endloop_X`` are triggered respectively at the beginning and end of *each* iteration of a ``for X in ...:`` loop (the meta-variables are named after the iteration variable). If there are multiple iteration variables, you can use any of them. There is no way to differentiate loops that have the same iteration variables.
+
+The ``#enter`` and ``#receive`` meta-variables both bear the ``@enter`` tag (meaning that they are points at which execution might enter the function). You can therefore refer to both using the selector ``$x::@enter``. Conversely, ``#exit`` and ``#yield`` bear the ``@exit`` tag. You can leverage this feature to compute e.g. how much time is spent inside a function or generator.
 
 Generic variables
 ~~~~~~~~~~~~~~~~~

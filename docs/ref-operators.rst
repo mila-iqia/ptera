@@ -169,6 +169,7 @@ The operators listed here are all available as methods on the :class:`~ptera.pro
     .. autofunction:: window_with_time
     .. autofunction:: window_with_time_or_count
     .. autofunction:: with_latest_from
+    .. autofunction:: wmap
     .. autofunction:: zip
     .. autofunction:: zip_with_iterable
     .. autofunction:: zip_with_list

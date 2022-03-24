@@ -13,6 +13,7 @@ This module defines the probing functionality. The interface for probes is built
     .. autoclass:: Probe(*selectors, raw=False)
 
         .. automethod:: accum
+        .. automethod:: allow_empty
         .. automethod:: breakpoint
         .. automethod:: breakword
         .. automethod:: display
@@ -20,6 +21,7 @@ This module defines the probing functionality. The interface for probes is built
         .. automethod:: exec
         .. automethod:: fail
         .. automethod:: fail_if_empty
+        .. automethod:: fail_if_false
         .. automethod:: give
         .. automethod:: koverride
         .. automethod:: ksubscribe
