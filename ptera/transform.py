@@ -186,6 +186,15 @@ class ExternalVariableCollector(NodeVisitor):
         self.assigned.add(node.arg)
 
 
+class SimpleVariableCollector(NodeVisitor):
+    def __init__(self, tree):
+        self.vars = set()
+        self.visit(tree)
+
+    def visit_Name(self, node):
+        self.vars.add(node.id)
+
+
 class PteraTransformer(NodeTransformer):
     """Transform the AST of a function to instrument it with ptera.
 
@@ -571,6 +580,15 @@ class PteraTransformer(NodeTransformer):
 
         new_body = self.generate_interactions(node.target)
         new_body.extend(self.visit_body(node.body))
+
+        svc = SimpleVariableCollector(node.target)
+
+        new_body = self.delimit(
+            new_body,
+            [f"#loop_{v}" for v in svc.vars],
+            [],
+            [f"#endloop_{v}" for v in svc.vars],
+        )
 
         return ast.copy_location(
             ast.For(

@@ -325,6 +325,11 @@ class Call(Selector):
                             f"No variable in `{func}` has the category `{x.category}`"
                         )
 
+                elif x.name.startswith("#loop_") or x.name.startswith(
+                    "#endloop_"
+                ):
+                    pass
+
                 elif x.name.startswith("#"):
                     if x.name not in _valid_hashvars:
                         problems.append(

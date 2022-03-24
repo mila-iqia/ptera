@@ -505,6 +505,24 @@ def test_enter_exit_tag():
     assert ys == [0, 1, 4, True]
 
 
+def test_loop_hashvar():
+    def looper(x):
+        k = 0
+        for i, j in zip(range(x), range(x)):
+            k += i * j
+        return j
+
+    with probing("looper(#loop_i, k) > #endloop_j") as prb:
+        results = prb.accum()
+        looper(3)
+
+    assert results == [
+        {"k": 0, "#loop_i": True, "#endloop_j": True},
+        {"k": 1, "#loop_i": True, "#endloop_j": True},
+        {"k": 5, "#loop_i": True, "#endloop_j": True},
+    ]
+
+
 def test_bad_wrap_selector():
     with pytest.raises(ValueError, match="Unsupported focus pattern"):
         with probing("recurso(n, !!#value)"):
