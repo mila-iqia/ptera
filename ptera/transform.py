@@ -15,7 +15,7 @@ from textwrap import dedent
 from types import TracebackType
 
 from .selector import Element, check_element
-from .tags import get_tags
+from .tags import enter_tag, exit_tag, get_tags
 from .utils import ABSENT, DictPile
 
 _IDX = count()
@@ -244,6 +244,7 @@ class PteraTransformer(NodeTransformer):
     def _evaluate(self, node):
         if node in self.evalcache:
             return self.evalcache[node]
+        ast.fix_missing_locations(node)
         try:
             result = eval(
                 compile(
@@ -254,7 +255,7 @@ class PteraTransformer(NodeTransformer):
                 self.globals,
                 self.globals,
             )
-        except Exception:
+        except Exception:  # pragma: no cover
             result = ABSENT
         self.evalcache[node] = result
         return result
@@ -300,13 +301,13 @@ class PteraTransformer(NodeTransformer):
         else:
             return [ast.Expr(itn)]
 
-    def delimit(self, body, enter, error, exit):
-        enter = [x for x in enter if self.should_instrument(x)]
+    def delimit(self, body, enter, error, exit, enter_tag=None, exit_tag=None):
+        enter = [x for x in enter if self.should_instrument(x, enter_tag)]
         error = [x for x in error if self.should_instrument(x)]
-        exit = [x for x in exit if self.should_instrument(x)]
+        exit = [x for x in exit if self.should_instrument(x, exit_tag)]
 
         enter_stmts = [
-            self.standalone_interaction(sym, None, None, True, False)
+            self.standalone_interaction(sym, None, enter_tag, True, False)
             for sym in enter
         ]
         body = reduce(list.__add__, [*enter_stmts, body])
@@ -315,7 +316,7 @@ class PteraTransformer(NodeTransformer):
             return body
 
         exit_stmts = [
-            self.standalone_interaction(sym, None, None, True, False)
+            self.standalone_interaction(sym, None, exit_tag, True, False)
             for sym in exit
         ]
         finalbody = reduce(list.__add__, exit_stmts, [])
@@ -530,7 +531,14 @@ class PteraTransformer(NodeTransformer):
                 body = body[1:]
 
         new_body += self.visit_body(node.body)
-        new_body = self.delimit(new_body, ["#enter"], ["#error"], ["#exit"])
+        new_body = self.delimit(
+            new_body,
+            ["#enter"],
+            ["#error"],
+            ["#exit"],
+            enter_tag=self._get("enter_tag"),
+            exit_tag=self._get("exit_tag"),
+        )
 
         wrapped_body.append(
             ast.With(
@@ -723,14 +731,14 @@ class PteraTransformer(NodeTransformer):
         new_value = self._interact(
             "#yield",
             None,
-            None,
+            self._get("exit_tag"),
             self.visit(node.value or ast.Constant(value=None)),
             True,
         )
         new_yield = self._interact(
             "#receive",
             None,
-            None,
+            self._get("enter_tag"),
             ast.Yield(value=new_value),
             True,
         )
@@ -822,6 +830,39 @@ def _compile(filename, tree, freevars):
         ast.fix_missing_locations(tree)
 
     return compile(ast.Module(body=[tree], type_ignores=[]), filename, "exec")
+
+
+def _standard_info():
+    return {
+        "#enter": {
+            "name": "#enter",
+            "annotation": enter_tag,
+            "provenance": "meta",
+            "doc": None,
+            "location": None,
+        },
+        "#exit": {
+            "name": "#exit",
+            "annotation": exit_tag,
+            "provenance": "meta",
+            "doc": None,
+            "location": None,
+        },
+        "#receive": {
+            "name": "#receive",
+            "annotation": enter_tag,
+            "provenance": "meta",
+            "doc": None,
+            "location": None,
+        },
+        "#yield": {
+            "name": "#yield",
+            "annotation": exit_tag,
+            "provenance": "meta",
+            "doc": None,
+            "location": None,
+        },
+    }
 
 
 def transform(fn, proceed, to_instrument=True, set_conformer=True):
@@ -918,6 +959,8 @@ def transform(fn, proceed, to_instrument=True, set_conformer=True):
         "get_tags": ("__ptera_get_tags", get_tags),
         "self": (fnsym, None),
         "frame": ("__ptera_frame", None),
+        "enter_tag": ("__ptera_enter_tag", enter_tag),
+        "exit_tag": ("__ptera_exit_tag", exit_tag),
     }
     glb.update(
         {name: value for name, value in lib.values() if value is not None}
@@ -984,6 +1027,7 @@ def transform(fn, proceed, to_instrument=True, set_conformer=True):
         }
         for k in all_vars
     }
+    info.update(_standard_info())
 
     if set_conformer:
         actual_fn._conformer = _Conformer(fn, actual_fn, proceed)

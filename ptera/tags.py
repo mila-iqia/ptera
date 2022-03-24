@@ -87,3 +87,6 @@ def get_tags(*tags):
 
 
 tag = _TagFactory()
+
+enter_tag = tag.enter
+exit_tag = tag.exit

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from ptera.selector import Element, SelectorError, select
+from ptera.tags import enter_tag, exit_tag
 from ptera.transform import (
     Key,
     StackedTransforms,
@@ -193,14 +194,14 @@ def test_interact():
     data = iceberg(7, 3, z=5)
     assert data.ret == 15
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("int", None, None, int, True),
         ("sum", None, None, sum, True),
         ("x", None, float, 7, True),
         ("y", None, None, 3, True),
         ("z", None, int, ABSENT, True),
         ("#value", None, None, 15, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -499,11 +500,11 @@ def test_closure():
     data = inside_scoop()
     assert data.ret == 10
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("x", None, None, 3, False),
         ("y", None, None, 7, False),
         ("#value", None, None, 10, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -522,11 +523,11 @@ def test_transform_method():
     data = cow.cry()
     assert data.ret == "moomoo"
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("self", None, None, cow, True),
         ("intensity", None, None, 2, True),
         ("#value", None, None, "moomoo", True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -546,14 +547,14 @@ def test_varargs():
     data = nightmare(1, 2, 3, 4, KW=dict(a=5, b=6))
     assert data.ret == 21
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("sum", None, None, sum, True),
         ("x", None, None, 1, True),
         ("y", None, None, 2, True),
         ("z", None, None, (3, 4), True),
         ("k", None, None, {"a": 5, "b": 6}, True),
         ("#value", None, None, 21, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -565,11 +566,11 @@ def test_kwonly():
     data = waycool(21, KW=dict(y=32))
     assert data.ret == 53
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("x", None, None, 21, True),
         ("y", None, None, 32, True),
         ("#value", None, None, 53, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -583,11 +584,11 @@ def test_error_in_execution():
 
     data = cheapo(21)
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("verr", None, None, verr, False),
         ("x", None, None, 21, True),
         ("#error", None, None, verr, False),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -608,20 +609,20 @@ def test_generator_interactions():
         g.send(333)
 
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("range", None, None, range, True),
         ("x", None, None, 3, True),
         ("i", None, None, 0, True),
-        ("#yield", None, None, 0, True),
-        ("#receive", None, None, 111, True),
+        ("#yield", None, exit_tag, 0, True),
+        ("#receive", None, enter_tag, 111, True),
         ("i", None, None, 1, True),
-        ("#yield", None, None, 1, True),
-        ("#receive", None, None, 222, True),
+        ("#yield", None, exit_tag, 1, True),
+        ("#receive", None, enter_tag, 222, True),
         ("i", None, None, 2, True),
-        ("#yield", None, None, 4, True),
-        ("#receive", None, None, 333, True),
+        ("#yield", None, exit_tag, 4, True),
+        ("#receive", None, enter_tag, 333, True),
         ("#value", None, None, -1, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -648,11 +649,11 @@ def test_positional():
     data = gnarly(21, 32)
     assert data.ret == 53
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("x", None, None, 21, True),
         ("y", None, None, 32, True),
         ("#value", None, None, 53, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 
@@ -667,13 +668,13 @@ def test_augassign():
     data = f2(2, 10)
     assert data.ret == 15
     assert data == [
-        ("#enter", None, None, True, False),
+        ("#enter", None, enter_tag, True, False),
         ("x", None, None, 2, True),
         ("y", None, None, 10, True),
         ("x", None, None, 3, True),
         ("x", None, None, 5, True),
         ("#value", None, None, 15, True),
-        ("#exit", None, None, True, False),
+        ("#exit", None, exit_tag, True, False),
     ]
 
 

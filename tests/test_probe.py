@@ -485,6 +485,26 @@ def test_wrap():
     assert results == [-4, -3, -2, -1, 0, 0, 1, 2, 3, 4]
 
 
+def test_enter_exit_tag():
+    def genny(x):
+        for i in range(x):
+            yield i * i
+
+    with probing("genny > $x:@enter", "genny > $y:@exit") as prb:
+        xs = prb["?x"].accum()
+        ys = prb["?y"].accum()
+
+        g = genny(3)
+        g.send(None)
+        g.send(111)
+        g.send(222)
+        with pytest.raises(StopIteration):
+            g.send(333)
+
+    assert xs == [True, 111, 222, 333]
+    assert ys == [0, 1, 4, True]
+
+
 def test_bad_wrap_selector():
     with pytest.raises(ValueError, match="Unsupported focus pattern"):
         with probing("recurso(n, !!#value)"):
