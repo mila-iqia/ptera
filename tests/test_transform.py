@@ -349,6 +349,17 @@ def test_tuple_assignment():
     assert spatula((4, 5), b=70) == 74
 
 
+@wrap
+def pincettes(x):
+    a = b = x + 1
+    return a + b
+
+
+def test_multiple_assignment():
+    assert pincettes(10) == 22
+    assert pincettes(10, a=100) == 111
+
+
 def test_nested_function():
     @wrap
     def kangaroo(x):

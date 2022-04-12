@@ -657,8 +657,8 @@ class PteraTransformer(NodeTransformer):
         After:
             x = _ptera_interact('x', None, y + z)
         """
-        (target,) = node.targets
-        if isinstance(target, ast.Tuple):
+
+        def _decompose(targets, transform):
             var_all = _gensym()
             ass_all = ast.copy_location(
                 ast.Assign(
@@ -668,23 +668,37 @@ class PteraTransformer(NodeTransformer):
                 node,
             )
             accum = [ass_all]
-            for i, tgt in enumerate(target.elts):
+            for i, tgt in enumerate(targets):
                 accum += self.visit_Assign(
                     ast.copy_location(
                         ast.Assign(
                             targets=[tgt],
-                            value=ast.Subscript(
-                                value=ast.Name(id=var_all, ctx=ast.Load()),
-                                slice=ast.Index(value=ast.Constant(i)),
-                                ctx=ast.Load(),
+                            value=transform(
+                                ast.Name(id=var_all, ctx=ast.Load()), i
                             ),
                         ),
                         node,
                     )
                 )
             return accum
+
+        targets = node.targets
+        if len(targets) > 1:
+            return _decompose(targets, lambda value, i: value)
+
+        elif isinstance(targets[0], ast.Tuple):
+            return _decompose(
+                targets[0].elts,
+                lambda value, i: ast.Subscript(
+                    value=value,
+                    slice=ast.Index(value=ast.Constant(i)),
+                    ctx=ast.Load(),
+                ),
+            )
         else:
-            return self.make_interaction(target, None, node.value, orig=node)
+            return self.make_interaction(
+                targets[0], None, node.value, orig=node
+            )
 
     def visit_AugAssign(self, node):
         if isinstance(node.target, ast.Name) and self.should_instrument(
