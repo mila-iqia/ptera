@@ -612,7 +612,7 @@ class PteraTransformer(NodeTransformer):
         return ast.copy_location(
             ast.ExceptHandler(
                 name=node.name,
-                type=self.visit(node.type),
+                type=node.type and self.visit(node.type),
                 body=new_body,
             ),
             node,

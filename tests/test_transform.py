@@ -473,6 +473,19 @@ def test_exception():
     assert excite(exc="nope") == "nope"
 
 
+def test_bare_except():
+    @wrap
+    def excite():
+        x = 1
+        try:
+            x / 0
+        except:  # noqa: E722
+            return x
+
+    assert excite() == 1
+    assert excite(x=3) == 3
+
+
 def test_import_inside():
     from ptera import tools as T_orig
 
