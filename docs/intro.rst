@@ -4,21 +4,38 @@ What is Ptera?
 
 Ptera is a way to instrument code from the outside. More precisely, it allows you to specify a set of variables to watch in an arbitrary Python call graph and manipulate a stream of their values.
 
-For example, the following code will print out the minimum value taken by the variable `loss` across all calls of function `step`, but only when it called in the function `train`:
+For example, the following code will print ``a = 12 and b = 34``, at the moment that the variable ``a`` is set.
 
 .. code-block:: python
 
-    with probing("train > step > loss") as prb:
-        # The following line declares a processing pipeline. It must be done
-        # before the main function is called.
-        prb["loss"].min().print()
-        main()
+    from ptera import probing
+
+    def f():
+        a = 12
+
+    def g():
+        b = 34
+        f()
+
+    # "g(b) > f > a" is a *selector* that selects the variable b in the function g
+    # and the variable a in the function f, with a focus on variable a
+    with probing("g(b) > f > a") as prb:
+        # The following line declares a processing pipeline. It must be declared
+        # before the main functionality is called.
+        prb.print("a = {a} and b = {b}")
+
+        # When the watched variables are set, the values will go through the pipeline
+        # declared previously
+        g()
+
+See :ref:`Probing` for more information on the probing syntax.
 
 You can use Ptera to:
 
-* Instrument code that you do not control.
-* Collect data across function scopes.
-* Perform complex reductions on the stream of values.
+* :ref:`Instrument code that you do not control.<Instrumenting external code>`
+* :ref:`Collect data across function scopes.<Probe across scopes>`
+* Perform :ref:`complex filters<Filtering>` and :ref:`reductions<Reduction>` on the stream of values.
+* :ref:`Test<Testing with Ptera>` complex conditions on a program's internal state.
 
 
 Getting started
@@ -48,7 +65,7 @@ Here's an example involving `a fun function <https://en.wikipedia.org/wiki/Colla
 
     # `collatz > n` means: probe variable `n` in function `collatz`
     # Every time `n` is set (including when it is given as a parameter)
-    # an event it sent through `prb`
+    # an event is sent through `prb`
     with probing("collatz > n") as prb:
         # Declare one or more pipelines on the data.
         prb["n"].print("n = {}")
@@ -62,14 +79,14 @@ Here's an example involving `a fun function <https://en.wikipedia.org/wiki/Colla
         collatz(2021)
 
         # Print the values
-        print(values)
+        print("values =", values)
 
     # Output:
     # n = 2021
     # ...
     # n = 1
-    # [2021, ..., 1]
+    # values = [2021, ..., 1]
     # max(n) = 6064
     # number of steps: 63
 
-Note that in the example above the max/count are printed after the with block ends (that's how they know there is no more data), which is why ``print(values)`` happens before.
+Note that in the example above the max/count are printed after the with block ends (they are triggered when there is no more data, and the stream is ended when the with block ends), which is why ``print(values)`` is not the last thing that's printed.

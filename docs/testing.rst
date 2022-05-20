@@ -2,11 +2,65 @@
 Testing with Ptera
 ==================
 
-Ptera's capabilities can be quite useful for testing, especially for complex tests or integration tests.
+Ptera is a general instrumentation framework for the inner state of Python programs and can be used to test that certain conditions obtain deep within the code.
 
-There is a plugin for pytest with a lot of interesting capabilities: `pytest-ptera <https://github.com/breuleux/pytest-ptera>`_. This being said, plain Ptera can be leveraged to write tests.
+**For example:** perhaps a function only works properly on sorted lists and you want to test that every time it is called, the input is sorted (or some other invariant). Ptera allows you to do this simply, composably, and in a way that is generally easy to debug.
 
-Many of the tests below could also be done with clever monkey patching, but they are a lot simpler with Ptera.
+In a nutshell, you can test:
+
+* :ref:`Properties<Test properties>`: test that variable X in function F is sorted, or any other invariant that the code is supposed to keep
+* :ref:`Information flow<Test information flow>`: test that variable X in function F matches variable Y in function G.
+* :ref:`Infinite loops<Test for infinite loops>`: limit how many times a function can be called within a test
+* :ref:`Trends<Test trends>`: test that variable X monotonically decreases/increases/etc. within function F
+* :ref:`Caching<Test caching>`: test that call results that are supposed to be cached are not recomputed
+
+Many of these tests could be done with clever monkey patching, but they are a lot simpler using Ptera, and composable.
+
+.. note::
+    If you want to test a particular property in many different situations, for instance through a battery of integration tests, you can abstract it into a fixture and easily apply it to many tests, or even to all tests.
+
+
+Test properties
+---------------
+
+Some libraries have to do bookkeeping on data structures, ensuring certain invariants (element types, proper sorting, lack of duplicates, etc.) Ptera can be used to verify these invariances during testing, anywhere that's relevant. For example, here's how you could test that a bisect function receives a sorted array:
+
+
+.. code-block:: python
+
+    from ptera import probing
+
+    def bisect(arr, key):
+        lo = -1
+        hi = len(arr)
+        while lo < hi - 1:
+            mid = lo + (hi - lo) // 2
+            if (elem := arr[mid]) > key:
+                hi = mid
+            else:
+                lo = mid
+        return lo + 1
+
+    def test_bisect_argument_sorted():
+        with probing("bisect > arr") as prb:
+            # First: set up the pipeline
+            (
+                prb
+                .kfilter(lambda arr: list(sorted(arr)) != arr)
+                .fail("Input arr is not sorted")
+            )
+
+            # Second: call the functionality to test
+            something_that_calls_bisect()
+
+**The probe:** ``bisect > arr`` is triggered when the ``arr`` variable in the ``bisect`` function is set. Since ``arr`` is a parameter, that corresponds to the entry of the function.
+
+**The pipeline:**
+
+* :func:`~giving.operators.kfilter` runs a function on every entry, with the arguments passed as keyword arguments, so it is important to name the argument ``arr`` in this case. It only keeps elements where the return value is truthy. Here it will only keep the arrays that are *not* sorted.
+* :meth:`~ptera.probe.Probe.fail` raises an exception whenever it receives anything. Because of the ``kfilter``, ``fail`` will only get data if we see an array ``arr`` that is not properly sorted.
+
+The tested functionality in ``something_that_calls_bisect`` must be executed *after* the pipeline is set up, but it can be arbitrarily complex. When a failure occurs, the traceback will be situated at the beginning of the offending ``bisect`` call.
 
 
 Test information flow
@@ -91,11 +145,13 @@ For example, let's say you want to verify that a variable in a loop always goes 
 
     def test_loopy():
         with probing("loopy > i") as prb:
-            prb["i"] \
-                .pairwise() \
-                .starmap(lambda i1, i2: i2 - i1) \
-                .filter(lambda x: x >= 0) \
+            (
+                prb["i"]
+                .pairwise()
+                .starmap(lambda i1, i2: i2 - i1)
+                .filter(lambda x: x >= 0)
                 .fail()
+            )
 
             loopy(10, 0)  # Fails
 
@@ -139,8 +195,6 @@ In this example, we test that a function is never called twice with the same arg
 
         assert len(set(xs)) == len(xs) > 0  # fails
 
-
-This example could also be written with the ``distinct`` method, but since the number of available methods can be overwhelming I'm showing a more polyvalent way to do things.
 
 **The probe:** ``_expensive > x`` instruments the argument ``x`` of ``_expensive``. It is important to probe the function that unconditionally does the computation in this case.
 
