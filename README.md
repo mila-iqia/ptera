@@ -13,8 +13,6 @@ Ptera is a powerful way to instrument your code for logging, debugging and testi
 
 📖 **[Read the documentation](https://ptera.readthedocs.io/en/latest)**
 
-To use ptera for testing purposes, also check out [ptera-pytest](https://github.com/breuleux/giving).
-
 ## Install
 
 ```bash
