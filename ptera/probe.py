@@ -191,11 +191,11 @@ class Probe(SourceProxy):
         return super().breakword(*args, skip=skip, **kwargs)
 
     def fail(self, *args, skip=[], **kwargs):  # pragma: no cover
-        skip = ["ptera.*", "rx.*", "giving.*", *skip]
+        skip = ["ptera.*", "reactivex.*", "giving.*", *skip]
         return super().fail(*args, skip=skip, **kwargs)
 
     def fail_if_false(self, *args, skip=[], **kwargs):  # pragma: no cover
-        skip = ["ptera.*", "rx.*", "giving.*", *skip]
+        skip = ["ptera.*", "reactivex.*", "giving.*", *skip]
         return super().fail_if_false(*args, skip=skip, **kwargs)
 
     ###################

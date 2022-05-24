@@ -515,7 +515,7 @@ def test_redirect_noclobber():
 
 def exposure(n):
     x = 2
-    return n ** x
+    return n**x
 
 
 def test_redirect_global():

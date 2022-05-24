@@ -2,7 +2,7 @@ import functools
 import sys
 
 import pytest
-import rx
+import reactivex as rx
 
 from ptera import SelectorError, tooled
 from ptera.interpret import Total
@@ -198,7 +198,7 @@ def test_probing():
     with probing("f > a") as probe:
         results = probe["a"].max().accum()
         loopy()
-    assert results == [99 ** 2]
+    assert results == [99**2]
 
 
 def test_probing_generator():
@@ -294,7 +294,7 @@ def test_probe_override():
 def test_probe_koverride():
     with probing("f > a") as probe:
         probe.koverride(lambda a: a * a)
-        assert f(5) == 5 ** 4 + 1
+        assert f(5) == 5**4 + 1
 
 
 def test_probing_no_arguments():
