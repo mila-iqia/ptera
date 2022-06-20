@@ -344,7 +344,7 @@ def add_ct(x):
     ct = 1
     return x + ct
 
-with probing("add_ct(x) > ct") as probe:
+with probing("add_ct(x) > ct", overridable=True) as probe:
     # The value of other variables can be used to compute the new value of ct
     probe.override(lambda data: data["x"])
 
@@ -360,7 +360,7 @@ with probing("add_ct(x) > ct") as probe:
 This is worth keeping in mind, because otherwise it's not always obvious what override is doing. For example:
 
 ```python
-with probing("add_ct(x) > ct") as probe:
+with probing("add_ct(x) > ct", overridable=True) as probe:
     # The focus is ct, so override will always set ct
     # Therefore, this sets ct = 10 when x == 3:
     probe.where(x=3).override(10)
