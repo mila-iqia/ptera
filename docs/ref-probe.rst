@@ -23,9 +23,7 @@ This module defines the probing functionality. The interface for probes is built
         .. automethod:: fail_if_empty
         .. automethod:: fail_if_false
         .. automethod:: give
-        .. automethod:: koverride
         .. automethod:: ksubscribe
-        .. automethod:: override
         .. automethod:: pipe(*ops)
         .. *
         .. automethod:: print
@@ -187,3 +185,8 @@ This module defines the probing functionality. The interface for probes is built
         * :func:`~giving.operators.zip`
         * :func:`~giving.operators.zip_with_iterable`
         * :func:`~giving.operators.zip_with_list`
+
+    .. autoclass:: OverridableProbe(*selectors, raw=False)
+
+        .. automethod:: koverride
+        .. automethod:: override

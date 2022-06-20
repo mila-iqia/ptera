@@ -96,7 +96,6 @@ The operators listed here are all available as methods on the :class:`~ptera.pro
     .. autofunction:: pairwise
     .. autofunction:: partition
     .. autofunction:: partition_indexed
-    .. autofunction:: pipe
     .. autofunction:: pluck
     .. autofunction:: pluck_attr
     .. autofunction:: publish

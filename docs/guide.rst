@@ -404,7 +404,7 @@ That same advice goes for pretty much all the other operators.
 Overriding values
 ~~~~~~~~~~~~~~~~~
 
-Ptera's probes are able to override the values of the variables being probed (unless the probe is total; nonlocal variables are also not overridable). For example:
+Using ``overridable=True``, Ptera's probes are able to override the values of the variables being probed (unless the probe is total; nonlocal variables are also not overridable). For example:
 
 .. code-block:: python
 
@@ -414,7 +414,7 @@ Ptera's probes are able to override the values of the variables being probed (un
 
     assert f(10) == 11
 
-    with probing("f > hidden") as prb:
+    with probing("f > hidden", overridable=True) as prb:
         prb.override(2)
 
         assert f(10) == 12
@@ -432,12 +432,29 @@ The argument to :meth:`~ptera.probe.Probe.override` can also be a function that 
     .. code-block:: python
 
         # THIS WILL SET y = x + 1, NOT x
-        Probe("f(x) > y")["x"].override(lambda x: x + 1)
+        OverridableProbe("f(x) > y")["x"].override(lambda x: x + 1)
 
 .. note::
     ``override`` will only work at the end of a synchronous pipe (map/filter are OK, but not e.g. sample)
 
 If the focus variable is the return value of a function (as explained in :ref:`probe-retval`), ``override`` will indeed override that return value.
+
+.. note::
+    Operations subscribed to ``probing(selector, overridable=True)`` happen before those that are subscribed to ``probing(selector)``. If you want a probe to see the values after the override, that probe needs to be the non-overridable type, otherwise it will see the values before the override. You can use both probe types at the same time:
+
+    .. code-block:: python
+
+        def f():
+            return 1
+
+        with probing("f() as ret", overridable=True) as oprb:
+            with probing("f() as ret") as prb:
+                oprb.override(2)
+
+                oprb.print()  # will print {"ret": 1} (because concurrent with override)
+                prb.print()   # will print {"ret": 2} (because after override)
+
+                print(f())    # will print 2
 
 Asserts
 ~~~~~~~

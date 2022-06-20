@@ -278,23 +278,29 @@ def test_accumulate2():
 
 
 def test_probe_override():
-    with probing("f > a") as probe:
+    with probing("f > a", overridable=True) as probe:
         probe.override(lambda a: 1234)
         assert f(5) == 1235
 
-    with probing("f > a") as probe:
+    with probing("f > a", overridable=True) as probe:
         probe.override(10)
         assert f(5) == 11
 
-    with probing("f > a") as probe:
+    with probing("f > a", overridable=True) as probe:
         probe.map(lambda _: 100).override()
         assert f(5) == 101
 
 
 def test_probe_koverride():
-    with probing("f > a") as probe:
+    with probing("f > a", overridable=True) as probe:
         probe.koverride(lambda a: a * a)
         assert f(5) == 5**4 + 1
+
+
+def test_probe_override_total():
+    with pytest.raises(Exception, match="must use the 'immediate' probe type"):
+        with probing("f > a", overridable=True, probe_type="total"):
+            pass
 
 
 def test_probing_no_arguments():
